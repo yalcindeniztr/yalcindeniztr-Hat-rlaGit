@@ -25,13 +25,12 @@ android {
 
   signingConfigs {
     create("release") {
-      val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
-      val kFile = file(keystorePath)
-      if (kFile.exists()) {
-        storeFile = kFile
-        storePassword = System.getenv("STORE_PASSWORD")
-        keyAlias = "upload"
-        keyPassword = System.getenv("KEY_PASSWORD")
+      val releaseKeystore = file("${rootDir}/hatirlagit-release-key.jks")
+      if (releaseKeystore.exists()) {
+        storeFile = releaseKeystore
+        storePassword = System.getenv("STORE_PASSWORD") ?: "HatirlaGit2026!"
+        keyAlias = "hatirlagit"
+        keyPassword = System.getenv("KEY_PASSWORD") ?: "HatirlaGit2026!"
       } else {
         storeFile = file("${rootDir}/debug.keystore")
         storePassword = "android"
