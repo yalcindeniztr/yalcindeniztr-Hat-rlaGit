@@ -37,11 +37,12 @@ fun LifeAssistantApp() {
         fontScale = currentDensity.fontScale * fontMultiplier
     )
 
-    val startDestination = when {
-        !legalAccepted -> "legal"
-        userNick == null -> "profile_setup"
-        else -> "main"
+    // Auto-accept terms on launch if not accepted yet, so user lands directly on main screen
+    if (!legalAccepted) {
+        viewModel.acceptLegalTerms()
     }
+
+    val startDestination = "main"
 
     CompositionLocalProvider(LocalDensity provides scaledDensity) {
         NavHost(navController = navController, startDestination = startDestination) {
@@ -49,7 +50,7 @@ fun LifeAssistantApp() {
                 LegalScreen(
                     onAccept = {
                         viewModel.acceptLegalTerms()
-                        navController.navigate("profile_setup") {
+                        navController.navigate("main") {
                             popUpTo("legal") { inclusive = true }
                         }
                     }
