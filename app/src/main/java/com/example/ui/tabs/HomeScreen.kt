@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsCar
@@ -42,6 +43,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -314,10 +316,96 @@ fun HomeScreen(
             .fillMaxSize()
             .padding(horizontal = 16.dp),
     ) {
+        // --- YAKLAŞAN RANDEVULARINIZ (KOMPAKT & ŞIK) ---
+        item {
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(CircleShape)
+                        .background(Brush.linearGradient(listOf(Color(0xFFFF6D00), Color(0xFFFF9100)))),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.CalendarMonth,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text(
+                        text = "Yaklaşan Randevularınız",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Slate900
+                    )
+                    Text(
+                        text = "Gelecek planlamalarınız",
+                        fontSize = 11.sp,
+                        color = Slate700
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        val upcomingReminders = allReminders
+            .filter { it.dueDateMillis > System.currentTimeMillis() }
+            .sortedBy { it.dueDateMillis }
+            .take(3)
+
+        if (upcomingReminders.isEmpty()) {
+            item {
+                EmbossedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    cornerRadius = 14.dp,
+                    elevation = 3.dp,
+                    contentPadding = 14.dp
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Yaklaşan randevunuz bulunmamaktadır.",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate900
+                        )
+                    }
+                }
+            }
+        } else {
+            items(upcomingReminders, key = { it.id }) { reminder ->
+                ReminderItem(
+                    reminder = reminder,
+                    onFavoriteClick = { viewModel.toggleFavorite(reminder.id, reminder.isFavorite) },
+                    onClick = { editingReminder = reminder },
+                    onEditClick = { editingReminder = reminder },
+                    onDeleteClick = { reminderToDelete = reminder }
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+            }
+        }
+
         item {
             Spacer(modifier = Modifier.height(14.dp))
 
-            // ÜSTTE KABARTMALI KATEGORİ DURUM YUVARLAKLARI (Hangi kategoriden kaç randevu var)
+            // KATEGORİLER & İŞLEMLER MENÜSÜ BAŞLIĞI
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -326,160 +414,26 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Kategori Randevu Durumları",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Slate900
-                )
-                if (selectedCategoryFilter != null) {
-                    Text(
-                        text = "Filtreyi Temizle",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2563EB),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .clickable { selectedCategoryFilter = null }
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-            }
-
-            LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(horizontal = 2.dp, vertical = 4.dp)
-            ) {
-                items(allCategories) { category ->
-                    val count = categoryCounts[category.key] ?: 0
-                    val isSelected = selectedCategoryFilter == category.key
-                    CategoryEmbossedCircleBadge(
-                        category = category,
-                        count = count,
-                        isSelected = isSelected,
-                        onClick = {
-                            selectedCategoryFilter = if (isSelected) null else category.key
-                        }
-                    )
-                }
-            }
-
-        }
-
-            // --- YAKLAŞAN RANDEVULARINIZ ---
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(Color(0xFFFF6D00), Color(0xFFFF9100)))),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.CalendarMonth,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = "Yaklaşan Randevularınız",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Slate900
-                        )
-                        Text(
-                            text = "Gelecek planlamalarınız",
-                            fontSize = 12.sp,
-                            color = Slate700
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(14.dp))
-            }
-
-            val upcomingReminders = allReminders
-                .filter { it.dueDateMillis > System.currentTimeMillis() }
-                .sortedBy { it.dueDateMillis }
-                .take(3)
-
-            if (upcomingReminders.isEmpty()) {
-                item {
-                    EmbossedCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        cornerRadius = 20.dp,
-                        elevation = 4.dp,
-                        contentPadding = 24.dp
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "Yaklaşan randevunuz bulunmamaktadır.",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Slate900
-                            )
-                        }
-                    }
-                }
-            } else {
-                items(upcomingReminders, key = { it.id }) { reminder ->
-                    ReminderItem(
-                        reminder = reminder,
-                        onFavoriteClick = { viewModel.toggleFavorite(reminder.id, reminder.isFavorite) },
-                        onClick = { editingReminder = reminder },
-                        onEditClick = { editingReminder = reminder },
-                        onDeleteClick = { reminderToDelete = reminder }
-                        
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-            }
-            
-
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // KATEGORİLER & İŞLEMLER MENÜSÜ BAŞLIĞI
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
                     text = "Kategoriler & İşlemler",
-                    fontSize = 18.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Black,
                     color = Slate900
                 )
                 TextButton(onClick = { showReorderDialog = true }) {
-                    Text("Düzenle", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold)
+                    Text("Düzenle", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
 
-            // GÖSTERİŞLİ, OVAL VE KABARTMALI İŞLEM KUTULARI (PARLAYAN VE IŞILTILI RENKLERLE)
+            // GÖSTERİŞLİ, 3 SÜTUNLU KABARTMALI İŞLEM KUTULARI
             val filteredBlocks = homeBlockOrder.filter { it != "ALL" && it != "REMINDERS" }
-            val pairs = filteredBlocks.chunked(2)
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                pairs.forEach { pair ->
+            val triples = filteredBlocks.chunked(3)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                triples.forEach { triple ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        pair.forEach { blockKey ->
+                        triple.forEach { blockKey ->
                             RenderBlock(
                                 blockKey = blockKey,
                                 modifier = Modifier.weight(1f),
@@ -488,7 +442,6 @@ fun HomeScreen(
                                 favoriteCategoriesSize = favoriteCategories.size,
                                 lockedCategories = lockedCategories,
                                 allCategories = allCategories,
-                                
                                 onAction = { action ->
                                     when (action) {
                                         "BILLS_CARDS" -> {
@@ -531,7 +484,9 @@ fun HomeScreen(
                                 }
                             )
                         }
-                        if (pair.size == 1) {
+                        // Fill empty slots in the row if less than 3 items
+                        val remainder = 3 - triple.size
+                        repeat(remainder) {
                             Spacer(modifier = Modifier.weight(1f))
                         }
                     }
@@ -606,18 +561,18 @@ fun HomeScreen(
                 }
             }
 
-            // Kategori gridi (2 sütunlu)
-            val chunkedCategories = allCategories.chunked(2)
-            chunkedCategories.forEach { pair ->
+            // Kategori gridi (3 sütunlu kompakt dizilim)
+            val chunkedCategories = allCategories.chunked(3)
+            chunkedCategories.forEach { triple ->
                 item {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        pair.forEach { cat ->
+                        triple.forEach { cat ->
                             EmbossedCard(
-                                modifier = Modifier.weight(1f).height(64.dp),
-                                cornerRadius = 14.dp,
+                                modifier = Modifier.weight(1f).height(56.dp),
+                                cornerRadius = 12.dp,
                                 elevation = 3.dp,
                                 glowColor = cat.color,
                                 onClick = {
@@ -629,7 +584,7 @@ fun HomeScreen(
                                         onNavigateToCategory(cat.key)
                                     }
                                 },
-                                contentPadding = 12.dp
+                                contentPadding = 6.dp
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxSize(),
@@ -637,7 +592,7 @@ fun HomeScreen(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(38.dp)
+                                            .size(32.dp)
                                             .clip(RoundedCornerShape(8.dp))
                                             .background(
                                                 Brush.linearGradient(
@@ -650,47 +605,32 @@ fun HomeScreen(
                                             imageVector = cat.icon,
                                             contentDescription = null,
                                             tint = Color.White,
-                                            modifier = Modifier.size(22.dp)
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         text = cat.displayName,
-                                        fontSize = 13.sp,
+                                        fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Slate900,
                                         maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                         modifier = Modifier.weight(1f)
                                     )
                                     if (lockedCategories.contains(cat.key)) {
-                                        IconButton(
-                                            onClick = { lockConfigCategory = cat },
-                                            modifier = Modifier.size(24.dp)
-                                        ) {
-                                            Icon(
-                                                Icons.Default.Lock,
-                                                contentDescription = "Kilitli",
-                                                tint = Color(0xFFEF4444),
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        }
-                                    } else {
-                                        IconButton(
-                                            onClick = { lockConfigCategory = cat },
-                                            modifier = Modifier.size(24.dp)
-                                        ) {
-                                            Icon(
-                                                Icons.Default.LockOpen,
-                                                contentDescription = "Kilitle",
-                                                tint = Slate700,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        }
+                                        Icon(
+                                            Icons.Default.Lock,
+                                            contentDescription = "Kilitli",
+                                            tint = Color(0xFFEF4444),
+                                            modifier = Modifier.size(13.dp).padding(end = 2.dp)
+                                        )
                                     }
                                 }
                             }
                         }
-                        if (pair.size == 1) {
+                        val remainder = 3 - triple.size
+                        repeat(remainder) {
                             Spacer(modifier = Modifier.weight(1f))
                         }
                     }
@@ -790,15 +730,15 @@ fun CategoryBlock(
     isLocked: Boolean = false,
     onClick: () -> Unit
 ) {
-    val ovalShape = RoundedCornerShape(32.dp)
+    val ovalShape = RoundedCornerShape(18.dp)
     
     Box(
         modifier = modifier
-            .height(130.dp)
+            .height(96.dp)
             .shadow(
-                elevation = 8.dp,
+                elevation = 5.dp,
                 shape = ovalShape,
-                spotColor = gradientColors.first().copy(alpha = 0.6f)
+                spotColor = gradientColors.first().copy(alpha = 0.5f)
             )
             .clip(ovalShape)
             .background(
@@ -821,18 +761,18 @@ fun CategoryBlock(
                 )
             }
             .border(
-                width = 1.6.dp,
+                width = 1.2.dp,
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color.White.copy(alpha = 0.7f),
-                        Color.White.copy(alpha = 0.2f),
-                        Color.Black.copy(alpha = 0.15f)
+                        Color.White.copy(alpha = 0.6f),
+                        Color.White.copy(alpha = 0.15f),
+                        Color.Black.copy(alpha = 0.1f)
                     )
                 ),
                 shape = ovalShape
             )
             .clickable(onClick = onClick)
-            .padding(14.dp),
+            .padding(8.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -841,32 +781,42 @@ fun CategoryBlock(
         ) {
             Box(
                 modifier = Modifier
-                    .size(42.dp)
+                    .size(34.dp)
                     .clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.22f))
-                    .border(1.2.dp, Color.White.copy(alpha = 0.5f), CircleShape),
+                    .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = title,
                     tint = textColor,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
                 if (isLocked) {
-                    Icon(androidx.compose.material.icons.Icons.Default.Lock, contentDescription = "Kilitli", tint = textColor, modifier = Modifier.size(14.dp).padding(end = 2.dp))
+                    Icon(
+                        androidx.compose.material.icons.Icons.Default.Lock,
+                        contentDescription = "Kilitli",
+                        tint = textColor,
+                        modifier = Modifier.size(12.dp).padding(end = 2.dp)
+                    )
                 }
                 Text(
                     text = title,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Black,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
                     color = textColor,
-                    letterSpacing = 0.3.sp
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center
                 )
             }
 
@@ -874,13 +824,13 @@ fun CategoryBlock(
                 Spacer(modifier = Modifier.height(2.dp))
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(6.dp))
                         .background(Color.Black.copy(alpha = 0.18f))
-                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                        .padding(horizontal = 5.dp, vertical = 1.dp)
                 ) {
                     Text(
                         text = subtitle,
-                        fontSize = 11.sp,
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = textColor.copy(alpha = 0.98f)
                     )
