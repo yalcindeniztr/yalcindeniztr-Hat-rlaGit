@@ -1,0 +1,102 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/ic_launcher_background"
+    android:padding="12dp">
+
+    <!-- Header Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/widget_app_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="HatırlaGit"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_prayer_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🕌 Ezan: --:--"
+            android:textColor="#FDE047"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="6dp"
+        android:background="#40FFFFFF" />
+
+    <!-- Upcoming Reminder Section -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/widget_upcoming_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Yaklaşan randevunuz yok"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:maxLines="1" />
+
+        <TextView
+            android:id="@+id/widget_upcoming_time"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Planlarınızı organize edin"
+            android:textColor="#CBD5E1"
+            android:textSize="11sp"
+            android:maxLines="1" />
+    </LinearLayout>
+
+    <!-- Quick Action Buttons Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="4dp">
+
+        <Button
+            android:id="@+id/widget_btn_quick_note"
+            android:layout_width="0dp"
+            android:layout_height="32dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:text="✏️ Hızlı Not"
+            android:textSize="10sp"
+            android:textColor="#0F172A"
+            android:background="#F1F5F9" />
+
+        <Button
+            android:id="@+id/widget_btn_voice_note"
+            android:layout_width="0dp"
+            android:layout_height="32dp"
+            android:layout_weight="1"
+            android:layout_marginStart="4dp"
+            android:text="🎙️ Sesli Not"
+            android:textSize="10sp"
+            android:textColor="#0F172A"
+            android:background="#F1F5F9" />
+    </LinearLayout>
+</LinearLayout>

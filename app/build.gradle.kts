@@ -17,8 +17,8 @@ android {
     applicationId = "com.aistudio.lifeassistant.pxgtyq"
     minSdk = 24
     targetSdk = 36
-    versionCode = 55
-    versionName = "1.0.3"
+    versionCode = 56
+    versionName = "1.0.4"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -130,6 +130,8 @@ dependencies {
   implementation(libs.play.services.location)
   implementation(libs.retrofit)
   implementation(libs.play.app.update)
+  implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
+  implementation("com.google.zxing:core:3.5.3")
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)

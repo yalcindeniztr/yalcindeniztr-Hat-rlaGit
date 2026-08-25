@@ -40,12 +40,12 @@ class LifeAssistantViewModel(application: Application) : AndroidViewModel(applic
     private val prayerMapType = Types.newParameterizedType(Map::class.java, String::class.java, Boolean::class.javaObjectType)
     private val prayerMapAdapter = moshi.adapter<Map<String, Boolean>>(prayerMapType)
 
-    val currentVersionName = "1.0.3"
-    val currentVersionCode = 55
+    val currentVersionName = "1.0.4"
+    val currentVersionCode = 56
 
     // Latest published store release version information
-    val latestAvailableVersionName = "1.0.3"
-    val latestAvailableVersionCode = 55
+    val latestAvailableVersionName = "1.0.4"
+    val latestAvailableVersionCode = 56
 
     val lockedCategories: StateFlow<Set<String>> = dataStoreManager.lockedCategories
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())

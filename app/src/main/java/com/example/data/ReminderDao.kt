@@ -32,6 +32,9 @@ interface ReminderDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReminder(reminder: ReminderEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(reminders: List<ReminderEntity>)
+
     @Query("UPDATE reminders SET isFavorite = :isFavorite WHERE id = :id")
     suspend fun updateFavoriteStatus(id: Int, isFavorite: Boolean)
 

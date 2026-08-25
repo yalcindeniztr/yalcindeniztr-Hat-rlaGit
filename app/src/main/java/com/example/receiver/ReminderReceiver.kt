@@ -176,7 +176,10 @@ class ReminderReceiver : BroadcastReceiver() {
             notifText = if (note.isNotBlank()) "⏰ Zamanı geldi! $note" else "⏰ Zamanı geldi! Lütfen kontrol edin."
         }
 
-        val notification = NotificationCompat.Builder(context, channelId)
+        val wearableExtender = NotificationCompat.WearableExtender()
+            .setHintShowBackgroundOnly(false)
+
+        val notificationBuilder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(notifTitle)
             .setContentText(notifText)
@@ -188,9 +191,15 @@ class ReminderReceiver : BroadcastReceiver() {
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .build()
+            .extend(wearableExtender)
 
+        val notification = notificationBuilder.build()
         notificationManager.notify(reminderId, notification)
+
+        // Update home screen widgets automatically
+        try {
+            com.example.widget.HatirlaGitAppWidgetProvider.updateAllWidgets(context)
+        } catch (_: Exception) {}
 
         // Read out loud with Text-To-Speech if enabled
         val pendingResult = goAsync()

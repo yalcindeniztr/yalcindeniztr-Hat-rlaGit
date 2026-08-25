@@ -44,6 +44,10 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.example.util.OcrScannerHelper
+import kotlinx.coroutines.launch
 
 fun getFieldsForCategory(category: Category): List<String> {
     return when (category) {
@@ -169,6 +173,30 @@ fun AddReminderScreen(
         (builtInEnum != null && it.category == builtInEnum.name)
     }.sortedBy { it.dueDateMillis }
 
+    val coroutineScope = rememberCoroutineScope()
+    var isOcrScanning by remember { mutableStateOf(false) }
+
+    val ocrImagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            coroutineScope.launch {
+                isOcrScanning = true
+                val result = OcrScannerHelper.scanImage(context, uri)
+                if (result != null) {
+                    if (result.title.isNotBlank()) title = result.title
+                    if (result.amount != null) {
+                        customNote = if (customNote.isBlank()) "Tutar: ${result.amount}" else "$customNote - Tutar: ${result.amount}"
+                    }
+                    if (result.dateMillis != null && result.dateMillis > System.currentTimeMillis()) {
+                        selectedDateStr = dateFormat.format(Date(result.dateMillis))
+                    }
+                }
+                isOcrScanning = false
+            }
+        }
+    }
+
     Scaffold(
         containerColor = Color(0xFFF5F2ED),
         topBar = {
@@ -177,25 +205,29 @@ fun AddReminderScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(categoryColor),
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(categoryColor.copy(alpha = 0.15f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(categoryIcon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                            Icon(
+                                imageVector = categoryIcon,
+                                contentDescription = null,
+                                tint = categoryColor,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = if (title.isNotBlank()) title else "$categoryDisplayName Ekle",
-                                fontWeight = FontWeight.Black,
-                                color = Slate900,
+                                text = "Yeni Hatırlatıcı Ekle",
                                 fontSize = 16.sp,
-                                maxLines = 1
+                                fontWeight = FontWeight.Black,
+                                color = Slate900
                             )
                             Text(
                                 text = categoryDisplayName,
-                                fontSize = 11.sp,
+                                fontSize = 12.sp,
                                 color = Slate700,
                                 fontWeight = FontWeight.Medium
                             )
@@ -229,19 +261,41 @@ fun AddReminderScreen(
             item {
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Elder-friendly prominent voice dictation action button
-                ElderlyVoiceActionButton(
-                    label = "🎙️ Sesle Söyleyerek Doldur (Konuşun)",
-                    prompt = "Lütfen hatırlatma başlığı ve notunuzu mikrofona söyleyin...",
-                    onSpeechResult = { text ->
-                        if (title.isBlank()) {
-                            title = text
+                // Elder-friendly prominent voice dictation and OCR Scanner action buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    ElderlyVoiceActionButton(
+                        label = "🎙️ Sesle Söyle",
+                        prompt = "Lütfen hatırlatma başlığı ve notunuzu mikrofona söyleyin...",
+                        onSpeechResult = { text ->
+                            if (title.isBlank()) {
+                                title = text
+                            } else {
+                                customNote = if (customNote.isBlank()) text else "$customNote $text"
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Button(
+                        onClick = { ocrImagePicker.launch("image/*") },
+                        modifier = Modifier.weight(1f).height(54.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
+                    ) {
+                        if (isOcrScanning) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                         } else {
-                            customNote = if (customNote.isBlank()) text else "$customNote $text"
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("📸 Fatura Tara", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(14.dp))
 

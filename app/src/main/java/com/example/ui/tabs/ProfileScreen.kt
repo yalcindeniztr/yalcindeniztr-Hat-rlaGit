@@ -50,6 +50,16 @@ import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
+import android.widget.Toast
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.TableChart
+import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Share
+import com.example.util.ReportExportHelper
+import com.example.util.QrSyncHelper
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -108,6 +118,8 @@ fun ProfileScreen(viewModel: LifeAssistantViewModel) {
     var showEditNickDialog by remember { mutableStateOf(false) }
     var newNickInput by remember { mutableStateOf("") }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var showQrBackupDialog by remember { mutableStateOf(false) }
+    var qrBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
 
     // Notification Permission Launcher for Android 13+
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -560,6 +572,154 @@ fun ProfileScreen(viewModel: LifeAssistantViewModel) {
                         fontWeight = FontWeight.SemiBold,
                         color = Slate900
                     )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Reporting & Device Sync Header
+            Text(
+                text = "RAPORLAMA VE ÇEVRİMDIŞI GÜVENLİ YEDEKLEME",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Slate900,
+                letterSpacing = 0.5.sp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 1. PDF & Excel Action Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // PDF Export Card
+                EmbossedCard(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(84.dp),
+                    cornerRadius = 14.dp,
+                    elevation = 4.dp,
+                    glowColor = Color(0xFFEF4444),
+                    onClick = {
+                        val pdfFile = ReportExportHelper.exportToPdf(context, allReminders)
+                        if (pdfFile != null) {
+                            ReportExportHelper.shareFile(context, pdfFile, "application/pdf", "HatırlaGit PDF Raporunu Paylaş")
+                        } else {
+                            Toast.makeText(context, "Rapor oluşturulurken bir hata oluştu.", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    contentPadding = 10.dp
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            Icons.Default.PictureAsPdf,
+                            contentDescription = null,
+                            tint = Color(0xFFDC2626),
+                            modifier = Modifier.size(26.dp)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "PDF Raporu İndir",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate900
+                        )
+                    }
+                }
+
+                // Excel / CSV Export Card
+                EmbossedCard(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(84.dp),
+                    cornerRadius = 14.dp,
+                    elevation = 4.dp,
+                    glowColor = Color(0xFF10B981),
+                    onClick = {
+                        val csvFile = ReportExportHelper.exportToCsv(context, allReminders)
+                        if (csvFile != null) {
+                            ReportExportHelper.shareFile(context, csvFile, "text/csv", "HatırlaGit Excel/CSV Verisini Paylaş")
+                        } else {
+                            Toast.makeText(context, "Veri dökümü oluşturulamadı.", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    contentPadding = 10.dp
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            Icons.Default.TableChart,
+                            contentDescription = null,
+                            tint = Color(0xFF16A34A),
+                            modifier = Modifier.size(26.dp)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Excel / CSV İndir",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate900
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // QR Code Device Transfer Card
+            EmbossedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(68.dp),
+                cornerRadius = 14.dp,
+                elevation = 4.dp,
+                glowColor = Color(0xFF8B5CF6),
+                onClick = {
+                    val json = QrSyncHelper.createBackupJson(allReminders)
+                    qrBitmap = QrSyncHelper.generateQrBitmap(json, 600)
+                    showQrBackupDialog = true
+                },
+                contentPadding = 12.dp
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Brush.linearGradient(listOf(Color(0xFF8B5CF6), Color(0xFF6D28D9)))),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.QrCode,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "🔄 Güvenli QR ile Cihaz Aktarımı",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate900
+                        )
+                        Text(
+                            text = "İnternetsiz diğer telefona anında aktarın",
+                            fontSize = 10.sp,
+                            color = Slate700
+                        )
+                    }
                 }
             }
 
@@ -1152,5 +1312,49 @@ fun ProfileScreen(viewModel: LifeAssistantViewModel) {
 
             Spacer(modifier = Modifier.height(30.dp))
         }
+    }
+
+    if (showQrBackupDialog) {
+        AlertDialog(
+            onDismissRequest = { showQrBackupDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.QrCode, contentDescription = null, tint = Color(0xFF8B5CF6))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("🔄 Çevrimdışı Güvenli QR Yedek", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Slate900)
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Diğer cihazınızdan bu QR kodu okutarak tüm randevu ve ayarlarınızı internet olmadan saniyeler içinde aktarabilirsiniz.",
+                        fontSize = 12.sp,
+                        color = Slate700
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    if (qrBitmap != null) {
+                        Image(
+                            bitmap = qrBitmap!!.asImageBitmap(),
+                            contentDescription = "QR Kod",
+                            modifier = Modifier
+                                .size(240.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .border(2.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showQrBackupDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6))
+                ) {
+                    Text("Kapat", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
     }
 }
