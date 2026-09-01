@@ -253,9 +253,16 @@ fun HomeScreen(
     if (showAiAssistant) {
         androidx.compose.ui.window.Dialog(
             onDismissRequest = { showAiAssistant = false },
-            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+            properties = androidx.compose.ui.window.DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false
+            )
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .systemBarsPadding()
+            ) {
                 AiAssistantScreen(
                     viewModel = viewModel,
                     onNavigateBack = { showAiAssistant = false }

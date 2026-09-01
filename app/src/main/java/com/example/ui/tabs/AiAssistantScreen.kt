@@ -1,4 +1,4 @@
-﻿package com.example.ui.tabs
+package com.example.ui.tabs
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -237,23 +237,25 @@ fun AiAssistantScreen(
                 }
             }
 
-            // Bottom Action Area (Pinned, 100% visible)
+            // Bottom Action Area (Pinned, 100% visible, safe from system navigation pill)
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth(),
                 color = Color(0xFFF1F5F9),
-                shadowElevation = 8.dp
+                shadowElevation = 10.dp
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .navigationBarsPadding()
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     // Quick Action Prompt Chips
                     LazyRow(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            .padding(bottom = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         val quickPrompts = listOf(
                             "💊 Nöbetçi Eczane" to "Konumuma göre en yakın nöbetçi eczaneleri bul",
@@ -265,9 +267,9 @@ fun AiAssistantScreen(
                         items(quickPrompts) { (chipLabel, promptAction) ->
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(16.dp))
+                                    .clip(RoundedCornerShape(14.dp))
                                     .background(Color.White)
-                                    .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(16.dp))
+                                    .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(14.dp))
                                     .clickable {
                                         if (promptAction.endsWith(": ")) {
                                             inputText = promptAction
@@ -296,7 +298,7 @@ fun AiAssistantScreen(
                                             }
                                         }
                                     }
-                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                                    .padding(horizontal = 9.dp, vertical = 4.dp)
                             ) {
                                 Text(text = chipLabel, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Slate800)
                             }
@@ -312,8 +314,8 @@ fun AiAssistantScreen(
                             value = inputText,
                             onValueChange = { inputText = it },
                             modifier = Modifier.weight(1f),
-                            placeholder = { Text("Asistanınıza sorun veya bir şey öğretin...", fontSize = 12.sp, color = Slate700) },
-                            maxLines = 3,
+                            placeholder = { Text("Asistanınıza sorun veya öğretin...", fontSize = 12.sp, color = Slate700) },
+                            maxLines = 2,
                             shape = RoundedCornerShape(20.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = Color.White,
@@ -323,7 +325,7 @@ fun AiAssistantScreen(
                             )
                         )
 
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
 
                         IconButton(
                             onClick = {
@@ -355,15 +357,15 @@ fun AiAssistantScreen(
                                 }
                             },
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(40.dp)
                                 .clip(CircleShape)
                                 .background(Color(0xFF8B5CF6))
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Gönder", tint = Color.White, modifier = Modifier.size(18.dp))
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Gönder", tint = Color.White, modifier = Modifier.size(17.dp))
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     // 🌟 BÜYÜK YUVARLAK "DİNLEMEYE BAŞLA" / "DİNLEMEYİ DURDUR" BUTONU
                     Row(
@@ -380,30 +382,32 @@ fun AiAssistantScreen(
                                 }
                             },
                             modifier = Modifier
-                                .fillMaxWidth(0.85f)
-                                .height(48.dp)
+                                .fillMaxWidth(0.92f)
+                                .height(44.dp)
                                 .scale(if (isListening) pulseScale else 1f),
-                            shape = RoundedCornerShape(24.dp),
+                            shape = RoundedCornerShape(22.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (isListening) Color(0xFFDC2626) else Color(0xFF8B5CF6)
                             ),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
                         ) {
                             Icon(
                                 imageVector = if (isListening) Icons.Default.MicOff else Icons.Default.Mic,
                                 contentDescription = null,
                                 tint = Color.White,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = if (isListening) "🛑 Dinlemeyi Durdur & Sor" else "🎙️ Dinlemeye Başla (Sesli Konuş)",
-                                fontSize = 13.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
             }
         }
