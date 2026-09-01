@@ -75,12 +75,14 @@ fun openPlayStore(context: Context) {
  */
 @Composable
 fun PlayStoreUpdateDialog(
-    newVersionName: String = "v17.0",
+    newVersionName: String = "v1.0.7",
     updateHighlights: List<String> = listOf(
-        "👵 Yaşlılar için ekstra büyük yazı modu",
-        "📱 2 sütunlu sabit ve geniş randevu filtreleri",
-        "✨ Geliştirilmiş 3D kabartma ve yüksek kontrast",
-        "⚡ Daha kararlı ve hassas alarm sistemi"
+        "🤖 Sesli ve Konuşan Yapay Zeka Asistanı",
+        "📍 Konuma göre Nöbetçi Eczane, Hastane ve Otopark bulma",
+        "⏰ Sesli komutla otomatik randevu ve alarm kurma",
+        "📸 OCR ile Akıllı Fatura ve Belge Tarayıcı",
+        "📊 PDF ve Excel Raporlama & Güvenli QR Aktarımı",
+        "🔒 Donanım Korumalı AES-256 Şifreli Güvenlik"
     ),
     onDismiss: () -> Unit
 ) {

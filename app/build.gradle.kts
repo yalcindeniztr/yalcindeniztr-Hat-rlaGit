@@ -17,8 +17,8 @@ android {
     applicationId = "com.aistudio.lifeassistant.pxgtyq"
     minSdk = 24
     targetSdk = 36
-    versionCode = 58
-    versionName = "1.0.6"
+    versionCode = 59
+    versionName = "1.0.7"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
