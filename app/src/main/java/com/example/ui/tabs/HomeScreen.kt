@@ -86,6 +86,7 @@ fun HomeScreen(
     val lockedCategories by viewModel.lockedCategories.collectAsStateWithLifecycle()
     val parkedCarLat by viewModel.parkedCarLat.collectAsStateWithLifecycle()
     val homeBlockOrder by viewModel.homeBlockOrder.collectAsStateWithLifecycle()
+    val prayerTimingData by viewModel.prayerTimingData.collectAsStateWithLifecycle()
 
     var showReorderDialog by remember { mutableStateOf(false) }
     var showAddBlockDialog by remember { mutableStateOf(false) }
@@ -332,43 +333,135 @@ fun HomeScreen(
             .fillMaxSize()
             .padding(horizontal = 16.dp),
     ) {
-        // --- YAKLAŞAN RANDEVULARINIZ (KOMPAKT & ŞIK) ---
+        // 🕌 YAKLAŞAN EZAN VAKTİ KARTI (KOMPAKT)
+        if (prayerTimingData != null) {
+            item {
+                val timing = prayerTimingData!!
+                val prayers = listOf(
+                    "İmsak" to timing.imsak,
+                    "Güneş" to timing.gunes,
+                    "Öğle" to timing.ogle,
+                    "İkindi" to timing.ikindi,
+                    "Akşam" to timing.aksam,
+                    "Yatsı" to timing.yatsi
+                )
+                
+                val now = java.util.Calendar.getInstance()
+                val currentHour = now.get(java.util.Calendar.HOUR_OF_DAY)
+                val currentMinute = now.get(java.util.Calendar.MINUTE)
+                val currentMinutesTotal = currentHour * 60 + currentMinute
+
+                var nextName = "İmsak"
+                var nextTime = timing.imsak
+                var minutesUntilNext = 0
+
+                for ((name, timeStr) in prayers) {
+                    val parts = timeStr.split(":")
+                    if (parts.size == 2) {
+                        val h = parts[0].toIntOrNull() ?: 0
+                        val m = parts[1].toIntOrNull() ?: 0
+                        val targetTotal = h * 60 + m
+                        if (targetTotal > currentMinutesTotal) {
+                            nextName = name
+                            nextTime = timeStr
+                            minutesUntilNext = targetTotal - currentMinutesTotal
+                            break
+                        }
+                    }
+                }
+                if (minutesUntilNext <= 0) {
+                    val firstParts = timing.imsak.split(":")
+                    val h = firstParts.getOrNull(0)?.toIntOrNull() ?: 5
+                    val m = firstParts.getOrNull(1)?.toIntOrNull() ?: 0
+                    val imsakTomorrowTotal = (24 * 60 - currentMinutesTotal) + (h * 60 + m)
+                    nextName = "İmsak"
+                    nextTime = timing.imsak
+                    minutesUntilNext = imsakTomorrowTotal
+                }
+
+                val hoursLeft = minutesUntilNext / 60
+                val minsLeft = minutesUntilNext % 60
+                val remainingFormatted = if (hoursLeft > 0) "${hoursLeft}sa ${minsLeft}dk" else "${minsLeft}dk"
+
+                Spacer(modifier = Modifier.height(10.dp))
+                EmbossedCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    cornerRadius = 12.dp,
+                    elevation = 2.dp,
+                    contentPadding = 8.dp,
+                    onClick = { onNavigateToCategory("PRAYER_TIMES") }
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("🕌", fontSize = 14.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Sıradaki Ezan: $nextName ($nextTime)",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Slate900
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFF0284C7).copy(alpha = 0.12f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "Kalan: $remainingFormatted",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF0284C7)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- YAKLAŞAN RANDEVULARINIZ (KOMPAKT & ALAN KAZANDIRAN DİZAYN) ---
         item {
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .background(Brush.linearGradient(listOf(Color(0xFFFF6D00), Color(0xFFFF9100)))),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.CalendarMonth,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(Color(0xFFFF6D00), Color(0xFFFF9100)))),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.CalendarMonth,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(13.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Yaklaşan Randevularınız",
-                        fontSize = 16.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Black,
                         color = Slate900
                     )
-                    Text(
-                        text = "Gelecek planlamalarınız",
-                        fontSize = 11.sp,
-                        color = Slate700
-                    )
+                }
+                TextButton(onClick = onNavigateToAllReminders, contentPadding = PaddingValues(0.dp)) {
+                    Text("Tümünü Gör", fontSize = 11.sp, color = Color(0xFF2563EB), fontWeight = FontWeight.Bold)
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
         }
 
         val upcomingReminders = allReminders
@@ -378,43 +471,71 @@ fun HomeScreen(
 
         if (upcomingReminders.isEmpty()) {
             item {
-                EmbossedCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    cornerRadius = 14.dp,
-                    elevation = 3.dp,
-                    contentPadding = 14.dp
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFFE2E8F0).copy(alpha = 0.6f))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.CenterStart
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = Color(0xFF10B981),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Yaklaşan randevunuz bulunmamaktadır.",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Slate900
-                        )
-                    }
+                    Text(
+                        text = "📌 Yaklaşan randevunuz bulunmuyor.",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Slate700
+                    )
                 }
             }
         } else {
             items(upcomingReminders, key = { it.id }) { reminder ->
-                ReminderItem(
-                    reminder = reminder,
-                    onFavoriteClick = { viewModel.toggleFavorite(reminder.id, reminder.isFavorite) },
-                    onClick = { editingReminder = reminder },
-                    onEditClick = { editingReminder = reminder },
-                    onDeleteClick = { reminderToDelete = reminder }
-                )
-                Spacer(modifier = Modifier.height(6.dp))
+                EmbossedCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    cornerRadius = 10.dp,
+                    elevation = 2.dp,
+                    contentPadding = 8.dp,
+                    onClick = { editingReminder = reminder }
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("🗓️", fontSize = 13.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = reminder.title,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Slate900,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = reminder.dueDatetime,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF2563EB)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            IconButton(
+                                onClick = { reminderToDelete = reminder },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = "Sil", tint = Color(0xFFEF4444), modifier = Modifier.size(14.dp))
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
             }
         }
 

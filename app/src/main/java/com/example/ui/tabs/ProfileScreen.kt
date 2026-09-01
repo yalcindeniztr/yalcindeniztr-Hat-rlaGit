@@ -120,6 +120,7 @@ fun ProfileScreen(viewModel: LifeAssistantViewModel) {
     val assistantName by viewModel.aiAssistantName.collectAsStateWithLifecycle()
     val encryptedAiApiKey by viewModel.encryptedAiApiKey.collectAsStateWithLifecycle()
     val isAiVoiceResponsesEnabled by viewModel.isAiVoiceResponsesEnabled.collectAsStateWithLifecycle()
+    val requireVoiceConfirmation by viewModel.requireVoiceConfirmation.collectAsStateWithLifecycle()
 
     var showEditNickDialog by remember { mutableStateOf(false) }
     var newNickInput by remember { mutableStateOf("") }
@@ -292,6 +293,28 @@ fun ProfileScreen(viewModel: LifeAssistantViewModel) {
                         ) {
                             Text("Kayıtlı Anahtarı Kaldır", color = Color(0xFFEF4444), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Sesli Alarm & Randevu Onayı Switch
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFF1F5F9), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Sesli Alarm Kurulum Onayı", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Slate900)
+                            Text("Asistan alarm kurmadan önce onay istesin", fontSize = 9.sp, color = Slate700)
+                        }
+                        Switch(
+                            checked = requireVoiceConfirmation,
+                            onCheckedChange = { viewModel.toggleRequireVoiceConfirmation(it) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = Color(0xFF8B5CF6))
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))

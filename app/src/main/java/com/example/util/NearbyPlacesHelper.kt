@@ -1,4 +1,4 @@
-﻿package com.example.util
+package com.example.util
 
 import android.content.Context
 import android.content.Intent
@@ -208,6 +208,22 @@ object NearbyPlacesHelper {
             context.startActivity(callIntent)
         } catch (e: Exception) {
             Toast.makeText(context, "Telefon uygulaması başlatılamadı.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun insertEventIntoCalendar(context: Context, title: String, description: String, startTimeMillis: Long, endTimeMillis: Long = startTimeMillis + 3600000L) {
+        try {
+            val intent = Intent(Intent.ACTION_INSERT).apply {
+                data = android.provider.CalendarContract.Events.CONTENT_URI
+                putExtra(android.provider.CalendarContract.Events.TITLE, title)
+                putExtra(android.provider.CalendarContract.Events.DESCRIPTION, description)
+                putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME, startTimeMillis)
+                putExtra(android.provider.CalendarContract.EXTRA_EVENT_END_TIME, endTimeMillis)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 }

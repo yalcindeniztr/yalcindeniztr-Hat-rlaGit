@@ -44,6 +44,7 @@ class DataStoreManager(private val context: Context) {
         val AI_PROVIDER = stringPreferencesKey("ai_provider") // GEMINI, OPENAI
         val AI_ASSISTANT_NAME = stringPreferencesKey("ai_assistant_name")
         val AI_VOICE_RESPONSES_ENABLED = booleanPreferencesKey("ai_voice_responses_enabled")
+        val REQUIRE_VOICE_CONFIRMATION = booleanPreferencesKey("require_voice_confirmation")
     }
 
     
@@ -361,6 +362,10 @@ class DataStoreManager(private val context: Context) {
         preferences[AI_VOICE_RESPONSES_ENABLED] ?: true
     }
 
+    val requireVoiceConfirmation: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[REQUIRE_VOICE_CONFIRMATION] ?: true
+    }
+
     suspend fun saveAiApiKey(plainKey: String) {
         context.dataStore.edit { preferences ->
             if (plainKey.isBlank()) {
@@ -386,6 +391,12 @@ class DataStoreManager(private val context: Context) {
     suspend fun toggleAiVoiceResponses(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[AI_VOICE_RESPONSES_ENABLED] = enabled
+        }
+    }
+
+    suspend fun toggleRequireVoiceConfirmation(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[REQUIRE_VOICE_CONFIRMATION] = enabled
         }
     }
 }
