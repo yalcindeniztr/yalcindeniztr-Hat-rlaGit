@@ -41,3 +41,14 @@
 # Play Services & Review / Update
 -keep class com.google.android.play.core.** { *; }
 
+# OkHttp & Networking
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-keep class okhttp3.** { *; }
+-keep interface okhttp3.** { *; }
+
+# AI & Nearby Places Data Models
+-keep class com.example.util.NearbyPlace { *; }
+-keep class com.example.util.AiResponse { *; }
+-keep class com.example.ui.tabs.ChatMessage { *; }
+

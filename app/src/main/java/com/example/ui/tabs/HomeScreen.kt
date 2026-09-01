@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -89,6 +90,7 @@ fun HomeScreen(
     var showReorderDialog by remember { mutableStateOf(false) }
     var showAddBlockDialog by remember { mutableStateOf(false) }
     var showQuickNoteDialog by remember { mutableStateOf(false) }
+    var showAiAssistant by remember { mutableStateOf(false) }
     var editingReminder by remember { mutableStateOf<ReminderEntity?>(null) }
     var reminderToDelete by remember { mutableStateOf<ReminderEntity?>(null) }
     var selectedCategoryFilter by remember { mutableStateOf<String?>(null) }
@@ -247,6 +249,20 @@ fun HomeScreen(
         )
     }
 
+    if (showAiAssistant) {
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showAiAssistant = false },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                AiAssistantScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { showAiAssistant = false }
+                )
+            }
+        }
+    }
+
     if (showReorderDialog) {
         ReorderBlocksDialog(
             currentOrder = homeBlockOrder,
@@ -399,6 +415,96 @@ fun HomeScreen(
                     onDeleteClick = { reminderToDelete = reminder }
                 )
                 Spacer(modifier = Modifier.height(6.dp))
+            }
+        }
+
+        // 🌟 3D KABARTMALI PARLAK ASİSTAN HERO BUTONU
+        item {
+            Spacer(modifier = Modifier.height(10.dp))
+            val currentAssistantName by viewModel.aiAssistantName.collectAsStateWithLifecycle()
+            
+            EmbossedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(76.dp),
+                cornerRadius = 20.dp,
+                elevation = 6.dp,
+                glowColor = Color(0xFF8B5CF6),
+                borderBrush = Brush.horizontalGradient(
+                    listOf(Color(0xFF8B5CF6), Color(0xFFEC4899), Color(0xFF3B82F6))
+                ),
+                onClick = { showAiAssistant = true },
+                contentPadding = 12.dp
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.linearGradient(
+                                        listOf(Color(0xFF8B5CF6), Color(0xFF6D28D9), Color(0xFF4C1D95))
+                                    )
+                                )
+                                .border(1.5.dp, Color.White.copy(alpha = 0.6f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = currentAssistantName.uppercase(),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = Slate900,
+                                    letterSpacing = 0.5.sp
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color(0xFF8B5CF6).copy(alpha = 0.15f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text("Yapay Zeka", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6D28D9))
+                                }
+                            }
+                            Text(
+                                text = "Konuşun • Nöbetçi Eczane, Hastane, Sesli Alarm",
+                                fontSize = 11.sp,
+                                color = Slate700,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF8B5CF6).copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Mic,
+                            contentDescription = null,
+                            tint = Color(0xFF8B5CF6),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
             }
         }
 

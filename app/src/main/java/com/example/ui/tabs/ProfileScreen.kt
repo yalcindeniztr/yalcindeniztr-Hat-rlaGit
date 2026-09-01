@@ -28,6 +28,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -115,11 +117,18 @@ fun ProfileScreen(viewModel: LifeAssistantViewModel) {
     val isVoiceSpeakingEnabled by viewModel.isVoiceSpeakingEnabled.collectAsStateWithLifecycle()
     val isLocationEnabled by viewModel.isLocationEnabled.collectAsStateWithLifecycle()
 
+    val assistantName by viewModel.aiAssistantName.collectAsStateWithLifecycle()
+    val encryptedAiApiKey by viewModel.encryptedAiApiKey.collectAsStateWithLifecycle()
+    val isAiVoiceResponsesEnabled by viewModel.isAiVoiceResponsesEnabled.collectAsStateWithLifecycle()
+
     var showEditNickDialog by remember { mutableStateOf(false) }
     var newNickInput by remember { mutableStateOf("") }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showQrBackupDialog by remember { mutableStateOf(false) }
     var qrBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var showAiSettingsDialog by remember { mutableStateOf(false) }
+    var tempApiKeyInput by remember { mutableStateOf("") }
+    var tempAssistantNameInput by remember { mutableStateOf("") }
 
     // Notification Permission Launcher for Android 13+
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -228,6 +237,99 @@ fun ProfileScreen(viewModel: LifeAssistantViewModel) {
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmDialog = false }) {
                     Text("Vazgeç", color = Slate800)
+                }
+            }
+        )
+    }
+
+    if (showAiSettingsDialog) {
+        AlertDialog(
+            onDismissRequest = { showAiSettingsDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color(0xFF8B5CF6))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("🤖 Yapay Zeka & API Ayarları", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Slate900)
+                }
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Kendi Google Gemini veya OpenAI API anahtarınızı girerek asistanınızı güçlendirebilirsiniz. Anahtarınız yalnızca telefonunuzda AES-256 ile şifreli saklanır.",
+                        fontSize = 12.sp,
+                        color = Slate700
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = tempAssistantNameInput,
+                        onValueChange = { tempAssistantNameInput = it },
+                        label = { Text("Asistanın İsmi", fontSize = 12.sp) },
+                        placeholder = { Text(assistantName) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedTextField(
+                        value = tempApiKeyInput,
+                        onValueChange = { tempApiKeyInput = it },
+                        label = { Text("API Anahtarı (Gemini / OpenAI)", fontSize = 12.sp) },
+                        placeholder = { Text(if (!encryptedAiApiKey.isNullOrBlank()) "•••••••••••••••• (Kayıtlı)" else "AI API Anahtarınızı yapıştırın") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+
+                    if (!encryptedAiApiKey.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        TextButton(
+                            onClick = {
+                                viewModel.saveAiApiKey("")
+                                tempApiKeyInput = ""
+                                Toast.makeText(context, "API Anahtarı silindi.", Toast.LENGTH_SHORT).show()
+                            }
+                        ) {
+                            Text("Kayıtlı Anahtarı Kaldır", color = Color(0xFFEF4444), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFF1F5F9), RoundedCornerShape(8.dp))
+                            .padding(8.dp)
+                    ) {
+                        Text(
+                            text = "🛡️ Play Store Uyumlu: Bu anahtar hiçbir üçüncü taraf sunucuya gitmez, yalnızca cihazınızda yerel çalışır.",
+                            fontSize = 10.sp,
+                            color = Color(0xFF0F766E),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (tempAssistantNameInput.isNotBlank()) {
+                            viewModel.saveAiAssistantName(tempAssistantNameInput.trim())
+                        }
+                        if (tempApiKeyInput.isNotBlank()) {
+                            viewModel.saveAiApiKey(tempApiKeyInput.trim())
+                        }
+                        showAiSettingsDialog = false
+                        Toast.makeText(context, "Asistan ayarları kaydedildi.", Toast.LENGTH_SHORT).show()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6))
+                ) {
+                    Text("Kaydet", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAiSettingsDialog = false }) {
+                    Text("İptal", color = Slate700)
                 }
             }
         )
@@ -720,6 +822,86 @@ fun ProfileScreen(viewModel: LifeAssistantViewModel) {
                             color = Slate700
                         )
                     }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 🤖 Yapay Zeka & Şifreli API Yönetimi Kartı
+            EmbossedCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(78.dp),
+                cornerRadius = 14.dp,
+                elevation = 4.dp,
+                glowColor = Color(0xFF8B5CF6),
+                borderBrush = Brush.horizontalGradient(
+                    listOf(Color(0xFF8B5CF6), Color(0xFFEC4899))
+                ),
+                onClick = {
+                    tempAssistantNameInput = assistantName
+                    tempApiKeyInput = ""
+                    showAiSettingsDialog = true
+                },
+                contentPadding = 12.dp
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Brush.linearGradient(listOf(Color(0xFF8B5CF6), Color(0xFF6D28D9)))),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "🤖 $assistantName & Şifreli API",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Slate900
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(
+                                        if (!encryptedAiApiKey.isNullOrBlank()) Color(0xFF10B981).copy(alpha = 0.15f)
+                                        else Color(0xFF64748B).copy(alpha = 0.15f)
+                                    )
+                                    .padding(horizontal = 5.dp, vertical = 1.dp)
+                            ) {
+                                Text(
+                                    text = if (!encryptedAiApiKey.isNullOrBlank()) "API Aktif" else "Çevrimdışı",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (!encryptedAiApiKey.isNullOrBlank()) Color(0xFF059669) else Slate700
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Kendi API anahtarını ekle, asistan adını özelleştir",
+                            fontSize = 10.sp,
+                            color = Slate700
+                        )
+                    }
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Düzenle",
+                        tint = Color(0xFF8B5CF6),
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
 

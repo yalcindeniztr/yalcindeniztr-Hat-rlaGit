@@ -40,6 +40,10 @@ class DataStoreManager(private val context: Context) {
         val IS_VOICE_SPEAKING_ENABLED = booleanPreferencesKey("is_voice_speaking_enabled")
         val LOCKED_CATEGORIES = androidx.datastore.preferences.core.stringSetPreferencesKey("locked_categories")
         val CATEGORY_PINS = stringPreferencesKey("category_pins")
+        val AI_API_KEY_ENCRYPTED = stringPreferencesKey("ai_api_key_encrypted")
+        val AI_PROVIDER = stringPreferencesKey("ai_provider") // GEMINI, OPENAI
+        val AI_ASSISTANT_NAME = stringPreferencesKey("ai_assistant_name")
+        val AI_VOICE_RESPONSES_ENABLED = booleanPreferencesKey("ai_voice_responses_enabled")
     }
 
     
@@ -339,5 +343,49 @@ class DataStoreManager(private val context: Context) {
 
     fun getDecryptedNick(encryptedNick: String?): String? {
         return encryptedNick?.let { CryptoHelper.decrypt(it) }
+    }
+
+    val encryptedAiApiKey: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[AI_API_KEY_ENCRYPTED]
+    }
+
+    val aiProvider: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[AI_PROVIDER] ?: "GEMINI"
+    }
+
+    val aiAssistantName: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[AI_ASSISTANT_NAME] ?: "ASİSTAN"
+    }
+
+    val isAiVoiceResponsesEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[AI_VOICE_RESPONSES_ENABLED] ?: true
+    }
+
+    suspend fun saveAiApiKey(plainKey: String) {
+        context.dataStore.edit { preferences ->
+            if (plainKey.isBlank()) {
+                preferences.remove(AI_API_KEY_ENCRYPTED)
+            } else {
+                preferences[AI_API_KEY_ENCRYPTED] = CryptoHelper.encrypt(plainKey.trim())
+            }
+        }
+    }
+
+    suspend fun saveAiProvider(provider: String) {
+        context.dataStore.edit { preferences ->
+            preferences[AI_PROVIDER] = provider
+        }
+    }
+
+    suspend fun saveAiAssistantName(name: String) {
+        context.dataStore.edit { preferences ->
+            preferences[AI_ASSISTANT_NAME] = if (name.isBlank()) "ASİSTAN" else name.trim()
+        }
+    }
+
+    suspend fun toggleAiVoiceResponses(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[AI_VOICE_RESPONSES_ENABLED] = enabled
+        }
     }
 }

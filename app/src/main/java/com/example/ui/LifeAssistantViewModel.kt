@@ -30,6 +30,7 @@ class LifeAssistantViewModel(application: Application) : AndroidViewModel(applic
     private val database = AppDatabase.getDatabase(application)
     private val reminderDao = database.reminderDao()
     private val savedLocationDao = database.savedLocationDao()
+    private val aiKnowledgeDao = database.aiKnowledgeDao()
     private val dataStoreManager = DataStoreManager(application)
     private val prayerRepository = PrayerTimesRepository(application)
     private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
@@ -40,12 +41,27 @@ class LifeAssistantViewModel(application: Application) : AndroidViewModel(applic
     private val prayerMapType = Types.newParameterizedType(Map::class.java, String::class.java, Boolean::class.javaObjectType)
     private val prayerMapAdapter = moshi.adapter<Map<String, Boolean>>(prayerMapType)
 
-    val currentVersionName = "1.0.5"
-    val currentVersionCode = 57
+    val currentVersionName = "1.0.6"
+    val currentVersionCode = 58
 
     // Latest published store release version information
-    val latestAvailableVersionName = "1.0.5"
-    val latestAvailableVersionCode = 57
+    val latestAvailableVersionName = "1.0.6"
+    val latestAvailableVersionCode = 58
+
+    val allAiKnowledge: StateFlow<List<com.example.data.AiKnowledgeEntity>> = aiKnowledgeDao.getAllKnowledge()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val aiAssistantName: StateFlow<String> = dataStoreManager.aiAssistantName
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "ASİSTAN")
+
+    val isAiVoiceResponsesEnabled: StateFlow<Boolean> = dataStoreManager.isAiVoiceResponsesEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val encryptedAiApiKey: StateFlow<String?> = dataStoreManager.encryptedAiApiKey
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val aiProvider: StateFlow<String> = dataStoreManager.aiProvider
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "GEMINI")
 
     val lockedCategories: StateFlow<Set<String>> = dataStoreManager.lockedCategories
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
@@ -623,10 +639,51 @@ class LifeAssistantViewModel(application: Application) : AndroidViewModel(applic
         AlarmHelper.scheduleAllPrayerAlarms(getApplication(), timing, notifs, minutes)
     }
 
+    fun addAiKnowledge(title: String, content: String, category: String = "USER_NOTE") {
+        viewModelScope.launch {
+            aiKnowledgeDao.insertKnowledge(
+                com.example.data.AiKnowledgeEntity(
+                    title = title,
+                    content = content,
+                    category = category
+                )
+            )
+        }
+    }
+
+    fun deleteAiKnowledge(id: Int) {
+        viewModelScope.launch {
+            aiKnowledgeDao.deleteKnowledgeById(id)
+        }
+    }
+
+    fun saveAiApiKey(plainKey: String) {
+        viewModelScope.launch {
+            dataStoreManager.saveAiApiKey(plainKey)
+        }
+    }
+
+    fun saveAiAssistantName(name: String) {
+        viewModelScope.launch {
+            dataStoreManager.saveAiAssistantName(name)
+        }
+    }
+
+    fun toggleAiVoiceResponses(enabled: Boolean) {
+        viewModelScope.launch {
+            dataStoreManager.toggleAiVoiceResponses(enabled)
+        }
+    }
+
+    fun getDecryptedUserNick(): String {
+        return userNick.value?.let { CryptoHelper.decrypt(it) } ?: ""
+    }
+
     fun deleteAllData() {
         viewModelScope.launch {
             reminderDao.deleteAll()
             savedLocationDao.deleteAll()
+            aiKnowledgeDao.deleteAll()
         }
     }
 
