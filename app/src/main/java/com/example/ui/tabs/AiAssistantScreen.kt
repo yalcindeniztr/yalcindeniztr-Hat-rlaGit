@@ -157,12 +157,28 @@ fun AiAssistantScreen(
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text(
-                                text = assistantName,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Black,
-                                color = Slate900
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = assistantName,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = Slate900
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color(0xFF8B5CF6).copy(alpha = 0.15f))
+                                        .padding(horizontal = 5.dp, vertical = 1.dp)
+                                ) {
+                                    Text(
+                                        text = "v1.1.0",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF7C3AED)
+                                    )
+                                }
+                            }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
@@ -248,7 +264,7 @@ fun AiAssistantScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 20.dp)
                 ) {
                     // Quick Action Prompt Chips
                     LazyRow(

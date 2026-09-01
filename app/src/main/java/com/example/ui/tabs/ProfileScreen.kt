@@ -1515,6 +1515,22 @@ fun ProfileScreen(viewModel: LifeAssistantViewModel) {
                 }
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Sürüm ve Bilgi
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "HatırlaGit • Sürüm v1.1.0 (Build 62)",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Slate700
+                )
+            }
+
             Spacer(modifier = Modifier.height(30.dp))
         }
     }

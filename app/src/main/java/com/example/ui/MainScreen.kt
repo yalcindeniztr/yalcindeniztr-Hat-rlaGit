@@ -143,6 +143,20 @@ fun MainScreen(viewModel: LifeAssistantViewModel, rootNavController: NavControll
                                 color = Slate900,
                                 fontSize = 22.sp
                             )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(OrangePrimary.copy(alpha = 0.15f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "v1.1.0",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = OrangePrimary
+                                )
+                            }
                         }
                     }
                 },
