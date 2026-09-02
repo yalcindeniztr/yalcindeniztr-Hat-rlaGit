@@ -172,7 +172,7 @@ fun AiAssistantScreen(
                                         .padding(horizontal = 5.dp, vertical = 1.dp)
                                 ) {
                                     Text(
-                                        text = "v1.1.0",
+                                        text = "v1.1.1",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color(0xFF7C3AED)
@@ -624,7 +624,7 @@ fun ChatMessageItem(message: ChatMessage) {
                                 // Google Maps Navigation Button
                                 Button(
                                     onClick = {
-                                        NearbyPlacesHelper.openGoogleMapsNavigation(context, place.name, place.lat, place.lng)
+                                        NearbyPlacesHelper.openGoogleMapsNavigation(context, place.name, place.lat, place.lng, place.searchQuery)
                                     },
                                     modifier = Modifier.weight(1f).height(34.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),

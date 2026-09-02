@@ -41,12 +41,12 @@ class LifeAssistantViewModel(application: Application) : AndroidViewModel(applic
     private val prayerMapType = Types.newParameterizedType(Map::class.java, String::class.java, Boolean::class.javaObjectType)
     private val prayerMapAdapter = moshi.adapter<Map<String, Boolean>>(prayerMapType)
 
-    val currentVersionName = "1.1.0"
-    val currentVersionCode = 62
+    val currentVersionName = "1.1.1"
+    val currentVersionCode = 63
 
     // Latest published store release version information
-    val latestAvailableVersionName = "1.1.0"
-    val latestAvailableVersionCode = 62
+    val latestAvailableVersionName = "1.1.1"
+    val latestAvailableVersionCode = 63
 
     val allAiKnowledge: StateFlow<List<com.example.data.AiKnowledgeEntity>> = aiKnowledgeDao.getAllKnowledge()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

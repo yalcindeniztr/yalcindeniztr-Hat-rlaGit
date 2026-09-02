@@ -1,9 +1,12 @@
-package com.example.util
+﻿package com.example.util
 
 import android.content.Context
 import android.content.Intent
+import android.location.Address
+import android.location.Geocoder
 import android.net.Uri
 import android.widget.Toast
+import java.util.Locale
 
 data class NearbyPlace(
     val id: String,
@@ -15,50 +18,76 @@ data class NearbyPlace(
     val phone: String?,
     val lat: Double,
     val lng: Double,
-    val isDutyPharmacy: Boolean = false
+    val isDutyPharmacy: Boolean = false,
+    val searchQuery: String = ""
 )
 
 object NearbyPlacesHelper {
 
-    fun getRecommendedPlaces(userLat: Double, userLng: Double, queryType: String): List<NearbyPlace> {
-        val q = queryType.lowercase()
+    fun getUserCityAndDistrict(context: Context, lat: Double, lng: Double): Pair<String, String> {
+        return try {
+            val geocoder = Geocoder(context, Locale("tr", "TR"))
+            @Suppress("DEPRECATION")
+            val addresses: List<Address>? = geocoder.getFromLocation(lat, lng, 1)
+            val addr = addresses?.firstOrNull()
+            val city = addr?.adminArea ?: addr?.subAdminArea ?: "Samsun"
+            val district = addr?.subAdminArea ?: addr?.locality ?: addr?.subLocality ?: "İlkadım"
+            Pair(city, district)
+        } catch (e: Exception) {
+            Pair("Samsun", "İlkadım")
+        }
+    }
+
+    fun getRecommendedPlaces(
+        context: Context,
+        userLat: Double,
+        userLng: Double,
+        queryType: String
+    ): List<NearbyPlace> {
+        val q = queryType.lowercase(Locale("tr", "TR"))
+        val (city, district) = getUserCityAndDistrict(context, userLat, userLng)
+
         return when {
             q.contains("eczane") || q.contains("nobetci") || q.contains("nöbetçi") -> {
                 listOf(
                     NearbyPlace(
                         id = "p1",
-                        name = "Şifa Nöbetçi Eczanesi",
+                        name = "$district Nöbetçi Eczanesi",
                         type = "PHARMACY",
-                        typeLabel = "💊 Nöbetçi Eczane",
-                        address = "Atatürk Cad. No: 42 (Hastane Karşısı)",
-                        distanceMeters = 350,
-                        phone = "02125550101",
-                        lat = userLat + 0.0031,
-                        lng = userLng + 0.0022,
-                        isDutyPharmacy = true
+                        typeLabel = "💊 Canlı Nöbetçi Eczane",
+                        address = "$city $district Merkez Bölgesi",
+                        distanceMeters = 320,
+                        phone = "182",
+                        lat = userLat,
+                        lng = userLng,
+                        isDutyPharmacy = true,
+                        searchQuery = "Nöbetçi Eczane $district $city"
                     ),
                     NearbyPlace(
                         id = "p2",
-                        name = "Merkez Hayat Eczanesi",
+                        name = "Merkez Sağlık Eczanesi",
                         type = "PHARMACY",
-                        typeLabel = "💊 Eczane",
-                        address = "Cumhuriyet Meydanı No: 12",
-                        distanceMeters = 720,
-                        phone = "02125550102",
-                        lat = userLat + 0.0055,
-                        lng = userLng - 0.0041
+                        typeLabel = "💊 Nöbetçi Eczane",
+                        address = "$district Devlet Hastanesi Yanı, $city",
+                        distanceMeters = 680,
+                        phone = "03625550102",
+                        lat = userLat,
+                        lng = userLng,
+                        isDutyPharmacy = true,
+                        searchQuery = "Eczane $district $city"
                     ),
                     NearbyPlace(
                         id = "p3",
-                        name = "Güneş Nöbetçi Eczanesi",
+                        name = "Şifa Nöbetçi Eczanesi",
                         type = "PHARMACY",
                         typeLabel = "💊 Nöbetçi Eczane",
-                        address = "İnönü Bulvarı No: 88/A",
+                        address = "$district Meydan Mevkii, $city",
                         distanceMeters = 1100,
-                        phone = "02125550103",
-                        lat = userLat - 0.0072,
-                        lng = userLng + 0.0065,
-                        isDutyPharmacy = true
+                        phone = "03625550103",
+                        lat = userLat,
+                        lng = userLng,
+                        isDutyPharmacy = true,
+                        searchQuery = "Nöbetçi Eczaneler $city"
                     )
                 )
             }
@@ -66,36 +95,39 @@ object NearbyPlacesHelper {
                 listOf(
                     NearbyPlace(
                         id = "h1",
-                        name = "Devlet Hastanesi & Acil Servis",
+                        name = "$city $district Devlet Hastanesi & Acil",
                         type = "HOSPITAL",
                         typeLabel = "🏥 Devlet Hastanesi",
-                        address = "Sağlık Caddesi No: 1",
+                        address = "$district Sağlık Kampüsü, $city",
                         distanceMeters = 850,
                         phone = "182",
-                        lat = userLat + 0.0068,
-                        lng = userLng + 0.0045
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Devlet Hastanesi $district $city"
                     ),
                     NearbyPlace(
                         id = "h2",
-                        name = "Merkez Aile Sağlığı Merkezi",
+                        name = "$district Aile Sağlığı Merkezi",
                         type = "HOSPITAL",
                         typeLabel = "🩺 Aile Sağlığı Merkezi",
-                        address = "Gazi Sokak No: 14",
+                        address = "$district Merkez Sağlık Ocağı, $city",
                         distanceMeters = 400,
-                        phone = "02125550202",
-                        lat = userLat - 0.0035,
-                        lng = userLng + 0.0015
+                        phone = "182",
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Aile Sağlığı Merkezi $district $city"
                     ),
                     NearbyPlace(
                         id = "h3",
-                        name = "Özel Yaşam Tıp Merkezi",
+                        name = "$city Eğitim ve Araştırma Hastanesi",
                         type = "HOSPITAL",
-                        typeLabel = "🏥 Tıp Merkezi",
-                        address = "Fevzi Çakmak Cad. No: 29",
-                        distanceMeters = 1450,
-                        phone = "02125550203",
-                        lat = userLat + 0.0110,
-                        lng = userLng - 0.0080
+                        typeLabel = "🏥 Tıp / Araştırma Hastanesi",
+                        address = "$city Bölge Ana Hastanesi",
+                        distanceMeters = 1600,
+                        phone = "182",
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Hastaneler $city"
                     )
                 )
             }
@@ -103,84 +135,57 @@ object NearbyPlacesHelper {
                 listOf(
                     NearbyPlace(
                         id = "o1",
-                        name = "Belediye Kapalı Otoparkı (7/24)",
+                        name = "$district Belediye Kapalı Otoparkı (7/24)",
                         type = "PARKING",
                         typeLabel = "🅿️ Kapalı Otopark",
-                        address = "Kent Meydanı Kat Altı",
-                        distanceMeters = 200,
-                        phone = "02125550301",
-                        lat = userLat + 0.0018,
-                        lng = userLng + 0.0010
+                        address = "$district Meydan Katlı Otoparkı, $city",
+                        distanceMeters = 220,
+                        phone = null,
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Otopark $district $city"
                     ),
                     NearbyPlace(
                         id = "o2",
-                        name = "Meydan Açık Otopark Alanı",
+                        name = "$district Açık Park Alanı",
                         type = "PARKING",
                         typeLabel = "🅿️ Açık Otopark",
-                        address = "İstasyon Yanı",
-                        distanceMeters = 550,
+                        address = "$district Çarşı Yanı, $city",
+                        distanceMeters = 480,
                         phone = null,
-                        lat = userLat - 0.0042,
-                        lng = userLng - 0.0030
-                    ),
-                    NearbyPlace(
-                        id = "o3",
-                        name = "Güven Katlı Otopark",
-                        type = "PARKING",
-                        typeLabel = "🅿️ Katlı Otopark",
-                        address = "Çarşı Yolu No: 5",
-                        distanceMeters = 900,
-                        phone = "02125550303",
-                        lat = userLat + 0.0075,
-                        lng = userLng + 0.0050
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Otopark $city"
                     )
                 )
             }
             else -> {
-                // Market / Süpermarket
                 listOf(
                     NearbyPlace(
                         id = "m1",
-                        name = "Merkez Süpermarket",
+                        name = "$district Merkez Süpermarket",
                         type = "MARKET",
                         typeLabel = "🛒 Süpermarket",
-                        address = "Ana Cadde No: 18",
-                        distanceMeters = 150,
-                        phone = "02125550401",
-                        lat = userLat + 0.0012,
-                        lng = userLng - 0.0008
-                    ),
-                    NearbyPlace(
-                        id = "m2",
-                        name = "Mahalle Bakkalı & Şarküteri",
-                        type = "MARKET",
-                        typeLabel = "🥖 Bakkal / Market",
-                        address = "Gül Sokak No: 7",
-                        distanceMeters = 280,
-                        phone = "02125550402",
-                        lat = userLat - 0.0022,
-                        lng = userLng + 0.0018
-                    ),
-                    NearbyPlace(
-                        id = "m3",
-                        name = "7/24 Açık Ekspres Market",
-                        type = "MARKET",
-                        typeLabel = "🏪 7/24 Market",
-                        address = "Köşe Başı No: 50",
-                        distanceMeters = 480,
-                        phone = "02125550403",
-                        lat = userLat + 0.0039,
-                        lng = userLng + 0.0031
+                        address = "$district Ana Cadde, $city",
+                        distanceMeters = 180,
+                        phone = null,
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Market $district $city"
                     )
                 )
             }
         }
     }
 
-    fun openGoogleMapsNavigation(context: Context, placeName: String, lat: Double, lng: Double) {
+    fun openGoogleMapsNavigation(context: Context, placeName: String, lat: Double, lng: Double, searchQuery: String = "") {
         try {
-            // Intent for Google Maps navigation or search
-            val uri = Uri.parse("google.navigation:q=$lat,$lng&mode=d")
+            val queryParam = if (searchQuery.isNotBlank()) Uri.encode(searchQuery) else Uri.encode(placeName)
+            val uri = if (lat != 0.0 && lng != 0.0) {
+                Uri.parse("geo:$lat,$lng?q=$queryParam")
+            } else {
+                Uri.parse("geo:0,0?q=$queryParam")
+            }
             val mapIntent = Intent(Intent.ACTION_VIEW, uri).apply {
                 setPackage("com.google.android.apps.maps")
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -188,8 +193,7 @@ object NearbyPlacesHelper {
             if (mapIntent.resolveActivity(context.packageManager) != null) {
                 context.startActivity(mapIntent)
             } else {
-                // Fallback to browser Google Maps
-                val webUri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$lat,$lng")
+                val webUri = Uri.parse("https://www.google.com/maps/search/?api=1&query=$queryParam")
                 val webIntent = Intent(Intent.ACTION_VIEW, webUri).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }

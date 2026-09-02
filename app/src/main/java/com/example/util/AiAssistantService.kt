@@ -1,6 +1,8 @@
-package com.example.util
+﻿package com.example.util
 
 import android.content.Context
+import android.location.Location
+import android.location.LocationManager
 import com.example.data.AiKnowledgeDao
 import com.example.data.AiKnowledgeEntity
 import com.example.data.AppDatabase
@@ -42,11 +44,46 @@ object AiAssistantService {
             .build()
     }
 
+    private const val SECURE_KEY_MASK = 0x5A
+    private val SECURE_KEY_BYTES = byteArrayOf(
+        27, 11, 116, 27, 56, 98, 8, 20, 108, 22, 35, 27, 11, 104, 62, 109, 12, 53, 15, 32, 
+        17, 59, 104, 5, 25, 104, 44, 50, 0, 56, 3, 30, 27, 30, 54, 104, 54, 52, 48, 11, 
+        60, 46, 105, 46, 16, 44, 55, 119, 99, 12, 56, 23, 27
+    )
+
+    private fun getSecureDefaultKey(): String {
+        return try {
+            val decoded = ByteArray(SECURE_KEY_BYTES.size)
+            for (i in SECURE_KEY_BYTES.indices) {
+                decoded[i] = (SECURE_KEY_BYTES[i].toInt() xor SECURE_KEY_MASK).toByte()
+            }
+            String(decoded, Charsets.UTF_8)
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    private fun getDeviceLocation(context: Context): Pair<Double, Double> {
+        return try {
+            val lm = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+            val gpsLoc: Location? = try { lm?.getLastKnownLocation(LocationManager.GPS_PROVIDER) } catch (_: Exception) { null }
+            val netLoc: Location? = try { lm?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER) } catch (_: Exception) { null }
+            val best = gpsLoc ?: netLoc
+            if (best != null) {
+                Pair(best.latitude, best.longitude)
+            } else {
+                Pair(41.2867, 36.3300) // Samsun Merkez varsayılan koordinatı
+            }
+        } catch (e: Exception) {
+            Pair(41.2867, 36.3300)
+        }
+    }
+
     suspend fun processUserMessage(
         context: Context,
         userMessage: String,
-        userLat: Double = 41.0082,
-        userLng: Double = 28.9784,
+        userLat: Double = 0.0,
+        userLng: Double = 0.0,
         assistantName: String = "ASİSTAN"
     ): AiResponse = withContext(Dispatchers.IO) {
         val cleanMsg = userMessage.trim()
@@ -55,6 +92,10 @@ object AiAssistantService {
         val dataStoreManager = DataStoreManager(context)
         val currentNickEncrypted = dataStoreManager.userNick.first()
         val currentNick = currentNickEncrypted?.let { CryptoHelper.decrypt(it) } ?: ""
+
+        // Gerçek GPS Koordinatı ve İl/İlçe tespiti
+        val (realLat, realLng) = if (userLat != 0.0 && userLng != 0.0) Pair(userLat, userLng) else getDeviceLocation(context)
+        val (userCity, userDistrict) = NearbyPlacesHelper.getUserCityAndDistrict(context, realLat, realLng)
 
         // 1. İsim Sorma ve Öğrenme Tespiti ("Benim adım Ahmet", "Bana Yalçın Bey de", "Adım Mehmet")
         val namePatterns = listOf(
@@ -68,15 +109,8 @@ object AiAssistantService {
                 val detectedName = m.group(1)?.trim()
                 if (!detectedName.isNullOrBlank() && detectedName.length > 1) {
                     dataStoreManager.updateNick(detectedName)
-                    db.aiKnowledgeDao().insertKnowledge(
-                        AiKnowledgeEntity(
-                            title = "Kullanıcı Adı",
-                            content = "Kullanıcının adı: $detectedName. Ona her zaman bu isimle hitap et.",
-                            category = "SYSTEM_PREF"
-                        )
-                    )
                     return@withContext AiResponse(
-                        replyText = "Tanıştığıma çok memnun oldum $detectedName! İsminizi hafızama kaydettim, bundan sonra size $detectedName olarak hitap edeceğim. Size bugün nasıl yardımcı olabilirim?"
+                        replyText = "Tanıştığıma çok memnun oldum $detectedName! İsminizi hafızama aldım, bundan sonra size $detectedName olarak hitap edeceğim. $userCity havası nasıl, bugün ne yapıyoruz?"
                     )
                 }
             }
@@ -89,15 +123,15 @@ object AiAssistantService {
             lowerMsg.contains("park yeri") || lowerMsg.contains("garaj") || lowerMsg.contains("market") || 
             lowerMsg.contains("bakkal") || lowerMsg.contains("süpermarket")) {
 
-            val places = NearbyPlacesHelper.getRecommendedPlaces(userLat, userLng, lowerMsg)
+            val places = NearbyPlacesHelper.getRecommendedPlaces(context, realLat, realLng, lowerMsg)
             val typeTitle = when {
                 lowerMsg.contains("eczane") || lowerMsg.contains("nöbetçi") -> "Nöbetçi Eczaneler"
                 lowerMsg.contains("hastane") || lowerMsg.contains("doktor") || lowerMsg.contains("sağlık") -> "Hastaneler & Sağlık Merkezleri"
                 lowerMsg.contains("otopark") || lowerMsg.contains("park") -> "Otopark Alanları"
-                else -> "Marketler & Alışveriş Yerleri"
+                else -> "Marketler"
             }
-            val greeting = if (currentNick.isNotBlank()) "$currentNick, " else ""
-            val voiceSummary = "${greeting}Konumunuza en yakın 3 $typeTitle bulundu. Haritadan yol tarifi almak veya doğrudan aramak için kartlardaki butonları kullanabilirsiniz."
+            val greeting = if (currentNick.isNotBlank()) "$currentNick dostum, " else ""
+            val voiceSummary = "${greeting}$userCity $userDistrict için en yakın $typeTitle hazır. Google Haritalar'dan canlı yol tarifi alabilir veya tek tıkla arayabilirsiniz."
             return@withContext AiResponse(
                 replyText = voiceSummary,
                 recommendedPlaces = places
@@ -125,17 +159,8 @@ object AiAssistantService {
                     startTimeMillis = finalReminder.dueDateMillis
                 )
 
-                // Kütüphaneye de kaydet
-                db.aiKnowledgeDao().insertKnowledge(
-                    AiKnowledgeEntity(
-                        title = finalReminder.title,
-                        content = "Planlanan randevu/alarm: ${finalReminder.title}, Zaman: ${finalReminder.dueDatetime}",
-                        category = "CHAT_MEMORY"
-                    )
-                )
-
-                val greeting = if (currentNick.isNotBlank()) "$currentNick, " else ""
-                val reply = "${greeting}'${finalReminder.title}' için ${finalReminder.dueDatetime} zamanına alarmınız kuruldu ve telefon takviminize kaydedildi."
+                val greeting = if (currentNick.isNotBlank()) "$currentNick dostum, " else ""
+                val reply = "${greeting}'${finalReminder.title}' için ${finalReminder.dueDatetime} zamanına alarmınız kuruldu ve takviminize işlendi. Gözünüz arkada kalmasın!"
                 return@withContext AiResponse(
                     replyText = reply,
                     createdReminder = finalReminder
@@ -143,7 +168,7 @@ object AiAssistantService {
             }
         }
 
-        // 4. Kütüphaneye Manuel Bilgi Ekleme ("Şunu öğren:", "Kütüphaneye ekle:", "Not al:")
+        // 4. Kütüphaneye Açık Kullanıcı Onayıyla Bilgi Ekleme
         if (lowerMsg.startsWith("şunu öğren:") || lowerMsg.startsWith("öğren:") || 
             lowerMsg.startsWith("kütüphaneye ekle:") || lowerMsg.startsWith("not al:") || lowerMsg.startsWith("kaydet:")) {
             val contentToLearn = cleanMsg.substringAfter(":").trim()
@@ -156,20 +181,20 @@ object AiAssistantService {
                 db.aiKnowledgeDao().insertKnowledge(entity)
                 val greeting = if (currentNick.isNotBlank()) "$currentNick, " else ""
                 return@withContext AiResponse(
-                    replyText = "${greeting}bu bilgiyi hafızama ve kütüphaneme kaydettim. İhtiyacınız olduğunda bana sorabilirsiniz.",
+                    replyText = "${greeting}bu bilgiyi onayınızla kütüphanenize kaydettim. İhtiyacınız olduğunda bana sorabilirsiniz.",
                     learnedKnowledge = contentToLearn
                 )
             }
         }
 
-        // 5. Kütüphanedeki TÜM Bilgilerin Analizi (RAG Context)
+        // 5. Kütüphanedeki Bilgilerin Analizi (RAG Context)
         val allKnowledgeList = db.aiKnowledgeDao().getAllKnowledgeList()
         val knowledgeContext = if (allKnowledgeList.isNotEmpty()) {
             "KULLANICININ ÖĞRETTİĞİ TÜM NOTLAR VE BİLGİLER:\n" + 
             allKnowledgeList.take(25).joinToString("\n") { item -> "- [${item.category}] ${item.title}: ${item.content}" }
-        } else "Kullanıcı henüz özel bir not eklemedi."
+        } else "Kullanıcı henüz özel bir kütüphane notu eklemedi."
 
-        // 6. Google Gemini API Çağrısı (Özel veya Dahili Şifrelenmiş Anahtar ile)
+        // 6. Google Gemini API Çağrısı (Özel veya Dahili Şifreli Anahtar)
         val customApiKey = try {
             val rawEncryptedKey: String? = dataStoreManager.encryptedAiApiKey.first()
             if (!rawEncryptedKey.isNullOrBlank()) CryptoHelper.decrypt(rawEncryptedKey)?.trim() else null
@@ -183,7 +208,9 @@ object AiAssistantService {
                 userMessage = cleanMsg,
                 knowledgeContext = knowledgeContext,
                 assistantName = assistantName,
-                userNick = currentNick
+                userNick = currentNick,
+                userCity = userCity,
+                userDistrict = userDistrict
             )
             if (!apiReply.isNullOrBlank()) {
                 return@withContext AiResponse(replyText = apiReply)
@@ -196,7 +223,9 @@ object AiAssistantService {
             message = cleanMsg,
             knowledgeList = allKnowledgeList,
             assistantName = assistantName,
-            userNick = currentNick
+            userNick = currentNick,
+            userCity = userCity,
+            userDistrict = userDistrict
         )
         return@withContext AiResponse(replyText = offlineReply)
     }
@@ -253,44 +282,30 @@ object AiAssistantService {
         }
     }
 
-    private const val SECURE_KEY_MASK = 0x5A
-    private val SECURE_KEY_BYTES = byteArrayOf(
-        27, 11, 116, 27, 56, 98, 8, 20, 108, 22, 35, 27, 11, 104, 62, 109, 12, 53, 15, 32, 
-        17, 59, 104, 5, 25, 104, 44, 50, 0, 56, 3, 30, 27, 30, 54, 104, 54, 52, 48, 11, 
-        60, 46, 105, 46, 16, 44, 55, 119, 99, 12, 56, 23, 27
-    )
-
-    private fun getSecureDefaultKey(): String {
-        return try {
-            val decoded = ByteArray(SECURE_KEY_BYTES.size)
-            for (i in SECURE_KEY_BYTES.indices) {
-                decoded[i] = (SECURE_KEY_BYTES[i].toInt() xor SECURE_KEY_MASK).toByte()
-            }
-            String(decoded, Charsets.UTF_8)
-        } catch (e: Exception) {
-            ""
-        }
-    }
-
     private fun callGoogleGeminiApi(
         apiKey: String,
         userMessage: String,
         knowledgeContext: String,
         assistantName: String,
-        userNick: String
+        userNick: String,
+        userCity: String,
+        userDistrict: String
     ): String? {
-        val userGreeting = if (userNick.isNotBlank()) "Kullanıcının Adı: $userNick. Ona her zaman bu isimle hitap et." else "Kullanıcının adını bilmiyorsan uygun bir zamanda adını sor."
+        val userGreeting = if (userNick.isNotBlank()) "Kullanıcının Adı: $userNick. Ona samimi, saygılı ve arkadaşça hitap et (Örn: $userNick dostum)." else "Kullanıcının adını bilmiyorsan uygun bir zamanında adını sor."
 
         val systemInstruction = """
-            Sen HatırlaGit kişisel asistan uygulamasının $assistantName isimli akıllı, yardımsever, güvenilir ve samimi yapay zeka asistanısın.
-            Temel Kuralların:
-            1. DİL: Sadece akıcı, doğal, samimi ve saygılı TÜRKÇE konuş.
-            2. KİMLİK & HİTAP: $userGreeting
-            3. KÜTÜPHANE VE HAFIZA BİLGİSİ:
+            Sen HatırlaGit kişisel asistan uygulamasının $assistantName isimli akıllı, yardımsever, karizmatik, esprili ve kültürlü ERKEK yapay zeka asistanısın.
+            
+            Karakterin ve Temel Kuralların:
+            1. ÜSLUP & KİŞİLİK: Çok samimi, zeki, esprili, cana yakın bir Türk arkadaş gibisin. Cümlelerin akıcı, enerjik ve doğaldır.
+            2. KÜLTÜR & BİLGİ: Türk tarihine (Kurtuluş Savaşı, Atatürk, Selçuklu, Osmanlı, Cumhuriyet), Türk edebiyatına, halk hikayelerine, atasözlerine ve zengin Türk mutfağına (Samsun pidesi, Karadeniz yemekleri, Güneydoğu, Ege lezzetleri vb.) son derece hakimsin. Sorulduğunda harika bilgiler ve esprili yorumlar yaparsın.
+            3. KONUM BİLGİSİ: Kullanıcı şu anda Türkiye'de $userCity ili, $userDistrict ilçesindedir. Nöbetçi eczane, hastane, yemek veya gezi tavsiyesi istediğinde doğrudan $userCity ve $userDistrict bölgesini esas al.
+            4. HİTAP: $userGreeting
+            5. KÜTÜPHANE BİLGİSİ:
             $knowledgeContext
-            Kullanıcı kütüphanesindeki bir notu, faturayı, tarihi veya bilgiyi sorduğunda doğrudan yukarıdaki kütüphane kayıtlarını analiz ederek detaylı ve net cevap ver.
-            4. RESMİ & YASAL KONULAR: Türkiye Cumhuriyeti yasal mevzuatına, kamu kurumlarına ve resmi devlet sitelerine (.gov.tr) uygun güvenilir bilgi ver.
-            5. SESLİ ASİSTAN UYUMU: Cevaplarında gereksiz Markdown yıldızları (*) kullanma, doğrudan akıcı ve okunabilir cümleler kur.
+            Kullanıcı kütüphanesindeki bir bilgiyi veya faturayı sorduğunda yukarıdaki notları analiz edip cevapla.
+            6. GÜVENİLİR BİLGİ: Yasal, resmi ve sağlık konularında T.C. Sağlık Bakanlığı, Türkiye Eczacılar Birliği (TEB) ve devlet kurumları (.gov.tr) standartlarını gözet.
+            7. SESLİ UYUM: Cevaplarında gereksiz Markdown yıldızları (*) ve karmaşık tablolar kullanma; sesle rahatça okunabilecek doğal cümleler kur.
         """.trimIndent()
 
         val jsonBody = JSONObject().apply {
@@ -298,18 +313,17 @@ object AiAssistantService {
                 put(JSONObject().apply {
                     put("role", "user")
                     put("parts", JSONArray().apply {
-                        put(JSONObject().put("text", "$systemInstruction\n\nKullanıcı: $userMessage"))
+                        put(JSONObject().put("text", "$systemInstruction\n\nKullanıcı Sorusu: $userMessage"))
                     })
                 })
             }
             put("contents", contents)
             put("generationConfig", JSONObject().apply {
-                put("temperature", 0.7)
+                put("temperature", 0.75)
                 put("maxOutputTokens", 1000)
             })
         }
 
-        // Endpoint listesi: Önce 1.5 Flash, olmazsa 2.0 Flash
         val modelEndpoints = listOf(
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey",
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$apiKey"
@@ -351,10 +365,12 @@ object AiAssistantService {
         message: String,
         knowledgeList: List<AiKnowledgeEntity>,
         assistantName: String,
-        userNick: String
+        userNick: String,
+        userCity: String,
+        userDistrict: String
     ): String = withContext(Dispatchers.IO) {
         val lower = message.lowercase(Locale("tr", "TR"))
-        val greeting = if (userNick.isNotBlank()) "$userNick, " else ""
+        val greeting = if (userNick.isNotBlank()) "$userNick dostum, " else ""
         val db = AppDatabase.getDatabase(context)
 
         // 1. Kütüphanede arama & analiz
@@ -365,50 +381,35 @@ object AiAssistantService {
         }
 
         if (matchedKnowledge.isNotEmpty()) {
-            val details = matchedKnowledge.take(4).joinToString("\n") { "📌 ${it.title}: ${it.content}" }
-            return@withContext "${greeting}kütüphanenizdeki kayıtlara göre:\n$details\n\nBu bilgiyle ilgili başka bir işlem yapmamı ister misiniz?"
+            val details = matchedKnowledge.take(3).joinToString("\n") { "📌 ${it.title}: ${it.content}" }
+            return@withContext "${greeting}kütüphanenizdeki kayıtlara göre:\n$details\n\nBu konuyla ilgili başka bir şey yapmamı ister misiniz?"
         }
 
-        // 2. Randevularımı soruyorsa
-        if (lower.contains("randevu") || lower.contains("hatırlatıcı") || lower.contains("plan") || lower.contains("ne var") || lower.contains("neler var")) {
+        // 2. Randevular
+        if (lower.contains("randevu") || lower.contains("hatırlatıcı") || lower.contains("plan") || lower.contains("ne var")) {
             val upcoming = db.reminderDao().getActiveRemindersList(System.currentTimeMillis())
             if (upcoming.isNotEmpty()) {
                 val listStr = upcoming.take(3).joinToString("\n") { "• ${it.title} (${it.dueDatetime})" }
-                return@withContext "${greeting}yaklaşan randevularınız şunlardır:\n$listStr\n\nYeni bir randevu veya alarm eklemek isterseniz 'Yarın saat 14:00 için randevu ekle' diyebilirsiniz."
+                return@withContext "${greeting}yaklaşan randevularınız:\n$listStr\n\nYeni bir hatırlatıcı eklemek isterseniz 'Yarın saat 15:00 için randevu ekle' diyebilirsiniz."
             } else {
-                return@withContext "${greeting}yakın zamanda planlanmış bir randevunuz bulunmuyor. İsterseniz hemen sesli bir hatırlatıcı kuralım!"
+                return@withContext "${greeting}şu an için planlanmış bir randevunuz görünmüyor. İsterseniz hemen sesli bir alarm kuralım!"
             }
         }
 
-        // 3. Ezan Vakitleri soruyorsa
-        if (lower.contains("ezan") || lower.contains("namaz") || lower.contains("vakit")) {
-            return@withContext "${greeting}günün ezan vakitlerini ve sıradaki vakti Ana Sayfa'daki Ezan Vakti kartından veya Ezan Vakitleri sekmesinden takip edebilirsiniz."
+        // 3. Kültür, Yemek ve Tarih Sohbeti
+        if (lower.contains("yemek") || lower.contains("ne yesem") || lower.contains("pide") || lower.contains("karadeniz")) {
+            return@withContext "${greeting}$userCity bölgesindeyseniz meşhur kapalı kıymalı veya peynirli Samsun pidesi kesinlikle ilk tercih olmalı! Yanına da bol köpüklü bir yayık ayranı harika gider."
         }
 
-        // 4. Arabam nerede soruyorsa
-        if (lower.contains("arabam") || lower.contains("araba") || lower.contains("park")) {
-            val lat = DataStoreManager(context).parkedCarLat.first()
-            if (!lat.isNullOrBlank()) {
-                return@withContext "${greeting}aracınızın son park konumu başarıyla kayıtlıdır. Ana Sayfa'daki 'Arabam Nerede?' kartından tek tıkla yol tarifi alabilirsiniz."
-            } else {
-                return@withContext "${greeting}henüz bir araç park konumu kaydetmediniz. Ana sayfadan 'Park Konumumu Kaydet' butonuna basarak arabanızı kaydedebilirsiniz."
-            }
+        if (lower.contains("tarih") || lower.contains("atatürk") || lower.contains("19 mayıs") || lower.contains("kurtuluş")) {
+            return@withContext "${greeting}Samsun, Gazi Mustafa Kemal Atatürk'ün 19 Mayıs 1919'da Bandırma Vapuru ile ayak bastığı ve Milli Mücadele meşalesinin yakıldığı gurur dolu şehrimizdir."
         }
 
-        // 5. Selamlaşma & Hal Hatır
+        // 4. Selamlaşma
         if (lower.contains("merhaba") || lower.contains("selam") || lower.contains("günaydın") || lower.contains("iyi günler")) {
-            return@withContext "${greeting}Merhaba! Ben HatırlaGit Yapay Zeka Asistanınız $assistantName. Size nöbetçi eczane bulabilir, randevu/alarm kurabilir ve kütüphanenizdeki notları analiz edebilirim. Size bugün nasıl yardımcı olabilirim?"
+            return@withContext "${greeting}Merhaba! Ben akıllı yol arkadaşınız $assistantName. $userCity $userDistrict için nöbetçi eczane bulabilir, sesle randevu kurabilir ve her konuda sohbet edebilirim. Size bugün nasıl yardımcı olayım?"
         }
 
-        if (lower.contains("nasılsın") || lower.contains("ne haber") || lower.contains("naber")) {
-            return@withContext "Harikayım, teşekkür ederim! Sizin gününüzü kolaylaştırmak ve hatırlatmalarınızı organize etmek için hazırım. Ne sormak istersiniz?"
-        }
-
-        if (lower.contains("kimsin") || lower.contains("nesin") || lower.contains("ne yapabilirsin")) {
-            return@withContext "Ben HatırlaGit'in akıllı kişisel asistanıyım. Telefonunuzda şifreli çalışır, nöbetçi eczane/hastane bulur, sesle alarm kurar ve kütüphanenizdeki tüm bilgileri analiz ederim."
-        }
-
-        // 6. Genel sorular için rehberlik
-        return@withContext "${greeting}bu sorunuza doğrudan yapay zeka ile geniş kapsamlı yanıt verebilmem için Profil > Asistan & API Ayarları ekranından ücretsiz Google Gemini API anahtarınızı ekleyebilirsiniz. Şu anda cihazınızdaki tüm randevuları, kütüphane notlarını, nöbetçi eczaneleri ve sesli alarmları yönetebilirim. Ne yapmak istersiniz?"
+        return@withContext "${greeting}sizi dinliyorum! $userCity nöbetçi eczanelerini sorabilir, tarih, yemek, genel kültür konularında danışabilir veya sesli alarm kurdurabilirsiniz."
     }
 }

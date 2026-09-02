@@ -33,8 +33,22 @@ object TtsHelper {
                                 if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                                     engine.setLanguage(Locale.getDefault())
                                 }
-                                engine.setSpeechRate(0.95f)
-                                engine.setPitch(1.0f)
+                                try {
+                                    val maleVoice = engine.voices?.firstOrNull { voice ->
+                                        voice.locale.language == "tr" &&
+                                        (voice.name.contains("male", ignoreCase = true) ||
+                                         voice.name.contains("dfz", ignoreCase = true) ||
+                                         voice.name.contains("dff", ignoreCase = true) ||
+                                         voice.features.any { it.contains("male", ignoreCase = true) })
+                                    }
+                                    if (maleVoice != null) {
+                                        engine.voice = maleVoice
+                                    }
+                                } catch (e: Exception) {
+                                    Log.w(TAG, "Male voice selection fallback", e)
+                                }
+                                engine.setSpeechRate(1.0f)
+                                engine.setPitch(0.88f) // Erkek sesine uygun tok ve doğal ton
                                 isInitialized = true
                                 pendingText?.let { t ->
                                     engine.speak(t, TextToSpeech.QUEUE_FLUSH, null, "ReminderTtsUtterance")
