@@ -175,7 +175,7 @@ fun AiAssistantScreen(
                                         .padding(horizontal = 5.dp, vertical = 1.dp)
                                 ) {
                                     Text(
-                                        text = "v1.1.3",
+                                        text = "v1.1.4",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color(0xFF7C3AED)

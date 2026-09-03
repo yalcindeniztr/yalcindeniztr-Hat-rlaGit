@@ -39,8 +39,8 @@ object AiAssistantService {
 
     private val httpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(12, TimeUnit.SECONDS)
-            .readTimeout(25, TimeUnit.SECONDS)
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
             .build()
     }
 
@@ -131,7 +131,7 @@ object AiAssistantService {
             allKnowledgeList.take(25).joinToString("\n") { item -> "- [${item.category}] ${item.title}: ${item.content}" }
         } else "Kullanıcı henüz özel bir kütüphane notu eklemedi."
 
-        // 3. Google Gemini API Çağrısı (Action Parser & Multi-Turn History Destekli)
+        // 3. Google Gemini API Çağrısı
         val customApiKey = try {
             val rawEncryptedKey: String? = dataStoreManager.encryptedAiApiKey.first()
             if (!rawEncryptedKey.isNullOrBlank()) CryptoHelper.decrypt(rawEncryptedKey)?.trim() else null
@@ -163,7 +163,7 @@ object AiAssistantService {
                     )
                 }
 
-                // Eczane / Yer listesi kontrolü
+                // Eczane / Yer listesi kartları
                 val places = if (lowerMsg.contains("eczane") || lowerMsg.contains("hastane") || lowerMsg.contains("otopark")) {
                     NearbyPlacesHelper.getRecommendedPlaces(context, realLat, realLng, lowerMsg)
                 } else emptyList()
@@ -177,6 +177,10 @@ object AiAssistantService {
         }
 
         // 4. Akıllı Çevrimdışı Türkçe Yanıt Motoru (Offline Smart Engine Fallback)
+        val places = if (lowerMsg.contains("eczane") || lowerMsg.contains("hastane") || lowerMsg.contains("otopark")) {
+            NearbyPlacesHelper.getRecommendedPlaces(context, realLat, realLng, lowerMsg)
+        } else emptyList()
+
         val offlineReply = generateOfflineSmartResponse(
             context = context,
             message = cleanMsg,
@@ -186,7 +190,10 @@ object AiAssistantService {
             userCity = userCity,
             userDistrict = userDistrict
         )
-        return@withContext AiResponse(replyText = offlineReply)
+        return@withContext AiResponse(
+            replyText = offlineReply,
+            recommendedPlaces = places
+        )
     }
 
     private fun callGoogleGeminiApi(
@@ -240,35 +247,60 @@ object AiAssistantService {
 
             3. HİTAP VE KONUM BİLGİSİ:
             $userGreeting
-            Kullanıcı şu an Türkiye'de $userCity ili, $userDistrict ilçesindedir.
+            Kullanıcı şu an Türkiye'de $userCity ili, $userDistrict ilçesindedir. Nöbetçi eczane veya yer arandığında doğrudan $userCity bölgesini esas al ve OPEN_MAPS eylemi üret.
 
             4. KÜTÜPHANE VE BELLEK:
             $knowledgeContext
         """.trimIndent()
 
         val jsonBody = JSONObject().apply {
-            val contents = JSONArray().apply {
-                // Konuşma geçmişi (Son 6 tur)
-                val recentHistory = conversationHistory.takeLast(6)
-                for (h in recentHistory) {
-                    val role = if (h.sender == "USER") "user" else "model"
-                    put(JSONObject().apply {
-                        put("role", role)
-                        put("parts", JSONArray().apply {
-                            put(JSONObject().put("text", h.text))
-                        })
-                    })
-                }
+            // Root system_instruction for Gemini API
+            put("system_instruction", JSONObject().apply {
+                put("parts", JSONArray().apply {
+                    put(JSONObject().put("text", systemInstruction))
+                })
+            })
 
-                // Yeni Kullanıcı Mesajı + Sistem Talimatı
-                put(JSONObject().apply {
+            val contentsArray = JSONArray()
+
+            // Filter history to ensure alternating user/model turns starting with 'user'
+            val recentHistory = conversationHistory.filter { it.text.isNotBlank() }.takeLast(6)
+            var lastRole: String? = null
+
+            for (h in recentHistory) {
+                val currentRole = if (h.sender == "USER") "user" else "model"
+                // Gemini contents MUST start with 'user'
+                if (contentsArray.length() == 0 && currentRole != "user") continue
+                if (currentRole == lastRole) continue // avoid consecutive duplicate roles
+
+                contentsArray.put(JSONObject().apply {
+                    put("role", currentRole)
+                    put("parts", JSONArray().apply {
+                        put(JSONObject().put("text", h.text))
+                    })
+                })
+                lastRole = currentRole
+            }
+
+            // Append current user message
+            if (lastRole == "user") {
+                // If last was user, update it or append
+                contentsArray.put(JSONObject().apply {
                     put("role", "user")
                     put("parts", JSONArray().apply {
-                        put(JSONObject().put("text", "$systemInstruction\n\nKullanıcı: $userMessage"))
+                        put(JSONObject().put("text", userMessage))
+                    })
+                })
+            } else {
+                contentsArray.put(JSONObject().apply {
+                    put("role", "user")
+                    put("parts", JSONArray().apply {
+                        put(JSONObject().put("text", userMessage))
                     })
                 })
             }
-            put("contents", contents)
+
+            put("contents", contentsArray)
             put("generationConfig", JSONObject().apply {
                 put("temperature", 0.72)
                 put("maxOutputTokens", 1000)
@@ -276,8 +308,11 @@ object AiAssistantService {
         }
 
         val modelEndpoints = listOf(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey",
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$apiKey"
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=$apiKey",
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=$apiKey",
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-latest:generateContent?key=$apiKey",
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=$apiKey",
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey"
         )
 
         for (endpoint in modelEndpoints) {
@@ -324,6 +359,14 @@ object AiAssistantService {
         val greeting = if (userNick.isNotBlank()) "$userNick dostum, " else ""
         val db = AppDatabase.getDatabase(context)
 
+        if (lower.contains("eczane") || lower.contains("nobetci") || lower.contains("nöbetçi")) {
+            return@withContext "${greeting}$userCity $userDistrict nöbetçi eczanelerini senin için listeledim. Haritadan yol tarifi alabilir veya doğrudan arayabilirsin."
+        }
+
+        if (lower.contains("hastane") || lower.contains("doktor") || lower.contains("acil")) {
+            return@withContext "${greeting}$userCity bölgesindeki en yakın hastane ve sağlık kuruluşlarını listeledim."
+        }
+
         if (lower.contains("ne yapabilirsin") || lower.contains("neler yaparsın") || lower.contains("kimsin") || lower.contains("kendini tanıt")) {
             return@withContext "40 yıllık bir hayat ve organizasyon tecrübesiyle buradayım ${greeting}İster $userCity'de nöbetçi eczane bulalım, ister sesle alarm, randevu, WhatsApp mesajı ve harita işlemlerini halledelim. Ne istersen emrindeyim."
         }
@@ -339,6 +382,6 @@ object AiAssistantService {
             }
         }
 
-        return@withContext "${greeting}seni dinliyorum! Bana alarm kurdurabilir, WhatsApp mesajı hazırlatabilir, nöbetçi eczane veya yol tarifi sorabilirsin."
+        return@withContext "${greeting}seni dinliyorum! Bana alarm kurdurabilir, WhatsApp mesajı hazırlatabilir, $userCity için nöbetçi eczane veya yol tarifi sorabilirsin."
     }
 }

@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.AlarmClock
 import android.provider.CalendarContract
-import android.widget.Toast
 import com.example.data.AppDatabase
 import com.example.data.ReminderEntity
 import kotlinx.coroutines.Dispatchers
@@ -25,32 +24,56 @@ data class ParsedActionResult(
 
 object ActionDispatcherHelper {
 
-    private val ACTION_REGEX = Regex("""(?s)```action\s*(\{.*?\})\s*```""")
+    private val ACTION_BLOCK_REGEX = Regex("""(?s)```(?:action|json)?\s*(\{\s*["']action_type["'][\s\S]*?\})\s*```""")
+    private val INLINE_ACTION_REGEX = Regex("""(?s)(\{\s*["']action_type["']\s*:\s*["'][A-Z_]+["'][\s\S]*?\})\s*$""")
 
     fun parseActionBlock(rawText: String): ParsedActionResult {
-        val match = ACTION_REGEX.find(rawText)
-        if (match != null) {
-            val jsonStr = match.groupValues[1]
-            val speechOnly = rawText.replace(match.value, "").trim()
+        var cleanSpeech = rawText.trim()
+        var matchedJsonStr: String? = null
+
+        val blockMatch = ACTION_BLOCK_REGEX.find(cleanSpeech)
+        if (blockMatch != null) {
+            matchedJsonStr = blockMatch.groupValues[1]
+            cleanSpeech = cleanSpeech.replace(blockMatch.value, "").trim()
+        } else {
+            val inlineMatch = INLINE_ACTION_REGEX.find(cleanSpeech)
+            if (inlineMatch != null) {
+                matchedJsonStr = inlineMatch.groupValues[1]
+                cleanSpeech = cleanSpeech.replace(inlineMatch.value, "").trim()
+            }
+        }
+
+        // Clean speech text from Markdown characters for natural TTS
+        val speechForTts = cleanSpeech
+            .replace("**", "")
+            .replace("*", "")
+            .replace("###", "")
+            .replace("##", "")
+            .replace("#", "")
+            .replace("```", "")
+            .trim()
+
+        if (!matchedJsonStr.isNullOrBlank()) {
             return try {
-                val json = JSONObject(jsonStr)
+                val json = JSONObject(matchedJsonStr)
                 val type = json.optString("action_type")
-                val payload = json.optJSONObject("payload")
+                val payload = json.optJSONObject("payload") ?: JSONObject()
                 ParsedActionResult(
-                    speechText = speechOnly,
+                    speechText = speechForTts,
                     actionType = type,
                     actionPayload = payload
                 )
             } catch (e: Exception) {
                 ParsedActionResult(
-                    speechText = speechOnly,
+                    speechText = speechForTts,
                     actionType = null,
                     actionPayload = null
                 )
             }
         }
+
         return ParsedActionResult(
-            speechText = rawText.trim(),
+            speechText = speechForTts,
             actionType = null,
             actionPayload = null
         )
@@ -65,7 +88,7 @@ object ActionDispatcherHelper {
                     val title = payload.optString("title", "HatırlaGit Alarm")
                     val message = payload.optString("message", title)
 
-                    // 1. Android Alarm Clock Intent
+                    // 1. Android Native AlarmClock Intent
                     val alarmIntent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
                         putExtra(AlarmClock.EXTRA_HOUR, hour)
                         putExtra(AlarmClock.EXTRA_MINUTES, minute)
@@ -77,7 +100,7 @@ object ActionDispatcherHelper {
                         context.startActivity(alarmIntent)
                     }
 
-                    // 2. HatırlaGit Room DB Kaydı
+                    // 2. HatırlaGit Room DB Kaydı & Alarm Servisi
                     val cal = Calendar.getInstance().apply {
                         set(Calendar.HOUR_OF_DAY, hour)
                         set(Calendar.MINUTE, minute)
@@ -92,7 +115,7 @@ object ActionDispatcherHelper {
                         title = title,
                         dueDatetime = sdf.format(cal.time),
                         dueDateMillis = cal.timeInMillis,
-                        customNote = "Yapay Zeka Antigravity tarafından sesle oluşturuldu.",
+                        customNote = "Antigravity tarafından sesle oluşturuldu.",
                         encryptedMetadata = "{}",
                         actionStep = "SOUND_CLASSIC_BELL"
                     )
@@ -104,7 +127,7 @@ object ActionDispatcherHelper {
                 }
 
                 "CREATE_EVENT" -> {
-                    val title = payload.optString("title", "Randevu / Etkinlik")
+                    val title = payload.optString("title", "Randevu")
                     val description = payload.optString("description", "")
                     val startMillis = payload.optLong("startTimeMillis", System.currentTimeMillis() + 3600000L)
                     val endMillis = payload.optLong("endTimeMillis", startMillis + 3600000L)
@@ -119,7 +142,6 @@ object ActionDispatcherHelper {
                     }
                     context.startActivity(intent)
 
-                    // HatırlaGit Veritabanına da Ekle
                     val sdf = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale("tr", "TR"))
                     val reminder = ReminderEntity(
                         category = "RANDEVU",
@@ -132,7 +154,7 @@ object ActionDispatcherHelper {
                     )
                     AppDatabase.getDatabase(context).reminderDao().insertReminder(reminder)
 
-                    return@withContext "📅 Etkinlik takviminize kaydedildi: $title"
+                    return@withContext "📅 Etkinlik takviminize işlendi: $title"
                 }
 
                 "SEND_WHATSAPP" -> {
@@ -147,7 +169,7 @@ object ActionDispatcherHelper {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     context.startActivity(intent)
-                    return@withContext "💬 WhatsApp mesajı hazırlandı."
+                    return@withContext "💬 WhatsApp mesajı açıldı."
                 }
 
                 "OPEN_MAPS" -> {
@@ -155,7 +177,7 @@ object ActionDispatcherHelper {
                     val lat = payload.optDouble("lat", 0.0)
                     val lng = payload.optDouble("lng", 0.0)
                     NearbyPlacesHelper.openGoogleMapsNavigation(context, query, lat, lng, query)
-                    return@withContext "🗺️ Harita açıldı: $query"
+                    return@withContext "🗺️ Google Haritalar açıldı: $query"
                 }
 
                 "POST_INSTAGRAM" -> {
@@ -186,11 +208,11 @@ object ActionDispatcherHelper {
                     return@withContext "Telefon numarası bulunamadı."
                 }
 
-                else -> "Bilinmeyen eylem türü."
+                else -> "Eylem tamamlandı."
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            return@withContext "Eylem gerçekleştirilemedi: ${e.localizedMessage}"
+            return@withContext "Eylem hatası: ${e.localizedMessage}"
         }
     }
 }
