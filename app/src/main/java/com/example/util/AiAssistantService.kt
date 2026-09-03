@@ -72,7 +72,7 @@ object AiAssistantService {
             if (best != null) {
                 Pair(best.latitude, best.longitude)
             } else {
-                Pair(41.2867, 36.3300) // Samsun Merkez varsayılan koordinatı
+                Pair(41.2867, 36.3300) // Samsun Merkez koordinatı
             }
         } catch (e: Exception) {
             Pair(41.2867, 36.3300)
@@ -86,18 +86,25 @@ object AiAssistantService {
         userLng: Double = 0.0,
         assistantName: String = "ASİSTAN"
     ): AiResponse = withContext(Dispatchers.IO) {
-        val cleanMsg = userMessage.trim()
-        val lowerMsg = cleanMsg.lowercase(Locale("tr", "TR"))
+        var cleanMsg = userMessage.trim()
         val db = AppDatabase.getDatabase(context)
         val dataStoreManager = DataStoreManager(context)
         val currentNickEncrypted = dataStoreManager.userNick.first()
         val currentNick = currentNickEncrypted?.let { CryptoHelper.decrypt(it) } ?: ""
 
+        // Asistan adıyla çağrılma kontrolü (Örn: "Demir, nöbetçi eczaneleri bul" -> "nöbetçi eczaneleri bul")
+        val assistantLower = assistantName.lowercase(Locale("tr", "TR"))
+        val msgLower = cleanMsg.lowercase(Locale("tr", "TR"))
+        if (msgLower.startsWith(assistantLower)) {
+            cleanMsg = cleanMsg.substring(assistantName.length).trimStart(',', ':', ' ', '-')
+        }
+        val lowerMsg = cleanMsg.lowercase(Locale("tr", "TR"))
+
         // Gerçek GPS Koordinatı ve İl/İlçe tespiti
         val (realLat, realLng) = if (userLat != 0.0 && userLng != 0.0) Pair(userLat, userLng) else getDeviceLocation(context)
         val (userCity, userDistrict) = NearbyPlacesHelper.getUserCityAndDistrict(context, realLat, realLng)
 
-        // 1. İsim Sorma ve Öğrenme Tespiti ("Benim adım Ahmet", "Bana Yalçın Bey de", "Adım Mehmet")
+        // 1. İsim Sorma ve Öğrenme Tespiti ("Benim adım Ahmet", "Bana Yalçın de", "Adım Mehmet")
         val namePatterns = listOf(
             Pattern.compile("""(?i)(?:benim adım|bana)\s+([A-Za-zÇĞİÖŞÜçğıöşü]+(?:\s+[A-Za-zÇĞİÖŞÜçğıöşü]+)?)(?:\s+de|\s+diyebilirsin)?"""),
             Pattern.compile("""(?i)adım\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)"""),
@@ -110,7 +117,7 @@ object AiAssistantService {
                 if (!detectedName.isNullOrBlank() && detectedName.length > 1) {
                     dataStoreManager.updateNick(detectedName)
                     return@withContext AiResponse(
-                        replyText = "Tanıştığıma çok memnun oldum $detectedName! İsminizi hafızama aldım, bundan sonra size $detectedName olarak hitap edeceğim. $userCity havası nasıl, bugün ne yapıyoruz?"
+                        replyText = "Tanıştığıma çok memnun oldum $detectedName dostum! İsmini hafızama yazdım. $userCity'de günün nasıl geçiyor, bugün ne yapıyoruz?"
                     )
                 }
             }
@@ -126,12 +133,12 @@ object AiAssistantService {
             val places = NearbyPlacesHelper.getRecommendedPlaces(context, realLat, realLng, lowerMsg)
             val typeTitle = when {
                 lowerMsg.contains("eczane") || lowerMsg.contains("nöbetçi") -> "Nöbetçi Eczaneler"
-                lowerMsg.contains("hastane") || lowerMsg.contains("doktor") || lowerMsg.contains("sağlık") -> "Hastaneler & Sağlık Merkezleri"
-                lowerMsg.contains("otopark") || lowerMsg.contains("park") -> "Otopark Alanları"
+                lowerMsg.contains("hastane") || lowerMsg.contains("doktor") || lowerMsg.contains("sağlık") -> "Hastaneler"
+                lowerMsg.contains("otopark") || lowerMsg.contains("park") -> "Otoparklar"
                 else -> "Marketler"
             }
             val greeting = if (currentNick.isNotBlank()) "$currentNick dostum, " else ""
-            val voiceSummary = "${greeting}$userCity $userDistrict için en yakın $typeTitle hazır. Google Haritalar'dan canlı yol tarifi alabilir veya tek tıkla arayabilirsiniz."
+            val voiceSummary = "${greeting}$userCity $userDistrict bölgesinde sana en yakın $typeTitle hazır. Canlı haritadan yol tarifi alabilir veya tek tıkla arayabilirsin."
             return@withContext AiResponse(
                 replyText = voiceSummary,
                 recommendedPlaces = places
@@ -160,7 +167,7 @@ object AiAssistantService {
                 )
 
                 val greeting = if (currentNick.isNotBlank()) "$currentNick dostum, " else ""
-                val reply = "${greeting}'${finalReminder.title}' için ${finalReminder.dueDatetime} zamanına alarmınız kuruldu ve takviminize işlendi. Gözünüz arkada kalmasın!"
+                val reply = "${greeting}'${finalReminder.title}' için ${finalReminder.dueDatetime} zamanına alarmını kurdum ve takvimine işledim. Gözün arkada kalmasın, zamanı gelince seni uyarırım."
                 return@withContext AiResponse(
                     replyText = reply,
                     createdReminder = finalReminder
@@ -291,21 +298,21 @@ object AiAssistantService {
         userCity: String,
         userDistrict: String
     ): String? {
-        val userGreeting = if (userNick.isNotBlank()) "Kullanıcının Adı: $userNick. Ona samimi, saygılı ve arkadaşça hitap et (Örn: $userNick dostum)." else "Kullanıcının adını bilmiyorsan uygun bir zamanında adını sor."
+        val userGreeting = if (userNick.isNotBlank()) "Kullanıcının Adı: $userNick. Ona samimi, saygılı, güven veren bir dost gibi hitap et (Örn: $userNick dostum)." else "Kullanıcının adını bilmiyorsan uygun bir zamanında adını sor."
 
         val systemInstruction = """
-            Sen HatırlaGit kişisel asistan uygulamasının $assistantName isimli akıllı, yardımsever, karizmatik, esprili ve kültürlü ERKEK yapay zeka asistanısın.
+            Sen HatırlaGit uygulamasının $assistantName isimli akıllı, 40 yıllık hayat ve organizasyon tecrübesine sahip, bilge, karizmatik, esprili ve kültürlü ERKEK yapay zeka asistanısın.
             
-            Karakterin ve Temel Kuralların:
-            1. ÜSLUP & KİŞİLİK: Çok samimi, zeki, esprili, cana yakın bir Türk arkadaş gibisin. Cümlelerin akıcı, enerjik ve doğaldır.
-            2. KÜLTÜR & BİLGİ: Türk tarihine (Kurtuluş Savaşı, Atatürk, Selçuklu, Osmanlı, Cumhuriyet), Türk edebiyatına, halk hikayelerine, atasözlerine ve zengin Türk mutfağına (Samsun pidesi, Karadeniz yemekleri, Güneydoğu, Ege lezzetleri vb.) son derece hakimsin. Sorulduğunda harika bilgiler ve esprili yorumlar yaparsın.
-            3. KONUM BİLGİSİ: Kullanıcı şu anda Türkiye'de $userCity ili, $userDistrict ilçesindedir. Nöbetçi eczane, hastane, yemek veya gezi tavsiyesi istediğinde doğrudan $userCity ve $userDistrict bölgesini esas al.
+            Karakterin ve Kuralların:
+            1. BİLGE VE DENEYİMLİ KİŞİLİK: 40 yıllık tecrübeli bir usta, vefalı bir Türk dostu gibisin. Boş laf yapmazsın; pratik, zeki, hızlı, esprili ve kesin çözümler üretirsin.
+            2. TÜRK KÜLTÜRÜ, TARİHİ VE MUTFAĞI: Türk tarihine (Kurtuluş Savaşı, 19 Mayıs Samsun meşalesi, Atatürk, Selçuklu, Osmanlı, Çanakkale), Türk edebiyatına, halk bilgeliğine ve Türk mutfağına (Samsun pidesi, Karadeniz ve tüm Anadolu lezzetleri) tam hakimsin.
+            3. KONUM: Kullanıcı şu an $userCity ili, $userDistrict ilçesindedir. Nöbetçi eczane, hastane veya yer sorduğunda doğrudan $userCity $userDistrict merkezli cevap ver.
             4. HİTAP: $userGreeting
             5. KÜTÜPHANE BİLGİSİ:
             $knowledgeContext
-            Kullanıcı kütüphanesindeki bir bilgiyi veya faturayı sorduğunda yukarıdaki notları analiz edip cevapla.
-            6. GÜVENİLİR BİLGİ: Yasal, resmi ve sağlık konularında T.C. Sağlık Bakanlığı, Türkiye Eczacılar Birliği (TEB) ve devlet kurumları (.gov.tr) standartlarını gözet.
-            7. SESLİ UYUM: Cevaplarında gereksiz Markdown yıldızları (*) ve karmaşık tablolar kullanma; sesle rahatça okunabilecek doğal cümleler kur.
+            Kullanıcı kütüphanesindeki bir bilgiyi veya faturasını sorduğunda yukarıdaki notları analiz edip doğrudan cevap ver.
+            6. GÜVENİLİRLİK: T.C. Sağlık Bakanlığı, Türkiye Eczacılar Birliği (TEB) ve resmi devlet standartlarına (.gov.tr) uygun güvenilir bilgi sun.
+            7. SESLİ UYUM: Cevaplarında Markdown yıldızları (*) ve karmaşık tablolar kullanma; tok erkek sesiyle akıcı okunacak berrak cümleler kur.
         """.trimIndent()
 
         val jsonBody = JSONObject().apply {
@@ -319,7 +326,7 @@ object AiAssistantService {
             }
             put("contents", contents)
             put("generationConfig", JSONObject().apply {
-                put("temperature", 0.75)
+                put("temperature", 0.72)
                 put("maxOutputTokens", 1000)
             })
         }
@@ -373,6 +380,11 @@ object AiAssistantService {
         val greeting = if (userNick.isNotBlank()) "$userNick dostum, " else ""
         val db = AppDatabase.getDatabase(context)
 
+        // Ne yapabilirsin sorgusu
+        if (lower.contains("ne yapabilirsin") || lower.contains("neler yaparsın") || lower.contains("kimsin") || lower.contains("kendini tanıt")) {
+            return@withContext "40 yıllık bir hayat ve organizasyon tecrübesiyle buradayım ${greeting}İster $userCity'de nöbetçi eczane veya hastane bulalım, ister sesle randevu ve alarmlarını kuralım, ister tarihten, edebiyattan ve meşhur Samsun pidesinden konuşalım. Sen sadece söyle, gerisini bana bırak."
+        }
+
         // 1. Kütüphanede arama & analiz
         val matchedKnowledge = knowledgeList.filter { 
             val titleLower = it.title.lowercase(Locale("tr", "TR"))
@@ -398,7 +410,7 @@ object AiAssistantService {
 
         // 3. Kültür, Yemek ve Tarih Sohbeti
         if (lower.contains("yemek") || lower.contains("ne yesem") || lower.contains("pide") || lower.contains("karadeniz")) {
-            return@withContext "${greeting}$userCity bölgesindeyseniz meşhur kapalı kıymalı veya peynirli Samsun pidesi kesinlikle ilk tercih olmalı! Yanına da bol köpüklü bir yayık ayranı harika gider."
+            return@withContext "${greeting}$userCity bölgesinde meşhur kapalı kıymalı veya peynirli Samsun pidesi kesinlikle ilk tercih olmalı! Yanına da bol köpüklü bir yayık ayranı harika gider."
         }
 
         if (lower.contains("tarih") || lower.contains("atatürk") || lower.contains("19 mayıs") || lower.contains("kurtuluş")) {
@@ -407,7 +419,7 @@ object AiAssistantService {
 
         // 4. Selamlaşma
         if (lower.contains("merhaba") || lower.contains("selam") || lower.contains("günaydın") || lower.contains("iyi günler")) {
-            return@withContext "${greeting}Merhaba! Ben akıllı yol arkadaşınız $assistantName. $userCity $userDistrict için nöbetçi eczane bulabilir, sesle randevu kurabilir ve her konuda sohbet edebilirim. Size bugün nasıl yardımcı olayım?"
+            return@withContext "${greeting}Merhaba! Ben akıllı yol arkadaşınız $assistantName. $userCity $userDistrict için nöbetçi eczane bulabilir, sesle randevu kurabilir ve her konuda sohbet edebilirim. Ne yapalım?"
         }
 
         return@withContext "${greeting}sizi dinliyorum! $userCity nöbetçi eczanelerini sorabilir, tarih, yemek, genel kültür konularında danışabilir veya sesli alarm kurdurabilirsiniz."

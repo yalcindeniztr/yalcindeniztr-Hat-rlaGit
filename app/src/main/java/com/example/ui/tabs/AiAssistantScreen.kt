@@ -172,7 +172,7 @@ fun AiAssistantScreen(
                                         .padding(horizontal = 5.dp, vertical = 1.dp)
                                 ) {
                                     Text(
-                                        text = "v1.1.1",
+                                        text = "v1.1.2",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color(0xFF7C3AED)
@@ -383,40 +383,35 @@ fun AiAssistantScreen(
 
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    // 🌟 BÜYÜK YUVARLAK "DİNLEMEYE BAŞLA" / "DİNLEMEYİ DURDUR" BUTONU
+                    // 🌟 BÜYÜK YUVARLAK "SENİ DİNLİYORUM" BUTONU (TEK TIKLA DOĞRUDAN DİNLEME)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Button(
                             onClick = {
-                                if (isListening) {
-                                    isListening = false
-                                } else {
-                                    isListening = true
-                                    startVoiceRecognition("Dinliyorum, lütfen Türkçe konuşun...")
-                                }
+                                val promptText = if (decryptedNick.isNotBlank()) "Seni dinliyorum $decryptedNick..." else "Seni dinliyorum..."
+                                startVoiceRecognition(promptText)
                             },
                             modifier = Modifier
                                 .fillMaxWidth(0.92f)
-                                .height(44.dp)
-                                .scale(if (isListening) pulseScale else 1f),
-                            shape = RoundedCornerShape(22.dp),
+                                .height(46.dp),
+                            shape = RoundedCornerShape(23.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isListening) Color(0xFFDC2626) else Color(0xFF8B5CF6)
+                                containerColor = Color(0xFF8B5CF6)
                             ),
                             elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
                         ) {
                             Icon(
-                                imageVector = if (isListening) Icons.Default.MicOff else Icons.Default.Mic,
+                                imageVector = Icons.Default.Mic,
                                 contentDescription = null,
                                 tint = Color.White,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (isListening) "🛑 Dinlemeyi Durdur & Sor" else "🎙️ Dinlemeye Başla (Sesli Konuş)",
-                                fontSize = 12.sp,
+                                text = if (decryptedNick.isNotBlank()) "🎙️ Seni Dinliyorum $decryptedNick..." else "🎙️ Seni Dinliyorum...",
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
