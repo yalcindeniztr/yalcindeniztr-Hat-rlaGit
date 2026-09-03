@@ -57,6 +57,7 @@ data class ChatMessage(
     val sender: String, // "USER" or "AI"
     val text: String,
     val recommendedPlaces: List<NearbyPlace> = emptyList(),
+    val actionSummary: String? = null,
     val timestamp: Long = System.currentTimeMillis()
 )
 
@@ -111,12 +112,14 @@ fun AiAssistantScreen(
                 val response = AiAssistantService.processUserMessage(
                     context = context,
                     userMessage = recognizedText,
-                    assistantName = assistantName
+                    assistantName = assistantName,
+                    conversationHistory = messages.toList()
                 )
                 val aiMsg = ChatMessage(
                     sender = "AI",
                     text = response.replyText,
-                    recommendedPlaces = response.recommendedPlaces
+                    recommendedPlaces = response.recommendedPlaces,
+                    actionSummary = response.actionSummary
                 )
                 messages.add(aiMsg)
                 isProcessing = false
@@ -172,7 +175,7 @@ fun AiAssistantScreen(
                                         .padding(horizontal = 5.dp, vertical = 1.dp)
                                 ) {
                                     Text(
-                                        text = "v1.1.2",
+                                        text = "v1.1.3",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = Color(0xFF7C3AED)
@@ -298,12 +301,14 @@ fun AiAssistantScreen(
                                                 val response = AiAssistantService.processUserMessage(
                                                     context = context,
                                                     userMessage = promptAction,
-                                                    assistantName = assistantName
+                                                    assistantName = assistantName,
+                                                    conversationHistory = messages.toList()
                                                 )
                                                 val aiMsg = ChatMessage(
                                                     sender = "AI",
                                                     text = response.replyText,
-                                                    recommendedPlaces = response.recommendedPlaces
+                                                    recommendedPlaces = response.recommendedPlaces,
+                                                    actionSummary = response.actionSummary
                                                 )
                                                 messages.add(aiMsg)
                                                 isProcessing = false
@@ -356,12 +361,14 @@ fun AiAssistantScreen(
                                         val response = AiAssistantService.processUserMessage(
                                             context = context,
                                             userMessage = textToSend,
-                                            assistantName = assistantName
+                                            assistantName = assistantName,
+                                            conversationHistory = messages.toList()
                                         )
                                         val aiMsg = ChatMessage(
                                             sender = "AI",
                                             text = response.replyText,
-                                            recommendedPlaces = response.recommendedPlaces
+                                            recommendedPlaces = response.recommendedPlaces,
+                                            actionSummary = response.actionSummary
                                         )
                                         messages.add(aiMsg)
                                         isProcessing = false
@@ -564,6 +571,26 @@ fun ChatMessageItem(message: ChatMessage) {
                     lineHeight = 18.sp,
                     color = if (isUser) Color.White else Slate900,
                     fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
+        // Action Executed Summary Badge (if any)
+        if (!message.actionSummary.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Box(
+                modifier = Modifier
+                    .padding(start = 34.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFFDCFCE7))
+                    .border(1.dp, Color(0xFF86EFAC), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 9.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = message.actionSummary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF166534)
                 )
             }
         }

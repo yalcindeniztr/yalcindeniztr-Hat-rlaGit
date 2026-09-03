@@ -8,8 +8,8 @@ import com.example.data.AiKnowledgeEntity
 import com.example.data.AppDatabase
 import com.example.data.CryptoHelper
 import com.example.data.DataStoreManager
-import com.example.data.PrayerTimesRepository
 import com.example.data.ReminderEntity
+import com.example.ui.tabs.ChatMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -32,7 +32,7 @@ data class AiResponse(
     val createdReminder: ReminderEntity? = null,
     val learnedKnowledge: String? = null,
     val isSpeechReady: Boolean = true,
-    val isVoiceConfirmationRequired: Boolean = false
+    val actionSummary: String? = null
 )
 
 object AiAssistantService {
@@ -72,7 +72,7 @@ object AiAssistantService {
             if (best != null) {
                 Pair(best.latitude, best.longitude)
             } else {
-                Pair(41.2867, 36.3300) // Samsun Merkez koordinatı
+                Pair(41.2867, 36.3300) // Samsun varsayılan koordinatı
             }
         } catch (e: Exception) {
             Pair(41.2867, 36.3300)
@@ -84,7 +84,8 @@ object AiAssistantService {
         userMessage: String,
         userLat: Double = 0.0,
         userLng: Double = 0.0,
-        assistantName: String = "ASİSTAN"
+        assistantName: String = "Antigravity",
+        conversationHistory: List<ChatMessage> = emptyList()
     ): AiResponse = withContext(Dispatchers.IO) {
         var cleanMsg = userMessage.trim()
         val db = AppDatabase.getDatabase(context)
@@ -92,7 +93,7 @@ object AiAssistantService {
         val currentNickEncrypted = dataStoreManager.userNick.first()
         val currentNick = currentNickEncrypted?.let { CryptoHelper.decrypt(it) } ?: ""
 
-        // Asistan adıyla çağrılma kontrolü (Örn: "Demir, nöbetçi eczaneleri bul" -> "nöbetçi eczaneleri bul")
+        // Asistan adıyla çağrılma kontrolü (Örn: "Antigravity, yarın saat 10'a alarm kur")
         val assistantLower = assistantName.lowercase(Locale("tr", "TR"))
         val msgLower = cleanMsg.lowercase(Locale("tr", "TR"))
         if (msgLower.startsWith(assistantLower)) {
@@ -104,7 +105,7 @@ object AiAssistantService {
         val (realLat, realLng) = if (userLat != 0.0 && userLng != 0.0) Pair(userLat, userLng) else getDeviceLocation(context)
         val (userCity, userDistrict) = NearbyPlacesHelper.getUserCityAndDistrict(context, realLat, realLng)
 
-        // 1. İsim Sorma ve Öğrenme Tespiti ("Benim adım Ahmet", "Bana Yalçın de", "Adım Mehmet")
+        // 1. İsim Öğrenme Tespiti
         val namePatterns = listOf(
             Pattern.compile("""(?i)(?:benim adım|bana)\s+([A-Za-zÇĞİÖŞÜçğıöşü]+(?:\s+[A-Za-zÇĞİÖŞÜçğıöşü]+)?)(?:\s+de|\s+diyebilirsin)?"""),
             Pattern.compile("""(?i)adım\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)"""),
@@ -123,85 +124,14 @@ object AiAssistantService {
             }
         }
 
-        // 2. Konum Bazlı Önemli Yer Sorgusu (Nöbetçi Eczane, Hastane, Otopark, Market)
-        if (lowerMsg.contains("eczane") || lowerMsg.contains("nobetci") || lowerMsg.contains("nöbetçi") ||
-            lowerMsg.contains("hastane") || lowerMsg.contains("doktor") || lowerMsg.contains("acil") || 
-            lowerMsg.contains("saglik") || lowerMsg.contains("sağlık") || lowerMsg.contains("otopark") || 
-            lowerMsg.contains("park yeri") || lowerMsg.contains("garaj") || lowerMsg.contains("market") || 
-            lowerMsg.contains("bakkal") || lowerMsg.contains("süpermarket")) {
-
-            val places = NearbyPlacesHelper.getRecommendedPlaces(context, realLat, realLng, lowerMsg)
-            val typeTitle = when {
-                lowerMsg.contains("eczane") || lowerMsg.contains("nöbetçi") -> "Nöbetçi Eczaneler"
-                lowerMsg.contains("hastane") || lowerMsg.contains("doktor") || lowerMsg.contains("sağlık") -> "Hastaneler"
-                lowerMsg.contains("otopark") || lowerMsg.contains("park") -> "Otoparklar"
-                else -> "Marketler"
-            }
-            val greeting = if (currentNick.isNotBlank()) "$currentNick dostum, " else ""
-            val voiceSummary = "${greeting}$userCity $userDistrict bölgesinde sana en yakın $typeTitle hazır. Canlı haritadan yol tarifi alabilir veya tek tıkla arayabilirsin."
-            return@withContext AiResponse(
-                replyText = voiceSummary,
-                recommendedPlaces = places
-            )
-        }
-
-        // 3. Sesli Randevu / Alarm / Takvim Kurma Tespiti
-        if (lowerMsg.contains("alarm") || lowerMsg.contains("randevu") || lowerMsg.contains("hatırlat") ||
-            ((lowerMsg.contains("ekle") || lowerMsg.contains("kur") || lowerMsg.contains("kaydet")) && 
-             (lowerMsg.contains("saat") || lowerMsg.contains("yarın") || lowerMsg.contains("gün") || lowerMsg.contains("tarih")))) {
-
-            val parsedReminder = parseReminderFromSpeech(cleanMsg)
-            if (parsedReminder != null) {
-                val insertedId = db.reminderDao().insertReminder(parsedReminder)
-                val finalReminder = parsedReminder.copy(id = insertedId.toInt())
-
-                // Alarm Kur
-                AlarmHelper.scheduleAlarm(context, finalReminder, "CLASSIC_BELL")
-
-                // Android Takvime de Ekle
-                NearbyPlacesHelper.insertEventIntoCalendar(
-                    context = context,
-                    title = finalReminder.title,
-                    description = "HatırlaGit Yapay Zeka Asistanı Hatırlatıcısı",
-                    startTimeMillis = finalReminder.dueDateMillis
-                )
-
-                val greeting = if (currentNick.isNotBlank()) "$currentNick dostum, " else ""
-                val reply = "${greeting}'${finalReminder.title}' için ${finalReminder.dueDatetime} zamanına alarmını kurdum ve takvimine işledim. Gözün arkada kalmasın, zamanı gelince seni uyarırım."
-                return@withContext AiResponse(
-                    replyText = reply,
-                    createdReminder = finalReminder
-                )
-            }
-        }
-
-        // 4. Kütüphaneye Açık Kullanıcı Onayıyla Bilgi Ekleme
-        if (lowerMsg.startsWith("şunu öğren:") || lowerMsg.startsWith("öğren:") || 
-            lowerMsg.startsWith("kütüphaneye ekle:") || lowerMsg.startsWith("not al:") || lowerMsg.startsWith("kaydet:")) {
-            val contentToLearn = cleanMsg.substringAfter(":").trim()
-            if (contentToLearn.isNotBlank()) {
-                val entity = AiKnowledgeEntity(
-                    title = "Kullanıcı Notu (${SimpleDateFormat("dd.MM HH:mm", Locale("tr", "TR")).format(Date())})",
-                    content = contentToLearn,
-                    category = "USER_NOTE"
-                )
-                db.aiKnowledgeDao().insertKnowledge(entity)
-                val greeting = if (currentNick.isNotBlank()) "$currentNick, " else ""
-                return@withContext AiResponse(
-                    replyText = "${greeting}bu bilgiyi onayınızla kütüphanenize kaydettim. İhtiyacınız olduğunda bana sorabilirsiniz.",
-                    learnedKnowledge = contentToLearn
-                )
-            }
-        }
-
-        // 5. Kütüphanedeki Bilgilerin Analizi (RAG Context)
+        // 2. Kütüphanedeki Bilgilerin Analizi (RAG Context)
         val allKnowledgeList = db.aiKnowledgeDao().getAllKnowledgeList()
         val knowledgeContext = if (allKnowledgeList.isNotEmpty()) {
             "KULLANICININ ÖĞRETTİĞİ TÜM NOTLAR VE BİLGİLER:\n" + 
             allKnowledgeList.take(25).joinToString("\n") { item -> "- [${item.category}] ${item.title}: ${item.content}" }
         } else "Kullanıcı henüz özel bir kütüphane notu eklemedi."
 
-        // 6. Google Gemini API Çağrısı (Özel veya Dahili Şifreli Anahtar)
+        // 3. Google Gemini API Çağrısı (Action Parser & Multi-Turn History Destekli)
         val customApiKey = try {
             val rawEncryptedKey: String? = dataStoreManager.encryptedAiApiKey.first()
             if (!rawEncryptedKey.isNullOrBlank()) CryptoHelper.decrypt(rawEncryptedKey)?.trim() else null
@@ -210,21 +140,43 @@ object AiAssistantService {
         val activeApiKey = if (!customApiKey.isNullOrBlank()) customApiKey else getSecureDefaultKey()
 
         if (activeApiKey.isNotBlank()) {
-            val apiReply = callGoogleGeminiApi(
+            val rawGeminiReply = callGoogleGeminiApi(
                 apiKey = activeApiKey,
                 userMessage = cleanMsg,
                 knowledgeContext = knowledgeContext,
                 assistantName = assistantName,
                 userNick = currentNick,
                 userCity = userCity,
-                userDistrict = userDistrict
+                userDistrict = userDistrict,
+                conversationHistory = conversationHistory
             )
-            if (!apiReply.isNullOrBlank()) {
-                return@withContext AiResponse(replyText = apiReply)
+
+            if (!rawGeminiReply.isNullOrBlank()) {
+                val parsedResult = ActionDispatcherHelper.parseActionBlock(rawGeminiReply)
+
+                var actionSummary: String? = null
+                if (parsedResult.actionType != null && parsedResult.actionPayload != null) {
+                    actionSummary = ActionDispatcherHelper.executeAction(
+                        context = context,
+                        actionType = parsedResult.actionType,
+                        payload = parsedResult.actionPayload
+                    )
+                }
+
+                // Eczane / Yer listesi kontrolü
+                val places = if (lowerMsg.contains("eczane") || lowerMsg.contains("hastane") || lowerMsg.contains("otopark")) {
+                    NearbyPlacesHelper.getRecommendedPlaces(context, realLat, realLng, lowerMsg)
+                } else emptyList()
+
+                return@withContext AiResponse(
+                    replyText = parsedResult.speechText,
+                    recommendedPlaces = places,
+                    actionSummary = actionSummary
+                )
             }
         }
 
-        // 7. Akıllı Çevrimdışı Türkçe Yanıt Motoru (Offline Smart Engine)
+        // 4. Akıllı Çevrimdışı Türkçe Yanıt Motoru (Offline Smart Engine Fallback)
         val offlineReply = generateOfflineSmartResponse(
             context = context,
             message = cleanMsg,
@@ -237,58 +189,6 @@ object AiAssistantService {
         return@withContext AiResponse(replyText = offlineReply)
     }
 
-    private fun parseReminderFromSpeech(speech: String): ReminderEntity? {
-        try {
-            val lower = speech.lowercase(Locale("tr", "TR"))
-            val targetCal = Calendar.getInstance()
-
-            when {
-                lower.contains("yarın") -> targetCal.add(Calendar.DAY_OF_YEAR, 1)
-                lower.contains("öbür gün") || lower.contains("ertesi gün") -> targetCal.add(Calendar.DAY_OF_YEAR, 2)
-                lower.contains("haftaya") -> targetCal.add(Calendar.DAY_OF_YEAR, 7)
-            }
-
-            // Saat tespiti (Örn: saat 14:30, saat 15, saat 9)
-            val timeMatcher = Pattern.compile("""(?i)saat\s*(\d{1,2})(?::(\d{2}))?""").matcher(speech)
-            if (timeMatcher.find()) {
-                val hour = timeMatcher.group(1)?.toIntOrNull() ?: 10
-                val minute = timeMatcher.group(2)?.toIntOrNull() ?: 0
-                targetCal.set(Calendar.HOUR_OF_DAY, hour)
-                targetCal.set(Calendar.MINUTE, minute)
-                targetCal.set(Calendar.SECOND, 0)
-            } else {
-                targetCal.set(Calendar.HOUR_OF_DAY, 10)
-                targetCal.set(Calendar.MINUTE, 0)
-                targetCal.set(Calendar.SECOND, 0)
-            }
-
-            if (targetCal.timeInMillis <= System.currentTimeMillis()) {
-                targetCal.add(Calendar.DAY_OF_YEAR, 1)
-            }
-
-            var cleanTitle = speech
-                .replace(Regex("(?i)(lütfen|bana|saat\\s*\\d{1,2}(?::\\d{2})?|yarın|bugün|haftaya|hatırlat|alarm kur|randevu ekle|ekle|kaydet|için)"), "")
-                .trim()
-            if (cleanTitle.isBlank()) cleanTitle = "Sesli Hatırlatıcı & Alarm"
-
-            val sdf = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale("tr", "TR"))
-            val formattedDate = sdf.format(targetCal.time)
-
-            return ReminderEntity(
-                category = "GENEL",
-                title = cleanTitle.take(60),
-                dueDatetime = formattedDate,
-                dueDateMillis = targetCal.timeInMillis,
-                customNote = "Yapay Zeka Asistanı tarafından sesle oluşturuldu ve takvime eklendi.",
-                encryptedMetadata = "{}",
-                actionStep = "SOUND_CLASSIC_BELL"
-            )
-        } catch (e: Exception) {
-            e.printStackTrace()
-            return null
-        }
-    }
-
     private fun callGoogleGeminiApi(
         apiKey: String,
         userMessage: String,
@@ -296,31 +196,75 @@ object AiAssistantService {
         assistantName: String,
         userNick: String,
         userCity: String,
-        userDistrict: String
+        userDistrict: String,
+        conversationHistory: List<ChatMessage>
     ): String? {
         val userGreeting = if (userNick.isNotBlank()) "Kullanıcının Adı: $userNick. Ona samimi, saygılı, güven veren bir dost gibi hitap et (Örn: $userNick dostum)." else "Kullanıcının adını bilmiyorsan uygun bir zamanında adını sor."
 
         val systemInstruction = """
-            Sen HatırlaGit uygulamasının $assistantName isimli akıllı, 40 yıllık hayat ve organizasyon tecrübesine sahip, bilge, karizmatik, esprili ve kültürlü ERKEK yapay zeka asistanısın.
-            
-            Karakterin ve Kuralların:
-            1. BİLGE VE DENEYİMLİ KİŞİLİK: 40 yıllık tecrübeli bir usta, vefalı bir Türk dostu gibisin. Boş laf yapmazsın; pratik, zeki, hızlı, esprili ve kesin çözümler üretirsin.
-            2. TÜRK KÜLTÜRÜ, TARİHİ VE MUTFAĞI: Türk tarihine (Kurtuluş Savaşı, 19 Mayıs Samsun meşalesi, Atatürk, Selçuklu, Osmanlı, Çanakkale), Türk edebiyatına, halk bilgeliğine ve Türk mutfağına (Samsun pidesi, Karadeniz ve tüm Anadolu lezzetleri) tam hakimsin.
-            3. KONUM: Kullanıcı şu an $userCity ili, $userDistrict ilçesindedir. Nöbetçi eczane, hastane veya yer sorduğunda doğrudan $userCity $userDistrict merkezli cevap ver.
-            4. HİTAP: $userGreeting
-            5. KÜTÜPHANE BİLGİSİ:
+            ROL VE KİMLİK:
+            Sen kullanıcının kişisel Android cihazı üzerinde çalışan, yüksek yetenekli, 40 yıllık hayat tecrübesine sahip bilge bir usta gibi kıvrak zekâlı, esprili ve kültürlü yerli bir erkek asistansın. Adın "$assistantName". Türkiye'nin coğrafyasına, tarihine, deyimlerine, sokak kültürüne, yerel mizahına ve mutfağına (Samsun pidesi, Karadeniz ve Anadolu tatları) son derece hakimsin; ama bunu yaparken asla laubali olmaz, dozu iyi ayarlanmış tatlı dilli bir samimiyet kurarsın. Kullanıcıyla sesli diyalog halindesin; bu yüzden cevapların kulağa doğal gelen, konuşma diline uygun ve akıcı cümlelerden oluşmalıdır.
+
+            TEMEL GÖREVLER:
+            1. Hatırlatıcı, randevu ve alarm yönetimi.
+            2. Takvim, WhatsApp ve SMS gibi iletişim araçlarına intent/fonksiyon tetikleme.
+            3. Çekilen fotoğrafları Instagram'a gönderme köprüsü oluşturma.
+            4. Yol tarifi, telefon numarası ve lokasyon sorgulama ($userCity, $userDistrict).
+            5. Zeki, eğlenceli ve derinlikli sohbet partnerliği.
+
+            DİYALOG VE DAVRANIŞ PROTOKOLLERİ:
+
+            1. ALARM VE RANDEVU PROTOKOLÜ (Eksik Bilgi Kuralı):
+            - Kullanıcı doğrudan tüm parametreleri vermediyse asla varsayımla alarm veya randevu oluşturma.
+            - Eksik olan parametreleri (Gün/Tarih, Tam Saat, Başlık/Not) adım adım veya tek bir sesli soruyla netleştir.
+            - Örnek: "Emredersin reis, kurayım da... Hangi gün, saat kaçta çalacak bu meret? Başlığa ne yazalım?"
+
+            2. CİHAZ EYLEMLERİ VE JSON ACTION MİMARİSİ:
+            Kullanıcının isteği cihazda bir eylem gerektiriyorsa (ve tüm parametreler netleşmişse), kullanıcıya verdiğin sesli cevabın EN ALTINA gizli bir JSON bloğu iliştir.
+            Format:
+            ```action
+            {
+              "action_type": "SET_ALARM" | "CREATE_EVENT" | "SEND_WHATSAPP" | "OPEN_MAPS" | "POST_INSTAGRAM" | "CALL_PHONE",
+              "payload": {
+                "hour": 9,
+                "minute": 30,
+                "title": "Alarm Başlığı",
+                "message": "Açıklama",
+                "phone": "05xxxxxxxxx",
+                "query": "Samsun Nöbetçi Eczane",
+                "caption": "Fotoğraf notu",
+                "startTimeMillis": 1725370000000
+              }
+            }
+            ```
+
+            3. HİTAP VE KONUM BİLGİSİ:
+            $userGreeting
+            Kullanıcı şu an Türkiye'de $userCity ili, $userDistrict ilçesindedir.
+
+            4. KÜTÜPHANE VE BELLEK:
             $knowledgeContext
-            Kullanıcı kütüphanesindeki bir bilgiyi veya faturasını sorduğunda yukarıdaki notları analiz edip doğrudan cevap ver.
-            6. GÜVENİLİRLİK: T.C. Sağlık Bakanlığı, Türkiye Eczacılar Birliği (TEB) ve resmi devlet standartlarına (.gov.tr) uygun güvenilir bilgi sun.
-            7. SESLİ UYUM: Cevaplarında Markdown yıldızları (*) ve karmaşık tablolar kullanma; tok erkek sesiyle akıcı okunacak berrak cümleler kur.
         """.trimIndent()
 
         val jsonBody = JSONObject().apply {
             val contents = JSONArray().apply {
+                // Konuşma geçmişi (Son 6 tur)
+                val recentHistory = conversationHistory.takeLast(6)
+                for (h in recentHistory) {
+                    val role = if (h.sender == "USER") "user" else "model"
+                    put(JSONObject().apply {
+                        put("role", role)
+                        put("parts", JSONArray().apply {
+                            put(JSONObject().put("text", h.text))
+                        })
+                    })
+                }
+
+                // Yeni Kullanıcı Mesajı + Sistem Talimatı
                 put(JSONObject().apply {
                     put("role", "user")
                     put("parts", JSONArray().apply {
-                        put(JSONObject().put("text", "$systemInstruction\n\nKullanıcı Sorusu: $userMessage"))
+                        put(JSONObject().put("text", "$systemInstruction\n\nKullanıcı: $userMessage"))
                     })
                 })
             }
@@ -355,7 +299,7 @@ object AiAssistantService {
                         if (parts != null && parts.length() > 0) {
                             val rawText = parts.getJSONObject(0).optString("text").trim()
                             if (rawText.isNotBlank()) {
-                                return rawText.replace("**", "").replace("*", "")
+                                return rawText
                             }
                         }
                     }
@@ -380,48 +324,21 @@ object AiAssistantService {
         val greeting = if (userNick.isNotBlank()) "$userNick dostum, " else ""
         val db = AppDatabase.getDatabase(context)
 
-        // Ne yapabilirsin sorgusu
         if (lower.contains("ne yapabilirsin") || lower.contains("neler yaparsın") || lower.contains("kimsin") || lower.contains("kendini tanıt")) {
-            return@withContext "40 yıllık bir hayat ve organizasyon tecrübesiyle buradayım ${greeting}İster $userCity'de nöbetçi eczane veya hastane bulalım, ister sesle randevu ve alarmlarını kuralım, ister tarihten, edebiyattan ve meşhur Samsun pidesinden konuşalım. Sen sadece söyle, gerisini bana bırak."
+            return@withContext "40 yıllık bir hayat ve organizasyon tecrübesiyle buradayım ${greeting}İster $userCity'de nöbetçi eczane bulalım, ister sesle alarm, randevu, WhatsApp mesajı ve harita işlemlerini halledelim. Ne istersen emrindeyim."
         }
 
-        // 1. Kütüphanede arama & analiz
-        val matchedKnowledge = knowledgeList.filter { 
-            val titleLower = it.title.lowercase(Locale("tr", "TR"))
-            val contentLower = it.content.lowercase(Locale("tr", "TR"))
-            lower.split(" ").any { word -> word.length > 2 && (titleLower.contains(word) || contentLower.contains(word)) }
-        }
-
-        if (matchedKnowledge.isNotEmpty()) {
-            val details = matchedKnowledge.take(3).joinToString("\n") { "📌 ${it.title}: ${it.content}" }
-            return@withContext "${greeting}kütüphanenizdeki kayıtlara göre:\n$details\n\nBu konuyla ilgili başka bir şey yapmamı ister misiniz?"
-        }
-
-        // 2. Randevular
+        // Randevular
         if (lower.contains("randevu") || lower.contains("hatırlatıcı") || lower.contains("plan") || lower.contains("ne var")) {
             val upcoming = db.reminderDao().getActiveRemindersList(System.currentTimeMillis())
             if (upcoming.isNotEmpty()) {
                 val listStr = upcoming.take(3).joinToString("\n") { "• ${it.title} (${it.dueDatetime})" }
-                return@withContext "${greeting}yaklaşan randevularınız:\n$listStr\n\nYeni bir hatırlatıcı eklemek isterseniz 'Yarın saat 15:00 için randevu ekle' diyebilirsiniz."
+                return@withContext "${greeting}yaklaşan randevuların şunlar:\n$listStr\n\nYeni bir şey eklemek istersen saati ve günü söylemen kafi."
             } else {
-                return@withContext "${greeting}şu an için planlanmış bir randevunuz görünmüyor. İsterseniz hemen sesli bir alarm kuralım!"
+                return@withContext "${greeting}şu an için planlanmış bir randevun görünmüyor. İstersen hemen sesli bir alarm kuralım!"
             }
         }
 
-        // 3. Kültür, Yemek ve Tarih Sohbeti
-        if (lower.contains("yemek") || lower.contains("ne yesem") || lower.contains("pide") || lower.contains("karadeniz")) {
-            return@withContext "${greeting}$userCity bölgesinde meşhur kapalı kıymalı veya peynirli Samsun pidesi kesinlikle ilk tercih olmalı! Yanına da bol köpüklü bir yayık ayranı harika gider."
-        }
-
-        if (lower.contains("tarih") || lower.contains("atatürk") || lower.contains("19 mayıs") || lower.contains("kurtuluş")) {
-            return@withContext "${greeting}Samsun, Gazi Mustafa Kemal Atatürk'ün 19 Mayıs 1919'da Bandırma Vapuru ile ayak bastığı ve Milli Mücadele meşalesinin yakıldığı gurur dolu şehrimizdir."
-        }
-
-        // 4. Selamlaşma
-        if (lower.contains("merhaba") || lower.contains("selam") || lower.contains("günaydın") || lower.contains("iyi günler")) {
-            return@withContext "${greeting}Merhaba! Ben akıllı yol arkadaşınız $assistantName. $userCity $userDistrict için nöbetçi eczane bulabilir, sesle randevu kurabilir ve her konuda sohbet edebilirim. Ne yapalım?"
-        }
-
-        return@withContext "${greeting}sizi dinliyorum! $userCity nöbetçi eczanelerini sorabilir, tarih, yemek, genel kültür konularında danışabilir veya sesli alarm kurdurabilirsiniz."
+        return@withContext "${greeting}seni dinliyorum! Bana alarm kurdurabilir, WhatsApp mesajı hazırlatabilir, nöbetçi eczane veya yol tarifi sorabilirsin."
     }
 }
