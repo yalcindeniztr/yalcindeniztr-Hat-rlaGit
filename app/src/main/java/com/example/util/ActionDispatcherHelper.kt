@@ -1,4 +1,4 @@
-﻿package com.example.util
+package com.example.util
 
 import android.content.Context
 import android.content.Intent
@@ -206,6 +206,20 @@ object ActionDispatcherHelper {
                         return@withContext "📞 Arama başlatılıyor: $phone"
                     }
                     return@withContext "Telefon numarası bulunamadı."
+                }
+
+                "SAVE_PARK_LOCATION" -> {
+                    val lat = payload.optDouble("lat", 0.0)
+                    val lng = payload.optDouble("lng", 0.0)
+                    val dataStoreManager = com.example.data.DataStoreManager(context)
+                    if (lat != 0.0 && lng != 0.0) {
+                        dataStoreManager.saveParkedCarLocation(
+                            lat = lat.toString(),
+                            lng = lng.toString(),
+                            time = System.currentTimeMillis()
+                        )
+                    }
+                    return@withContext "🚗 Park konumunuz başarıyla kaydedildi."
                 }
 
                 else -> "Eylem tamamlandı."

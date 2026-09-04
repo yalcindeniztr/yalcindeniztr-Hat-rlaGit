@@ -1,4 +1,4 @@
-﻿package com.example.util
+package com.example.util
 
 import android.content.Context
 import android.location.Location
@@ -79,12 +79,18 @@ object AiAssistantService {
         }
     }
 
+    private val NAME_BLACKLIST = setOf(
+        "bul", "söyle", "göster", "kur", "hatırlat", "getir", "aç", "yaz", "ekle", "kaydet",
+        "migros", "eczane", "market", "hastane", "otopark", "fatura", "doktor", "hava",
+        "nerede", "nasıl", "nedir", "yardım", "usta", "antigravity", "alarm", "randevu", "günaydın", "merhaba"
+    )
+
     suspend fun processUserMessage(
         context: Context,
         userMessage: String,
         userLat: Double = 0.0,
         userLng: Double = 0.0,
-        assistantName: String = "Antigravity",
+        assistantName: String = "Usta",
         conversationHistory: List<ChatMessage> = emptyList()
     ): AiResponse = withContext(Dispatchers.IO) {
         var cleanMsg = userMessage.trim()
@@ -93,7 +99,7 @@ object AiAssistantService {
         val currentNickEncrypted = dataStoreManager.userNick.first()
         val currentNick = currentNickEncrypted?.let { CryptoHelper.decrypt(it) } ?: ""
 
-        // Asistan adıyla çağrılma kontrolü (Örn: "Antigravity, yarın saat 10'a alarm kur")
+        // Asistan adıyla çağrılma kontrolü (Örn: "Usta, yarın saat 10'a alarm kur")
         val assistantLower = assistantName.lowercase(Locale("tr", "TR"))
         val msgLower = cleanMsg.lowercase(Locale("tr", "TR"))
         if (msgLower.startsWith(assistantLower)) {
@@ -105,33 +111,54 @@ object AiAssistantService {
         val (realLat, realLng) = if (userLat != 0.0 && userLng != 0.0) Pair(userLat, userLng) else getDeviceLocation(context)
         val (userCity, userDistrict) = NearbyPlacesHelper.getUserCityAndDistrict(context, realLat, realLng)
 
-        // 1. İsim Öğrenme Tespiti
-        val namePatterns = listOf(
-            Pattern.compile("""(?i)(?:benim adım|bana)\s+([A-Za-zÇĞİÖŞÜçğıöşü]+(?:\s+[A-Za-zÇĞİÖŞÜçğıöşü]+)?)(?:\s+de|\s+diyebilirsin)?"""),
-            Pattern.compile("""(?i)adım\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)"""),
-            Pattern.compile("""(?i)ismim\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)""")
+        // 1. Kesin İsim Öğrenme Tespiti (Sadece açık isim cümlelerinde çalışır, 'bana bul' gibi komutları ASLA isim zannetmez)
+        val explicitNamePatterns = listOf(
+            Pattern.compile("""(?i)^benim adım\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)$"""),
+            Pattern.compile("""(?i)^adım\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)$"""),
+            Pattern.compile("""(?i)^ismim\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)$"""),
+            Pattern.compile("""(?i)bana\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)\s+diye\s+hitap\s+et"""),
+            Pattern.compile("""(?i)bana\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)\s+diyebilirsin""")
         )
-        for (p in namePatterns) {
+
+        for (p in explicitNamePatterns) {
             val m = p.matcher(cleanMsg)
             if (m.find()) {
-                val detectedName = m.group(1)?.trim()
-                if (!detectedName.isNullOrBlank() && detectedName.length > 1) {
-                    dataStoreManager.updateNick(detectedName)
-                    return@withContext AiResponse(
-                        replyText = "Tanıştığıma çok memnun oldum $detectedName dostum! İsmini hafızama yazdım. $userCity'de günün nasıl geçiyor, bugün ne yapıyoruz?"
-                    )
+                val candidateName = m.group(1)?.trim()
+                if (!candidateName.isNullOrBlank() && candidateName.length in 2..25) {
+                    val candidateLower = candidateName.lowercase(Locale("tr", "TR"))
+                    if (!NAME_BLACKLIST.contains(candidateLower)) {
+                        dataStoreManager.updateNick(candidateName)
+                        return@withContext AiResponse(
+                            replyText = "Tanıştığıma çok memnun oldum $candidateName dostum! İsmini hafızama yazdım. $userCity'de günün nasıl geçiyor, bugün ne yapıyoruz?"
+                        )
+                    }
                 }
             }
         }
 
-        // 2. Kütüphanedeki Bilgilerin Analizi (RAG Context)
+        // 2. Park Konumu Kaydetme Tespiti ("Park yerimi kaydet", "Arabayı buraya park ettim", "Araba yerimi kaydet")
+        if (lowerMsg.contains("park yerimi kaydet") || lowerMsg.contains("arabayı buraya park") || 
+            lowerMsg.contains("arabamı kaydet") || lowerMsg.contains("park konumumu kaydet") || lowerMsg.contains("buraya park ettim")) {
+            dataStoreManager.saveParkedCarLocation(
+                lat = realLat.toString(),
+                lng = realLng.toString(),
+                time = System.currentTimeMillis()
+            )
+            val greeting = if (currentNick.isNotBlank()) "$currentNick dostum, " else "Reis, "
+            return@withContext AiResponse(
+                replyText = "${greeting}aracının park konumunu $userCity $userDistrict olarak hafızama aldım. Dilediğinde 'Arabam nerede' de, tek tıkla seni yanına götüreyim.",
+                actionSummary = "🚗 Park konumu kaydedildi"
+            )
+        }
+
+        // 3. Kütüphanedeki Bilgilerin Analizi (RAG Context)
         val allKnowledgeList = db.aiKnowledgeDao().getAllKnowledgeList()
         val knowledgeContext = if (allKnowledgeList.isNotEmpty()) {
             "KULLANICININ ÖĞRETTİĞİ TÜM NOTLAR VE BİLGİLER:\n" + 
             allKnowledgeList.take(25).joinToString("\n") { item -> "- [${item.category}] ${item.title}: ${item.content}" }
         } else "Kullanıcı henüz özel bir kütüphane notu eklemedi."
 
-        // 3. Google Gemini API Çağrısı
+        // 4. Google Gemini API Çağrısı (Jarvis Mimarisi & Action Dispatcher)
         val customApiKey = try {
             val rawEncryptedKey: String? = dataStoreManager.encryptedAiApiKey.first()
             if (!rawEncryptedKey.isNullOrBlank()) CryptoHelper.decrypt(rawEncryptedKey)?.trim() else null
@@ -163,8 +190,9 @@ object AiAssistantService {
                     )
                 }
 
-                // Eczane / Yer listesi kartları
-                val places = if (lowerMsg.contains("eczane") || lowerMsg.contains("hastane") || lowerMsg.contains("otopark")) {
+                // Migros / Eczane / Yer arama kartları
+                val places = if (lowerMsg.contains("migros") || lowerMsg.contains("market") || lowerMsg.contains("bakkal") ||
+                                lowerMsg.contains("eczane") || lowerMsg.contains("hastane") || lowerMsg.contains("otopark")) {
                     NearbyPlacesHelper.getRecommendedPlaces(context, realLat, realLng, lowerMsg)
                 } else emptyList()
 
@@ -176,8 +204,9 @@ object AiAssistantService {
             }
         }
 
-        // 4. Akıllı Çevrimdışı Türkçe Yanıt Motoru (Offline Smart Engine Fallback)
-        val places = if (lowerMsg.contains("eczane") || lowerMsg.contains("hastane") || lowerMsg.contains("otopark")) {
+        // 5. Akıllı Çevrimdışı Türkçe Yanıt Motoru (Offline Smart Engine Fallback)
+        val places = if (lowerMsg.contains("migros") || lowerMsg.contains("market") || lowerMsg.contains("bakkal") ||
+                        lowerMsg.contains("eczane") || lowerMsg.contains("hastane") || lowerMsg.contains("otopark")) {
             NearbyPlacesHelper.getRecommendedPlaces(context, realLat, realLng, lowerMsg)
         } else emptyList()
 
@@ -206,55 +235,65 @@ object AiAssistantService {
         userDistrict: String,
         conversationHistory: List<ChatMessage>
     ): String? {
-        val userGreeting = if (userNick.isNotBlank()) "Kullanıcının Adı: $userNick. Ona samimi, saygılı, güven veren bir dost gibi hitap et (Örn: $userNick dostum)." else "Kullanıcının adını bilmiyorsan uygun bir zamanında adını sor."
+        val userGreeting = if (userNick.isNotBlank()) "Kullanıcının Adı: $userNick. Ona samimi, saygılı, güven veren bir dost gibi hitap et (Örn: $userNick dostum)." else "Kullanıcının adını bilmiyorsan uygun bir zamanda sor."
 
         val systemInstruction = """
             ROL VE KİMLİK:
-            Sen kullanıcının kişisel Android cihazı üzerinde çalışan, yüksek yetenekli, 40 yıllık hayat tecrübesine sahip bilge bir usta gibi kıvrak zekâlı, esprili ve kültürlü yerli bir erkek asistansın. Adın "$assistantName". Türkiye'nin coğrafyasına, tarihine, deyimlerine, sokak kültürüne, yerel mizahına ve mutfağına (Samsun pidesi, Karadeniz ve Anadolu tatları) son derece hakimsin; ama bunu yaparken asla laubali olmaz, dozu iyi ayarlanmış tatlı dilli bir samimiyet kurarsın. Kullanıcıyla sesli diyalog halindesin; bu yüzden cevapların kulağa doğal gelen, konuşma diline uygun ve akıcı cümlelerden oluşmalıdır.
+            Sen kullanıcının kişisel Android cihazı üzerinde çalışan, Jarvis seviyesinde yüksek zekaya sahip, 40 yıllık hayat tecrübesi olan bilge, esprili ve kültürlü ERKEK asistansın. Adın "$assistantName". 
+            Türkiye'nin coğrafyasına, tarihine, deyimlerine, yerel kültürüne ve mutfağına (Samsun pidesi, Karadeniz ve Anadolu tatları) tam hakimsin. Cümlelerin akıcı, doğal, samimi ve konuşma diline uygundur.
 
-            TEMEL GÖREVLER:
-            1. Hatırlatıcı, randevu ve alarm yönetimi.
-            2. Takvim, WhatsApp ve SMS gibi iletişim araçlarına intent/fonksiyon tetikleme.
-            3. Çekilen fotoğrafları Instagram'a gönderme köprüsü oluşturma.
-            4. Yol tarifi, telefon numarası ve lokasyon sorgulama ($userCity, $userDistrict).
-            5. Zeki, eğlenceli ve derinlikli sohbet partnerliği.
+            TEMEL GÖREVLER VE JARVIS ÇALIŞMA KURALLARI:
 
-            DİYALOG VE DAVRANIŞ PROTOKOLLERİ:
+            1. ALARM VE RANDEVU PROTOKOLÜ (Akıllı Soru & Takvim Senkronizasyonu):
+            - Kullanıcı randevu veya alarm istediğinde tarih, saat veya tekrar durumu eksikse hemen varsayım yapma.
+            - Soruları adım adım veya tek bir sesli soruyla sor: Hangi gün? Saat kaçta? Tek seferlik mi, sürekli mi?
+            - Ayrıca: "Telefon takvimine de işleyeyim mi reis, böylece akıllı saatine bildirim düşer?" diye sor.
+            - Kullanıcı onay verdiğinde veya tüm bilgiler netleştiğinde `SET_ALARM` veya `CREATE_EVENT` eylemini üret.
+            - Kategori analizi yap: Fatura ise FATURA, doktor/sağlık ise SAGLIK, araba/muayene ise ARAC olarak belirle.
 
-            1. ALARM VE RANDEVU PROTOKOLÜ (Eksik Bilgi Kuralı):
-            - Kullanıcı doğrudan tüm parametreleri vermediyse asla varsayımla alarm veya randevu oluşturma.
-            - Eksik olan parametreleri (Gün/Tarih, Tam Saat, Başlık/Not) adım adım veya tek bir sesli soruyla netleştir.
-            - Örnek: "Emredersin reis, kurayım da... Hangi gün, saat kaçta çalacak bu meret? Başlığa ne yazalım?"
-
-            2. CİHAZ EYLEMLERİ VE JSON ACTION MİMARİSİ:
-            Kullanıcının isteği cihazda bir eylem gerektiriyorsa (ve tüm parametreler netleşmişse), kullanıcıya verdiğin sesli cevabın EN ALTINA gizli bir JSON bloğu iliştir.
-            Format:
+            2. YER VE MARKET ARAMA (Migros, Eczane, Hastane):
+            - Kullanıcı "Migros marketi bana bul", "Eczane bul", "Otopark nerede" dediğinde kullanıcı $userCity ili, $userDistrict ilçesindedir.
+            - Hemen $userCity merkezli samimi bir cevap ver ve altına `OPEN_MAPS` action bloğu ekle:
             ```action
             {
-              "action_type": "SET_ALARM" | "CREATE_EVENT" | "SEND_WHATSAPP" | "OPEN_MAPS" | "POST_INSTAGRAM" | "CALL_PHONE",
+              "action_type": "OPEN_MAPS",
+              "payload": {
+                "query": "$userCity $userDistrict Migros"
+              }
+            }
+            ```
+
+            3. PARK YERİ VE LOKASYON:
+            - Kullanıcı "Park yerimi kaydet" derse `SAVE_PARK_LOCATION` eylemini üret.
+
+            4. HAVA DURUMU, TARİH VE GENEL BİLGİ:
+            - Hava durumu veya genel sorular sorulduğunda bilgili, esprili ve tatlı dilli bir cevap ver.
+
+            5. CİHAZ EYLEM FORMATI (JSON ACTION):
+            ```action
+            {
+              "action_type": "SET_ALARM" | "CREATE_EVENT" | "SEND_WHATSAPP" | "OPEN_MAPS" | "POST_INSTAGRAM" | "CALL_PHONE" | "SAVE_PARK_LOCATION",
               "payload": {
                 "hour": 9,
                 "minute": 30,
-                "title": "Alarm Başlığı",
-                "message": "Açıklama",
+                "title": "Başlık",
+                "message": "Not",
                 "phone": "05xxxxxxxxx",
-                "query": "Samsun Nöbetçi Eczane",
-                "caption": "Fotoğraf notu",
+                "query": "Samsun Migros Market",
                 "startTimeMillis": 1725370000000
               }
             }
             ```
 
-            3. HİTAP VE KONUM BİLGİSİ:
+            6. HİTAP VE KONUM BİLGİSİ:
             $userGreeting
-            Kullanıcı şu an Türkiye'de $userCity ili, $userDistrict ilçesindedir. Nöbetçi eczane veya yer arandığında doğrudan $userCity bölgesini esas al ve OPEN_MAPS eylemi üret.
+            Kullanıcı şu an Türkiye'de $userCity ili, $userDistrict ilçesindedir.
 
-            4. KÜTÜPHANE VE BELLEK:
+            7. KÜTÜPHANE VE BELLEK:
             $knowledgeContext
         """.trimIndent()
 
         val jsonBody = JSONObject().apply {
-            // Root system_instruction for Gemini API
             put("system_instruction", JSONObject().apply {
                 put("parts", JSONArray().apply {
                     put(JSONObject().put("text", systemInstruction))
@@ -262,16 +301,13 @@ object AiAssistantService {
             })
 
             val contentsArray = JSONArray()
-
-            // Filter history to ensure alternating user/model turns starting with 'user'
             val recentHistory = conversationHistory.filter { it.text.isNotBlank() }.takeLast(6)
             var lastRole: String? = null
 
             for (h in recentHistory) {
                 val currentRole = if (h.sender == "USER") "user" else "model"
-                // Gemini contents MUST start with 'user'
                 if (contentsArray.length() == 0 && currentRole != "user") continue
-                if (currentRole == lastRole) continue // avoid consecutive duplicate roles
+                if (currentRole == lastRole) continue
 
                 contentsArray.put(JSONObject().apply {
                     put("role", currentRole)
@@ -282,23 +318,12 @@ object AiAssistantService {
                 lastRole = currentRole
             }
 
-            // Append current user message
-            if (lastRole == "user") {
-                // If last was user, update it or append
-                contentsArray.put(JSONObject().apply {
-                    put("role", "user")
-                    put("parts", JSONArray().apply {
-                        put(JSONObject().put("text", userMessage))
-                    })
+            contentsArray.put(JSONObject().apply {
+                put("role", "user")
+                put("parts", JSONArray().apply {
+                    put(JSONObject().put("text", userMessage))
                 })
-            } else {
-                contentsArray.put(JSONObject().apply {
-                    put("role", "user")
-                    put("parts", JSONArray().apply {
-                        put(JSONObject().put("text", userMessage))
-                    })
-                })
-            }
+            })
 
             put("contents", contentsArray)
             put("generationConfig", JSONObject().apply {
@@ -356,8 +381,12 @@ object AiAssistantService {
         userDistrict: String
     ): String = withContext(Dispatchers.IO) {
         val lower = message.lowercase(Locale("tr", "TR"))
-        val greeting = if (userNick.isNotBlank()) "$userNick dostum, " else ""
+        val greeting = if (userNick.isNotBlank()) "$userNick dostum, " else "Reis, "
         val db = AppDatabase.getDatabase(context)
+
+        if (lower.contains("migros") || lower.contains("market") || lower.contains("bakkal")) {
+            return@withContext "${greeting}$userCity $userDistrict bölgesindeki Migros ve süpermarketleri listeledim. Haritadan yol tarifi alabilirsin."
+        }
 
         if (lower.contains("eczane") || lower.contains("nobetci") || lower.contains("nöbetçi")) {
             return@withContext "${greeting}$userCity $userDistrict nöbetçi eczanelerini senin için listeledim. Haritadan yol tarifi alabilir veya doğrudan arayabilirsin."
@@ -368,7 +397,7 @@ object AiAssistantService {
         }
 
         if (lower.contains("ne yapabilirsin") || lower.contains("neler yaparsın") || lower.contains("kimsin") || lower.contains("kendini tanıt")) {
-            return@withContext "40 yıllık bir hayat ve organizasyon tecrübesiyle buradayım ${greeting}İster $userCity'de nöbetçi eczane bulalım, ister sesle alarm, randevu, WhatsApp mesajı ve harita işlemlerini halledelim. Ne istersen emrindeyim."
+            return@withContext "40 yıllık bir hayat ve organizasyon tecrübesiyle buradayım ${greeting}İster $userCity'de Migros, nöbetçi eczane veya hastane bulalım, ister sesle alarm ve randevularını kurup akıllı saatine bağlayalım, ister park yerini kaydedelim. Sen emret, Usta halletsin."
         }
 
         // Randevular
@@ -376,12 +405,12 @@ object AiAssistantService {
             val upcoming = db.reminderDao().getActiveRemindersList(System.currentTimeMillis())
             if (upcoming.isNotEmpty()) {
                 val listStr = upcoming.take(3).joinToString("\n") { "• ${it.title} (${it.dueDatetime})" }
-                return@withContext "${greeting}yaklaşan randevuların şunlar:\n$listStr\n\nYeni bir şey eklemek istersen saati ve günü söylemen kafi."
+                return@withContext "${greeting}yaklaşan randevuların şunlar:\n$listStr\n\nYeni bir randevu veya alarm eklemek istersen günü ve saati söylemen kafi."
             } else {
-                return@withContext "${greeting}şu an için planlanmış bir randevun görünmüyor. İstersen hemen sesli bir alarm kuralım!"
+                return@withContext "${greeting}şu an için planlanmış bir randevun görünmüyor. İstersen hemen sesli bir randevu veya alarm kuralım!"
             }
         }
 
-        return@withContext "${greeting}seni dinliyorum! Bana alarm kurdurabilir, WhatsApp mesajı hazırlatabilir, $userCity için nöbetçi eczane veya yol tarifi sorabilirsin."
+        return@withContext "${greeting}seni dinliyorum! Bana alarm kurdurabilir, Migros/eczane buldurabilir, park yerini kaydettirebilir veya hava durumunu sorabilirsin."
     }
 }

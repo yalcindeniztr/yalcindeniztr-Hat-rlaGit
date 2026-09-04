@@ -48,6 +48,46 @@ object NearbyPlacesHelper {
         val (city, district) = getUserCityAndDistrict(context, userLat, userLng)
 
         return when {
+            q.contains("migros") -> {
+                listOf(
+                    NearbyPlace(
+                        id = "mg1",
+                        name = "$district Migros Süpermarket",
+                        type = "MARKET",
+                        typeLabel = "🛒 Migros Market",
+                        address = "$district Merkez Cad., $city",
+                        distanceMeters = 250,
+                        phone = "08502004000",
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Migros $district $city"
+                    ),
+                    NearbyPlace(
+                        id = "mg2",
+                        name = "$city Migros Jet",
+                        type = "MARKET",
+                        typeLabel = "⚡ Migros Jet",
+                        address = "$district Sahil Yolu, $city",
+                        distanceMeters = 520,
+                        phone = "08502004000",
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Migros Jet $city"
+                    ),
+                    NearbyPlace(
+                        id = "mg3",
+                        name = "$city 5M Migros AVM",
+                        type = "MARKET",
+                        typeLabel = "🏬 5M Migros Hipermarket",
+                        address = "$city Alışveriş Merkezi İçi",
+                        distanceMeters = 1400,
+                        phone = "08502004000",
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "5M Migros $city"
+                    )
+                )
+            }
             q.contains("eczane") || q.contains("nobetci") || q.contains("nöbetçi") -> {
                 listOf(
                     NearbyPlace(

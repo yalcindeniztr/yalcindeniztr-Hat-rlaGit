@@ -1,12 +1,14 @@
-package com.example.ui.tabs
+﻿package com.example.ui.tabs
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,10 +30,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -39,12 +45,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.AiKnowledgeEntity
 import com.example.ui.LifeAssistantViewModel
-import com.example.ui.components.EmbossedCard
-import com.example.ui.theme.OrangePrimary
-import com.example.ui.theme.Slate700
-import com.example.ui.theme.Slate800
-import com.example.ui.theme.Slate900
-import com.example.ui.theme.TurquoiseSecondary
 import com.example.util.AiAssistantService
 import com.example.util.NearbyPlace
 import com.example.util.NearbyPlacesHelper
@@ -60,6 +60,16 @@ data class ChatMessage(
     val actionSummary: String? = null,
     val timestamp: Long = System.currentTimeMillis()
 )
+
+// Sci-Fi Cyber Color Palette
+private val CyberBgDark = Color(0xFF030712)
+private val CyberBgMid = Color(0xFF090D1A)
+private val NeonCyan = Color(0xFF00F2FE)
+private val NeonBlue = Color(0xFF4FACFE)
+private val NeonPurple = Color(0xFFA855F7)
+private val NeonGreen = Color(0xFF10B981)
+private val CyberCardBg = Color(0xD90B132B)
+private val CyberCardUser = Color(0xDE1E293B)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,9 +95,9 @@ fun AiAssistantScreen(
 
     val initialGreeting = remember(decryptedNick, assistantName) {
         if (decryptedNick.isNotBlank()) {
-            "Merhaba $decryptedNick! Ben akıllı asistanınız $assistantName. Size nöbetçi eczane, hastane veya otopark bulabilir, sesle randevu ve alarm kurabilirim. Size nasıl yardımcı olabilirim?"
+            "NÃ¶ral baÄŸlantÄ± kuruldu $decryptedNick dostum! Ben $assistantName. Emrindeyim; mekan, alarm, randevu, harita veya genel sorularÄ±nÄ± bekliyorum."
         } else {
-            "Merhaba! Ben HatırlaGit Yapay Zeka Asistanınız $assistantName. Size daha iyi yardımcı olabilmem için adınızı öğrenebilir miyim?"
+            "Sistem aktif! Ben HatÄ±rlaGit Yapay Zeka Ã‡ekirdeÄŸi $assistantName. Sana Ã¶zel hitap edebilmem iÃ§in adÄ±nÄ± Ã¶ÄŸrenebilir miyim?"
         }
     }
 
@@ -132,163 +142,285 @@ fun AiAssistantScreen(
         }
     }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    // Sci-Fi Hologram Transitions & Rotations
+    val infiniteTransition = rememberInfiniteTransition(label = "scifi_hud")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = 1.15f,
+        targetValue = 1.12f,
         animationSpec = infiniteRepeatable(
-            animation = tween(600, easing = FastOutSlowInEasing),
+            animation = tween(1000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseScale"
     )
+    val ringRotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(8000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "ringRotation"
+    )
+    val counterRotation by infiniteTransition.animateFloat(
+        initialValue = 360f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(12000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "counterRotation"
+    )
 
     Scaffold(
-        containerColor = Color(0xFFF8FAFC),
+        containerColor = CyberBgDark,
         topBar = {
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        // 3D Hologram Avatar Core
                         Box(
                             modifier = Modifier
-                                .size(38.dp)
+                                .size(42.dp)
+                                .shadow(8.dp, CircleShape, spotColor = NeonCyan)
                                 .clip(CircleShape)
-                                .background(Brush.linearGradient(listOf(Color(0xFF8B5CF6), Color(0xFF6D28D9)))),
+                                .background(Brush.radialGradient(listOf(NeonCyan, NeonPurple, CyberBgDark))),
                             contentAlignment = Alignment.Center
                         ) {
+                            Canvas(modifier = Modifier.fillMaxSize().rotate(ringRotation)) {
+                                drawCircle(
+                                    color = NeonCyan,
+                                    radius = size.minDimension / 2.2f,
+                                    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+                                )
+                            }
                             Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = assistantName,
-                                    fontSize = 16.sp,
+                                    text = assistantName.uppercase(),
+                                    fontSize = 15.sp,
                                     fontWeight = FontWeight.Black,
-                                    color = Slate900
+                                    color = Color.White,
+                                    letterSpacing = 1.2.sp
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(6.dp))
-                                        .background(Color(0xFF8B5CF6).copy(alpha = 0.15f))
-                                        .padding(horizontal = 5.dp, vertical = 1.dp)
+                                        .background(NeonCyan.copy(alpha = 0.2f))
+                                        .border(1.dp, NeonCyan.copy(alpha = 0.6f), RoundedCornerShape(6.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
                                     Text(
-                                        text = "v1.1.4",
+                                        text = "v1.1.5",
                                         fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF7C3AED)
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = NeonCyan
                                     )
                                 }
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier
-                                        .size(7.dp)
+                                        .size(6.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFF10B981))
+                                        .background(if (isProcessing) NeonPurple else NeonGreen)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = if (decryptedNick.isNotBlank()) "Aktif • $decryptedNick" else "Google Gemini Destekli",
-                                    fontSize = 11.sp,
-                                    color = Color(0xFF059669),
-                                    fontWeight = FontWeight.Bold
+                                    text = if (isProcessing) "NÃ–RAL Ä°ÅLEM SÃœRÃœYOR..." else "QUANTUM JARVIS CORE : Ã‡EVRÄ°MÄ°Ã‡Ä°",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isProcessing) NeonPurple else NeonGreen,
+                                    letterSpacing = 0.5.sp
                                 )
                             }
                         }
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri", tint = Slate900)
+                    IconButton(
+                        onClick = onNavigateBack,
+                        modifier = Modifier
+                            .padding(start = 4.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.05f))
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri", tint = NeonCyan)
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.toggleAiVoiceResponses(!isVoiceResponsesEnabled) }) {
-                        Icon(
-                            imageVector = if (isVoiceResponsesEnabled) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
-                            contentDescription = "Sesli Yanıt",
-                            tint = if (isVoiceResponsesEnabled) Color(0xFF8B5CF6) else Slate700
-                        )
-                    }
-                    IconButton(onClick = { showKnowledgeDialog = true }) {
-                        Icon(Icons.Default.LocalLibrary, contentDescription = "Kütüphane", tint = Color(0xFF8B5CF6))
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFF1F5F9))
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .imePadding()
-        ) {
-            // Chat Messages List (Expanded weight)
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 6.dp)
-            ) {
-                items(messages, key = { it.id }) { msg ->
-                    ChatMessageItem(message = msg)
-                    Spacer(modifier = Modifier.height(10.dp))
-                }
-
-                if (isProcessing) {
-                    item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                    // Knowledge Vault Button
+                    IconButton(
+                        onClick = { showKnowledgeDialog = true },
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.05f))
+                    ) {
+                        BadgedBox(
+                            badge = {
+                                if (allKnowledge.isNotEmpty()) {
+                                    Badge(containerColor = NeonPurple, contentColor = Color.White) {
+                                        Text(allKnowledge.size.toString(), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
                         ) {
-                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color(0xFF8B5CF6), strokeWidth = 2.dp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Düşünüyor ve kütüphaneyi araştırıyor...", fontSize = 12.sp, color = Slate700, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
+                            Icon(Icons.Default.MenuBook, contentDescription = "Bellek", tint = NeonCyan)
                         }
                     }
+
+                    // Mute/Unmute TTS
+                    IconButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                viewModel.toggleAiVoiceResponses(!isVoiceResponsesEnabled)
+                            }
+                        },
+                        modifier = Modifier
+                            .padding(end = 4.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.05f))
+                    ) {
+                        Icon(
+                            if (isVoiceResponsesEnabled) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
+                            contentDescription = "Ses AÃ§/Kapat",
+                            tint = if (isVoiceResponsesEnabled) NeonCyan else Color.Gray
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = CyberBgMid
+                )
+            )
+        }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(CyberBgMid, CyberBgDark, CyberBgMid)
+                    )
+                )
+        ) {
+            // Ambient Sci-Fi Hologram Grid Background
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val gridSpacing = 40.dp.toPx()
+                val linePaint = NeonCyan.copy(alpha = 0.03f)
+                var x = 0f
+                while (x < size.width) {
+                    drawLine(linePaint, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1f)
+                    x += gridSpacing
+                }
+                var y = 0f
+                while (y < size.height) {
+                    drawLine(linePaint, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
+                    y += gridSpacing
                 }
             }
 
-            // Bottom Action Area (Pinned, 100% visible, safe from system navigation pill)
-            Surface(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth(),
-                color = Color(0xFFF1F5F9),
-                shadowElevation = 10.dp
+                    .fillMaxSize()
+                    .imePadding()
             ) {
+                // 3D Arc Reactor Holographic Visualizer (When few messages)
+                if (messages.size <= 2) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        SciFiHologramVisualizer(
+                            pulseScale = pulseScale,
+                            ringRotation = ringRotation,
+                            counterRotation = counterRotation,
+                            isListening = isListening,
+                            isProcessing = isProcessing
+                        )
+                    }
+                }
+
+                // Chat Messages Stream
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(top = 8.dp, bottom = 12.dp)
+                ) {
+                    items(messages, key = { it.id }) { message ->
+                        SciFiChatMessageItem(
+                            message = message,
+                            assistantName = assistantName,
+                            userNick = decryptedNick,
+                            onPlaceClick = { place ->
+                                NearbyPlacesHelper.openGoogleMapsNavigation(
+                                    context = context,
+                                    placeName = place.name,
+                                    lat = place.lat,
+                                    lng = place.lng,
+                                    searchQuery = place.searchQuery
+                                )
+                            },
+                            onCallClick = { phone ->
+                                NearbyPlacesHelper.makePhoneCall(context, phone)
+                            }
+                        )
+                    }
+
+                    if (isProcessing) {
+                        item {
+                            SciFiProcessingIndicator(assistantName = assistantName)
+                        }
+                    }
+                }
+
+                // Bottom Cyber Deck & Controls
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 20.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(CyberBgDark.copy(alpha = 0.8f), CyberBgMid, CyberBgDark)
+                            )
+                        )
+                        .border(
+                            1.dp,
+                            Brush.horizontalGradient(listOf(Color.Transparent, NeonCyan.copy(alpha = 0.4f), NeonPurple.copy(alpha = 0.4f), Color.Transparent)),
+                            RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                        )
+                        .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 16.dp)
                 ) {
-                    // Quick Action Prompt Chips
+                    // Quick Action Sci-Fi Chips
                     LazyRow(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 6.dp),
+                            .padding(bottom = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         val quickPrompts = listOf(
-                            "💊 Nöbetçi Eczane" to "Konumuma göre en yakın nöbetçi eczaneleri bul",
-                            "🏥 En Yakın Hastane" to "En yakın hastaneyi göster ve yol tarifi ver",
-                            "🅿️ Otopark Bul" to "Yakındaki otoparkları listele",
-                            "⏰ Sesli Alarm Kur" to "Yarın saat 09:00 için alarm kur",
-                            "📚 Bilgi Ekle" to "Şunu öğren: "
+                            "ğŸ›’ Migros Market" to "BugÃ¼n bana en yakÄ±n Migros marketi bul",
+                            "ğŸ’Š NÃ¶betÃ§i Eczane" to "Konumuma gÃ¶re en yakÄ±n nÃ¶betÃ§i eczaneleri bul",
+                            "ğŸš— Park Yerimi Kaydet" to "Park yerimi kaydet",
+                            "â° Randevu & Alarm" to "YarÄ±n saat 09:00 iÃ§in randevu oluÅŸtur",
+                            "ğŸ¥ En YakÄ±n Hastane" to "En yakÄ±n hastaneyi gÃ¶ster ve yol tarifi ver",
+                            "ğŸ“š Bilgi Ekle" to "Åunu Ã¶ÄŸren: "
                         )
                         items(quickPrompts) { (chipLabel, promptAction) ->
                             Box(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(Color.White)
-                                    .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(14.dp))
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF0F172A))
+                                    .border(1.dp, NeonCyan.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
                                     .clickable {
                                         if (promptAction.endsWith(": ")) {
                                             inputText = promptAction
@@ -319,14 +451,14 @@ fun AiAssistantScreen(
                                             }
                                         }
                                     }
-                                    .padding(horizontal = 9.dp, vertical = 4.dp)
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
                             ) {
-                                Text(text = chipLabel, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Slate800)
+                                Text(text = chipLabel, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = NeonCyan)
                             }
                         }
                     }
 
-                    // Input Text Row
+                    // Sci-Fi Text & Mic Input Row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -335,19 +467,22 @@ fun AiAssistantScreen(
                             value = inputText,
                             onValueChange = { inputText = it },
                             modifier = Modifier.weight(1f),
-                            placeholder = { Text("Asistanınıza sorun veya öğretin...", fontSize = 12.sp, color = Slate700) },
+                            placeholder = { Text("Usta'ya sor, emir ver veya Ã¶ÄŸret...", fontSize = 12.sp, color = Color(0xFF64748B)) },
                             maxLines = 2,
                             shape = RoundedCornerShape(20.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = Color.White,
-                                unfocusedContainerColor = Color.White,
-                                focusedBorderColor = Color(0xFF8B5CF6),
-                                unfocusedBorderColor = Color(0xFFCBD5E1)
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedContainerColor = Color(0xFF0F172A),
+                                unfocusedContainerColor = Color(0xFF0F172A),
+                                focusedBorderColor = NeonCyan,
+                                unfocusedBorderColor = Color(0xFF334155)
                             )
                         )
 
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
 
+                        // Futuristic Send Button
                         IconButton(
                             onClick = {
                                 if (inputText.isNotBlank()) {
@@ -373,6 +508,7 @@ fun AiAssistantScreen(
                                         messages.add(aiMsg)
                                         isProcessing = false
                                         listState.animateScrollToItem(messages.size - 1)
+
                                         if (isVoiceResponsesEnabled) {
                                             TtsHelper.speak(context, response.replyText)
                                         }
@@ -380,236 +516,236 @@ fun AiAssistantScreen(
                                 }
                             },
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(44.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF8B5CF6))
+                                .background(Brush.linearGradient(listOf(NeonCyan, NeonBlue)))
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Gönder", tint = Color.White, modifier = Modifier.size(17.dp))
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "GÃ¶nder", tint = CyberBgDark, modifier = Modifier.size(20.dp))
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                    // 🌟 BÜYÜK YUVARLAK "SENİ DİNLİYORUM" BUTONU (TEK TIKLA DOĞRUDAN DİNLEME)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center
+                    // 3D Arc Reactor Central Voice Mic Orb
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 2.dp),
+                        contentAlignment = Alignment.Center
                     ) {
                         Button(
                             onClick = {
-                                val promptText = if (decryptedNick.isNotBlank()) "Seni dinliyorum $decryptedNick..." else "Seni dinliyorum..."
-                                startVoiceRecognition(promptText)
+                                isListening = true
+                                val greetingPrompt = if (decryptedNick.isNotBlank()) "Seni dinliyorum $decryptedNick..." else "Seni dinliyorum..."
+                                if (isVoiceResponsesEnabled) {
+                                    TtsHelper.speak(context, greetingPrompt)
+                                }
+                                startVoiceRecognition(greetingPrompt)
                             },
                             modifier = Modifier
                                 .fillMaxWidth(0.92f)
-                                .height(46.dp),
-                            shape = RoundedCornerShape(23.dp),
+                                .height(52.dp)
+                                .scale(if (isListening) pulseScale else 1f)
+                                .shadow(12.dp, RoundedCornerShape(26.dp), spotColor = if (isListening) NeonPurple else NeonCyan),
+                            shape = RoundedCornerShape(26.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF8B5CF6)
+                                containerColor = if (isListening) NeonPurple else NeonCyan
                             ),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                            contentPadding = PaddingValues(0.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Mic,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (decryptedNick.isNotBlank()) "🎙️ Seni Dinliyorum $decryptedNick..." else "🎙️ Seni Dinliyorum...",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    if (isListening) Icons.Default.GraphicEq else Icons.Default.Mic,
+                                    contentDescription = null,
+                                    tint = CyberBgDark,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isListening) "ğŸ™ï¸ SES ALINIYOR (DÄ°NLENÄ°YOR)..." else if (decryptedNick.isNotBlank()) "ğŸ™ï¸ SENÄ° DÄ°NLÄ°YORUM ${decryptedNick.uppercase()}..." else "ğŸ™ï¸ SENÄ° DÄ°NLÄ°YORUM...",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = CyberBgDark,
+                                    letterSpacing = 0.8.sp
+                                )
+                            }
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(6.dp))
                 }
             }
         }
     }
 
-    // Knowledge Base Management Modal
     if (showKnowledgeDialog) {
-        var newFactInput by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showKnowledgeDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.LocalLibrary, contentDescription = null, tint = Color(0xFF8B5CF6))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("🧠 Asistan Kütüphanesi", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Slate900)
-                }
-            },
-            text = {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Asistanınızın analiz ettiği ve öğrendiği tüm notlar burada şifreli olarak saklanır. Asistanınıza yeni bilgiler öğretebilirsiniz.",
-                        fontSize = 12.sp,
-                        color = Slate700
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    OutlinedTextField(
-                        value = newFactInput,
-                        onValueChange = { newFactInput = it },
-                        label = { Text("Yeni Bilgi Öğret", fontSize = 12.sp) },
-                        placeholder = { Text("Örn: Su faturası abone no: 994812", fontSize = 11.sp) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Button(
-                        onClick = {
-                            if (newFactInput.isNotBlank()) {
-                                viewModel.addAiKnowledge(
-                                    title = "Kullanıcı Notu",
-                                    content = newFactInput.trim()
-                                )
-                                newFactInput = ""
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text("Kütüphaneye Ekle", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text("Kayıtlı Bilgiler (${allKnowledge.size})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate900)
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    LazyColumn(modifier = Modifier.heightIn(max = 200.dp)) {
-                        items(allKnowledge) { k ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .background(Color(0xFFF1F5F9), RoundedCornerShape(8.dp))
-                                    .padding(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(k.title, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Slate900)
-                                    Text(k.content, fontSize = 10.sp, color = Slate700)
-                                }
-                                IconButton(
-                                    onClick = { viewModel.deleteAiKnowledge(k.id) },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Sil", tint = Color(0xFFEF4444), modifier = Modifier.size(16.dp))
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showKnowledgeDialog = false }) {
-                    Text("Kapat", fontWeight = FontWeight.Bold, color = Color(0xFF8B5CF6))
-                }
-            }
+        SciFiKnowledgeDialog(
+            viewModel = viewModel,
+            knowledgeList = allKnowledge,
+            onDismiss = { showKnowledgeDialog = false }
         )
     }
 }
 
 @Composable
-fun ChatMessageItem(message: ChatMessage) {
+fun SciFiHologramVisualizer(
+    pulseScale: Float,
+    ringRotation: Float,
+    counterRotation: Float,
+    isListening: Boolean,
+    isProcessing: Boolean
+) {
+    Box(
+        modifier = Modifier
+            .size(110.dp)
+            .scale(if (isListening || isProcessing) pulseScale else 1f),
+        contentAlignment = Alignment.Center
+    ) {
+        // Outer Counter-Rotating Purple Arc Ring
+        Canvas(modifier = Modifier.fillMaxSize().rotate(counterRotation)) {
+            drawArc(
+                brush = Brush.sweepGradient(listOf(NeonPurple, Color.Transparent, NeonPurple)),
+                startAngle = 0f,
+                sweepAngle = 270f,
+                useCenter = false,
+                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+            )
+        }
+
+        // Inner Rotating Cyan Arc Ring
+        Canvas(modifier = Modifier.size(80.dp).rotate(ringRotation)) {
+            drawArc(
+                brush = Brush.sweepGradient(listOf(NeonCyan, Color.Transparent, NeonBlue, NeonCyan)),
+                startAngle = 45f,
+                sweepAngle = 250f,
+                useCenter = false,
+                style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+            )
+        }
+
+        // Central Hologram Quantum Core
+        Box(
+            modifier = Modifier
+                .size(46.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        listOf(
+                            if (isListening) NeonPurple else if (isProcessing) NeonBlue else NeonCyan,
+                            Color(0xFF0F172A)
+                        )
+                    )
+                )
+                .border(2.dp, NeonCyan, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                if (isListening) Icons.Default.GraphicEq else if (isProcessing) Icons.Default.HourglassTop else Icons.Default.AutoAwesome,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun SciFiChatMessageItem(
+    message: ChatMessage,
+    assistantName: String,
+    userNick: String,
+    onPlaceClick: (NearbyPlace) -> Unit,
+    onCallClick: (String) -> Unit
+) {
     val isUser = message.sender == "USER"
-    val context = LocalContext.current
 
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
+        // Header Tag [ USTA // NÃ–RAL BÄ°LGE ] or [ KULLANICI // SESLÄ° ]
         Row(
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 3.dp, start = if (isUser) 0.dp else 4.dp, end = if (isUser) 4.dp else 0.dp)
         ) {
-            if (!isUser) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(Brush.linearGradient(listOf(Color(0xFF8B5CF6), Color(0xFF6D28D9)))),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                }
-                Spacer(modifier = Modifier.width(6.dp))
-            }
+            Text(
+                text = if (isUser) "[ ${if (userNick.isNotBlank()) userNick.uppercase() else "KULLANICI"} // SESLÄ° GÄ°RDÄ° ]" else "[ $assistantName // NÃ–RAL PROTOKOL ]",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isUser) NeonGreen else NeonCyan,
+                letterSpacing = 0.8.sp
+            )
+        }
 
-            Box(
-                modifier = Modifier
-                    .widthIn(max = 290.dp)
-                    .clip(RoundedCornerShape(
+        // Message Box with Sci-Fi Hologram Border
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .clip(
+                    RoundedCornerShape(
                         topStart = 16.dp,
                         topEnd = 16.dp,
-                        bottomStart = if (isUser) 16.dp else 4.dp,
-                        bottomEnd = if (isUser) 4.dp else 16.dp
-                    ))
-                    .background(
-                        if (isUser) Brush.linearGradient(listOf(Color(0xFF2563EB), Color(0xFF1D4ED8)))
-                        else Brush.linearGradient(listOf(Color.White, Color(0xFFF8FAFC)))
+                        bottomStart = if (isUser) 16.dp else 2.dp,
+                        bottomEnd = if (isUser) 2.dp else 16.dp
                     )
-                    .border(
-                        width = 1.dp,
-                        color = if (isUser) Color.Transparent else Color(0xFFE2E8F0),
-                        shape = RoundedCornerShape(16.dp)
-                    )
-                    .padding(12.dp)
-            ) {
-                Text(
-                    text = message.text,
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp,
-                    color = if (isUser) Color.White else Slate900,
-                    fontWeight = FontWeight.Medium
                 )
-            }
+                .background(if (isUser) CyberCardUser else CyberCardBg)
+                .border(
+                    1.dp,
+                    if (isUser) NeonGreen.copy(alpha = 0.5f) else NeonCyan.copy(alpha = 0.4f),
+                    RoundedCornerShape(
+                        topStart = 16.dp,
+                        topEnd = 16.dp,
+                        bottomStart = if (isUser) 16.dp else 2.dp,
+                        bottomEnd = if (isUser) 2.dp else 16.dp
+                    )
+                )
+                .padding(12.dp)
+        ) {
+            Text(
+                text = message.text,
+                fontSize = 13.5.sp,
+                lineHeight = 20.sp,
+                color = Color.White,
+                fontWeight = FontWeight.Normal
+            )
         }
 
         // Action Executed Summary Badge (if any)
         if (!message.actionSummary.isNullOrBlank()) {
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Box(
                 modifier = Modifier
-                    .padding(start = 34.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFDCFCE7))
-                    .border(1.dp, Color(0xFF86EFAC), RoundedCornerShape(8.dp))
+                    .background(Color(0xFF064E3B))
+                    .border(1.dp, NeonGreen, RoundedCornerShape(8.dp))
                     .padding(horizontal = 9.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = message.actionSummary,
+                    text = "âš¡ ${message.actionSummary}",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF166534)
+                    color = NeonGreen
                 )
             }
         }
 
-        // Recommended Places Cards (if any)
+        // Recommended Places Cards (Migros, Eczane, Hastane, vb.)
         if (message.recommendedPlaces.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 34.dp),
+                modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 message.recommendedPlaces.forEach { place ->
-                    EmbossedCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        cornerRadius = 12.dp,
-                        elevation = 3.dp,
-                        contentPadding = 10.dp
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFF0F172A))
+                            .border(1.dp, NeonCyan.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                            .padding(12.dp)
                     ) {
                         Column {
                             Row(
@@ -621,57 +757,57 @@ fun ChatMessageItem(message: ChatMessage) {
                                     text = place.name,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Slate900,
-                                    modifier = Modifier.weight(1f)
+                                    color = Color.White
                                 )
-                                Text(
-                                    text = "${place.distanceMeters} m",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFF2563EB)
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(NeonCyan.copy(alpha = 0.2f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = place.typeLabel,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = NeonCyan
+                                    )
+                                }
                             }
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "${place.typeLabel} • ${place.address}",
-                                fontSize = 11.sp,
-                                color = Slate700
+                                text = "ğŸ“ ${place.address}",
+                                fontSize = 11.5.sp,
+                                color = Color(0xFF94A3B8)
                             )
-                            Spacer(modifier = Modifier.height(6.dp))
-
+                            Spacer(modifier = Modifier.height(8.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                // Google Maps Navigation Button
                                 Button(
-                                    onClick = {
-                                        NearbyPlacesHelper.openGoogleMapsNavigation(context, place.name, place.lat, place.lng, place.searchQuery)
-                                    },
+                                    onClick = { onPlaceClick(place) },
                                     modifier = Modifier.weight(1f).height(34.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                                    colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
                                     shape = RoundedCornerShape(8.dp),
-                                    contentPadding = PaddingValues(horizontal = 6.dp)
+                                    contentPadding = PaddingValues(0.dp)
                                 ) {
-                                    Icon(Icons.Default.Directions, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                    Icon(Icons.Default.Navigation, contentDescription = null, tint = CyberBgDark, modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Yol Tarifi", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                    Text("HARÄ°TA & YOL TARÄ°FÄ°", fontSize = 10.sp, fontWeight = FontWeight.Black, color = CyberBgDark)
                                 }
 
-                                // Phone Call Button (if phone exists)
                                 if (!place.phone.isNullOrBlank()) {
-                                    Button(
-                                        onClick = {
-                                            NearbyPlacesHelper.makePhoneCall(context, place.phone)
-                                        },
-                                        modifier = Modifier.weight(1f).height(34.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                                    OutlinedButton(
+                                        onClick = { onCallClick(place.phone) },
+                                        modifier = Modifier.weight(0.7f).height(34.dp),
                                         shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 6.dp)
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, NeonGreen),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonGreen),
+                                        contentPadding = PaddingValues(0.dp)
                                     ) {
-                                        Icon(Icons.Default.Phone, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                        Icon(Icons.Default.Phone, contentDescription = null, tint = NeonGreen, modifier = Modifier.size(14.dp))
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Ara", fontSize = 11.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                                        Text("ARA", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -681,4 +817,172 @@ fun ChatMessageItem(message: ChatMessage) {
             }
         }
     }
+}
+
+@Composable
+fun SciFiProcessingIndicator(assistantName: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF1E1B4B))
+                .border(1.dp, NeonPurple, RoundedCornerShape(12.dp))
+                .padding(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    color = NeonPurple,
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "$assistantName dÃ¼ÅŸÃ¼nÃ¼yor ve veri iÅŸliyor...",
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NeonPurple
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SciFiKnowledgeDialog(
+    viewModel: LifeAssistantViewModel,
+    knowledgeList: List<AiKnowledgeEntity>,
+    onDismiss: () -> Unit
+) {
+    var newTitle by remember { mutableStateOf("") }
+    var newContent by remember { mutableStateOf("") }
+    val coroutineScope = rememberCoroutineScope()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF0B132B),
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Psychology, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("USTA NÃ–RAL HAFIZA MERKEZÄ°", fontSize = 14.sp, fontWeight = FontWeight.Black, color = Color.White, letterSpacing = 1.sp)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp)
+            ) {
+                Text(
+                    text = "AsistanÄ±n Usta'ya Ã¶zel bilgiler, notlar ve hatÄ±rlanacak detaylar Ã¶ÄŸretin. Her konuÅŸmada bu hafÄ±za taranÄ±r.",
+                    fontSize = 11.sp,
+                    color = Color(0xFF94A3B8)
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = newTitle,
+                    onValueChange = { newTitle = it },
+                    label = { Text("Konu BaÅŸlÄ±ÄŸÄ± (Ã–rn: Aile Doktorum)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = NeonCyan,
+                        unfocusedBorderColor = Color(0xFF334155)
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                OutlinedTextField(
+                    value = newContent,
+                    onValueChange = { newContent = it },
+                    label = { Text("AÃ§Ä±klama / Bilgi Notu") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 3,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = NeonCyan,
+                        unfocusedBorderColor = Color(0xFF334155)
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = {
+                        if (newTitle.isNotBlank() && newContent.isNotBlank()) {
+                            coroutineScope.launch {
+                                viewModel.addAiKnowledge(category = "KULLANICI_NOTU", title = newTitle, content = newContent)
+                                newTitle = ""
+                                newContent = ""
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("HAFIZAYA KAYDET", fontSize = 11.sp, fontWeight = FontWeight.Black, color = CyberBgDark)
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text("KAYITLI HAFIZA LÄ°STESÄ° (${knowledgeList.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = NeonCyan)
+                Spacer(modifier = Modifier.height(6.dp))
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(knowledgeList) { item ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF1E293B))
+                                .padding(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(item.title, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text(item.content, fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                }
+                                IconButton(
+                                    onClick = {
+                                        coroutineScope.launch {
+                                            viewModel.deleteAiKnowledge(item.id)
+                                        }
+                                    }
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Sil", tint = Color(0xFFEF4444), modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("KAPAT", fontWeight = FontWeight.Bold, color = NeonCyan)
+            }
+        }
+    )
 }

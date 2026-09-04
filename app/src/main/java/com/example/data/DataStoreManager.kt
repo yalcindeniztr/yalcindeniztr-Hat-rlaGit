@@ -355,7 +355,7 @@ class DataStoreManager(private val context: Context) {
     }
 
     val aiAssistantName: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[AI_ASSISTANT_NAME] ?: "ASİSTAN"
+        preferences[AI_ASSISTANT_NAME] ?: "Usta"
     }
 
     val isAiVoiceResponsesEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -384,7 +384,7 @@ class DataStoreManager(private val context: Context) {
 
     suspend fun saveAiAssistantName(name: String) {
         context.dataStore.edit { preferences ->
-            preferences[AI_ASSISTANT_NAME] = if (name.isBlank()) "ASİSTAN" else name.trim()
+            preferences[AI_ASSISTANT_NAME] = if (name.isBlank()) "Usta" else name.trim()
         }
     }
 
