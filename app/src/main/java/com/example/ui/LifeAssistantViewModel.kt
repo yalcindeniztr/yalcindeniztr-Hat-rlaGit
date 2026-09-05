@@ -41,12 +41,29 @@ class LifeAssistantViewModel(application: Application) : AndroidViewModel(applic
     private val prayerMapType = Types.newParameterizedType(Map::class.java, String::class.java, Boolean::class.javaObjectType)
     private val prayerMapAdapter = moshi.adapter<Map<String, Boolean>>(prayerMapType)
 
-    val currentVersionName = "1.1.9"
-    val currentVersionCode = 71
+    val currentVersionName = "1.2.1"
+    val currentVersionCode = 73
 
     // Latest published store release version information
-    val latestAvailableVersionName = "1.1.9"
-    val latestAvailableVersionCode = 71
+    val latestAvailableVersionName = "1.2.1"
+    val latestAvailableVersionCode = 73
+
+    // Widget Direct Launcher States
+    val directOpenAiAssistant = MutableStateFlow(false)
+    val autoStartListening = MutableStateFlow(false)
+    val initialAiPrompt = MutableStateFlow<String?>(null)
+
+    fun triggerAiFromWidget(autoListen: Boolean = false, prompt: String? = null) {
+        directOpenAiAssistant.value = true
+        autoStartListening.value = autoListen
+        initialAiPrompt.value = prompt
+    }
+
+    fun consumeAiTrigger() {
+        directOpenAiAssistant.value = false
+        autoStartListening.value = false
+        initialAiPrompt.value = null
+    }
 
     val allAiKnowledge: StateFlow<List<com.example.data.AiKnowledgeEntity>> = aiKnowledgeDao.getAllKnowledge()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

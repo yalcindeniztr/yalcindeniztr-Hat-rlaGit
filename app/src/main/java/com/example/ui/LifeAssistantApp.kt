@@ -18,9 +18,8 @@ import com.example.ui.tabs.CategoriesScreen
 import com.example.ui.tabs.SubCategoriesScreen
 
 @Composable
-fun LifeAssistantApp() {
+fun LifeAssistantApp(viewModel: LifeAssistantViewModel = viewModel()) {
     val navController = rememberNavController()
-    val viewModel: LifeAssistantViewModel = viewModel()
     
     val legalAccepted by viewModel.legalAccepted.collectAsStateWithLifecycle()
     val userNick by viewModel.userNick.collectAsStateWithLifecycle()

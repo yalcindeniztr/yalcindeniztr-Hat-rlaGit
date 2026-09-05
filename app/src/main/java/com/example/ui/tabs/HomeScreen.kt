@@ -88,11 +88,20 @@ fun HomeScreen(
     val parkedCarLat by viewModel.parkedCarLat.collectAsStateWithLifecycle()
     val homeBlockOrder by viewModel.homeBlockOrder.collectAsStateWithLifecycle()
     val prayerTimingData by viewModel.prayerTimingData.collectAsStateWithLifecycle()
+    val directOpenAiAssistant by viewModel.directOpenAiAssistant.collectAsStateWithLifecycle()
+    val autoStartListening by viewModel.autoStartListening.collectAsStateWithLifecycle()
+    val initialAiPrompt by viewModel.initialAiPrompt.collectAsStateWithLifecycle()
 
     var showReorderDialog by remember { mutableStateOf(false) }
     var showAddBlockDialog by remember { mutableStateOf(false) }
     var showQuickNoteDialog by remember { mutableStateOf(false) }
     var showAiAssistant by remember { mutableStateOf(false) }
+
+    LaunchedEffect(directOpenAiAssistant) {
+        if (directOpenAiAssistant) {
+            showAiAssistant = true
+        }
+    }
     var editingReminder by remember { mutableStateOf<ReminderEntity?>(null) }
     var reminderToDelete by remember { mutableStateOf<ReminderEntity?>(null) }
     var selectedCategoryFilter by remember { mutableStateOf<String?>(null) }
@@ -254,6 +263,7 @@ fun HomeScreen(
     if (showAiAssistant) {
         androidx.activity.compose.BackHandler {
             showAiAssistant = false
+            viewModel.consumeAiTrigger()
         }
         Box(
             modifier = Modifier
@@ -263,7 +273,12 @@ fun HomeScreen(
         ) {
             AiAssistantScreen(
                 viewModel = viewModel,
-                onNavigateBack = { showAiAssistant = false }
+                autoStartListening = autoStartListening,
+                initialPrompt = initialAiPrompt,
+                onNavigateBack = {
+                    showAiAssistant = false
+                    viewModel.consumeAiTrigger()
+                }
             )
         }
     }

@@ -76,7 +76,9 @@ private val CyberCardUser = Color(0xDE1E293B)
 @Composable
 fun AiAssistantScreen(
     viewModel: LifeAssistantViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    autoStartListening: Boolean = false,
+    initialPrompt: String? = null
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -155,6 +157,16 @@ fun AiAssistantScreen(
         isListening = false
         if (recognizedText.isNotBlank()) {
             executeUserPrompt(recognizedText)
+        }
+    }
+
+    // Widget'tan doğrudan sesli dinleme veya komutla başlatma
+    androidx.compose.runtime.LaunchedEffect(autoStartListening, initialPrompt) {
+        if (autoStartListening) {
+            kotlinx.coroutines.delay(350L)
+            startVoiceRecognition("Seni dinliyorum usta...")
+        } else if (!initialPrompt.isNullOrBlank()) {
+            executeUserPrompt(initialPrompt)
         }
     }
 
@@ -240,7 +252,7 @@ fun AiAssistantScreen(
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
                                     Text(
-                                        text = "v1.2.0",
+                                        text = "v1.2.1",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = NeonCyan
