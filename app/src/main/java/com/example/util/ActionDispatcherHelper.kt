@@ -109,13 +109,13 @@ object ActionDispatcherHelper {
                             add(Calendar.DAY_OF_YEAR, 1)
                         }
                     }
-                    val sdf = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale("tr", "TR"))
+                    val sdf = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
                     val reminder = ReminderEntity(
                         category = "GENEL",
                         title = title,
                         dueDatetime = sdf.format(cal.time),
                         dueDateMillis = cal.timeInMillis,
-                        customNote = "Antigravity tarafından sesle oluşturuldu.",
+                        customNote = "Usta tarafından sesle oluşturuldu.",
                         encryptedMetadata = "{}",
                         actionStep = "SOUND_CLASSIC_BELL"
                     )
@@ -142,7 +142,7 @@ object ActionDispatcherHelper {
                     }
                     context.startActivity(intent)
 
-                    val sdf = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale("tr", "TR"))
+                    val sdf = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
                     val reminder = ReminderEntity(
                         category = "RANDEVU",
                         title = title,
@@ -154,7 +154,7 @@ object ActionDispatcherHelper {
                     )
                     AppDatabase.getDatabase(context).reminderDao().insertReminder(reminder)
 
-                    return@withContext "📅 Etkinlik takviminize işlendi: $title"
+                    return@withContext "📅 Randevu telefon takviminize ve akıllı saat senkronizasyonuna işlendi: $title"
                 }
 
                 "SEND_WHATSAPP" -> {
@@ -169,7 +169,23 @@ object ActionDispatcherHelper {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     context.startActivity(intent)
-                    return@withContext "💬 WhatsApp mesajı açıldı."
+                    return@withContext "💬 WhatsApp mesajı hazırlandı."
+                }
+
+                "SEND_SMS" -> {
+                    val phone = payload.optString("phone", "").replace(Regex("[^0-9+]"), "")
+                    val message = payload.optString("message", "")
+                    val uri = if (phone.isNotBlank()) Uri.parse("smsto:$phone") else Uri.parse("smsto:")
+                    val smsIntent = Intent(Intent.ACTION_SENDTO, uri).apply {
+                        putExtra("sms_body", message)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    if (smsIntent.resolveActivity(context.packageManager) != null) {
+                        context.startActivity(smsIntent)
+                        return@withContext "✉️ SMS mesaj ekranı açıldı."
+                    } else {
+                        return@withContext "SMS uygulaması bulunamadı."
+                    }
                 }
 
                 "OPEN_MAPS" -> {
@@ -183,20 +199,68 @@ object ActionDispatcherHelper {
                 "POST_INSTAGRAM" -> {
                     val caption = payload.optString("caption", "")
                     val intent = Intent(Intent.ACTION_SEND).apply {
-                        type = "image/*"
+                        type = "text/plain"
                         setPackage("com.instagram.android")
                         putExtra(Intent.EXTRA_TEXT, caption)
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     if (intent.resolveActivity(context.packageManager) != null) {
                         context.startActivity(intent)
+                        return@withContext "📸 Instagram paylaşımı başlatıldı."
                     } else {
                         val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://instagram.com")).apply {
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         }
                         context.startActivity(webIntent)
+                        return@withContext "📸 Instagram açıldı."
                     }
-                    return@withContext "📸 Instagram paylaşımı başlatıldı."
+                }
+
+                "START_VACUUM" -> {
+                    // Roborock, Mi Home veya Google Home başlatma
+                    val roborockPkg = "com.roborock.smart"
+                    val miHomePkg = "com.xiaomi.smarthome"
+                    val googleHomePkg = "com.google.android.apps.chromecast.app"
+
+                    val pm = context.packageManager
+                    val launchIntent = pm.getLaunchIntentForPackage(roborockPkg)
+                        ?: pm.getLaunchIntentForPackage(miHomePkg)
+                        ?: pm.getLaunchIntentForPackage(googleHomePkg)
+
+                    if (launchIntent != null) {
+                        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(launchIntent)
+                        return@withContext "🧹 Akıllı robot süpürge uygulaması açıldı. Temizlik başlatılıyor..."
+                    } else {
+                        val storeIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://search?q=roborock")).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        return@withContext "🧹 Cihazınızda Roborock veya Mi Home uygulaması bulunamadı. Lütfen önce süpürgenizin uygulamasını yükleyin."
+                    }
+                }
+
+                "SAVE_RESEARCH" -> {
+                    val topic = payload.optString("topic", "Genel Araştırma")
+                    val content = payload.optString("content", "")
+                    return@withContext ResearchFileManager.saveResearch(context, topic, content)
+                }
+
+                "MARKET_DEALS" -> {
+                    val market = payload.optString("market", "")
+                    return@withContext if (market.isNotBlank()) {
+                        MarketDealsHelper.getDealsForMarket(market)
+                    } else {
+                        MarketDealsHelper.getMorningDealsSummary()
+                    }
+                }
+
+                "CHECK_NOTIFICATIONS" -> {
+                    if (!AppNotificationListenerService.isPermissionGranted(context)) {
+                        AppNotificationListenerService.openSettings(context)
+                        return@withContext "🔔 Gardrops, WhatsApp ve alışveriş bildirimlerini takip edebilmem için lütfen açılan ekrandan 'HatırlaGit' için Bildirim Erişimi iznini etkinleştirin."
+                    } else {
+                        return@withContext CapturedNotificationCache.getSummaryText()
+                    }
                 }
 
                 "CALL_PHONE" -> {

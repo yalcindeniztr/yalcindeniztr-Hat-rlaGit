@@ -240,7 +240,7 @@ fun AiAssistantScreen(
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
                                     Text(
-                                        text = "v1.1.7",
+                                        text = "v1.1.8",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = NeonCyan
@@ -484,10 +484,14 @@ fun AiAssistantScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         val quickPrompts = listOf(
+                            "🛒 Market İndirimleri" to "Bugünkü BİM, ŞOK, A101 ve Migros indirimleri ile 1 alana 1 bedava fırsatları neler?",
+                            "👗 Gardrops Bildirimleri" to "Gardrops ve alışveriş bildirimlerimi özetle",
+                            "🧹 Süpürgeyi Çalıştır" to "Akıllı robot süpürgeyi çalıştır",
+                            "📝 Araştır ve Kaydet" to "araştır ve kaydet: ",
+                            "💬 WhatsApp Mesajı" to "WhatsApp'tan mesaj gönder",
                             "📜 Maarif Sınıf Geçme" to "MEB Maarif modeli ve lise sınıf geçme kuralları nelerdir?",
                             "🇹🇷 Lise Tarih Konuları" to "Lise tarih dersi önemli konularını ve Kurtuluş Savaşı'nı özetle",
                             "🍳 Samsun Pidesi Tarifi" to "Samsun pidesi nasıl yapılır ayrıntılı anlat",
-                            "🛒 Migros Market" to "Bugün bana en yakın Migros marketi bul",
                             "💊 Nöbetçi Eczane" to "Konumuma göre en yakın nöbetçi eczaneleri bul",
                             "🚗 Park Yerimi Kaydet" to "Park yerimi kaydet",
                             "⏰ Randevu & Alarm" to "Yarın saat 09:00 için randevu oluştur",

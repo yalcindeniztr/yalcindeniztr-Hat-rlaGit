@@ -151,7 +151,7 @@ fun MainScreen(viewModel: LifeAssistantViewModel, rootNavController: NavControll
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 Text(
-                                    text = "v1.1.7",
+                                    text = "v1.1.8",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = OrangePrimary

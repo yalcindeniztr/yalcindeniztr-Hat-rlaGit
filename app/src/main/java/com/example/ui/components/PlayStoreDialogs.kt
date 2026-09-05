@@ -75,14 +75,14 @@ fun openPlayStore(context: Context) {
  */
 @Composable
 fun PlayStoreUpdateDialog(
-    newVersionName: String = "v1.1.7",
+    newVersionName: String = "v1.1.8",
     updateHighlights: List<String> = listOf(
-        "🤖 Sesli ve Konuşan Yapay Zeka Asistanı",
-        "📍 Konuma göre Nöbetçi Eczane, Hastane ve Otopark bulma",
-        "⏰ Sesli komutla otomatik randevu ve alarm kurma",
-        "📸 OCR ile Akıllı Fatura ve Belge Tarayıcı",
-        "📊 PDF ve Excel Raporlama & Güvenli QR Aktarımı",
-        "🔒 Donanım Korumalı AES-256 Şifreli Güvenlik"
+        "🛒 BİM, ŞOK, A101, Migros İndirimleri & 1 Alana 1 Bedava Bülteni",
+        "🧹 Roborock ve Mi Home Akıllı Robot Süpürge Başlatma",
+        "👗 Gardrops & Alışveriş Bildirim ve Teklif Takibi",
+        "📝 Asistan Araştırmalarını Cihaz Hafızasına Kaydetme",
+        "💬 WhatsApp, SMS ve Instagram Entegrasyonu",
+        "📍 Canlı Konum ve Nöbetçi Eczane/Migros Navigasyonu"
     ),
     onDismiss: () -> Unit
 ) {
