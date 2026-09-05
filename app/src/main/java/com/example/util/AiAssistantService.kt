@@ -1,4 +1,4 @@
-﻿package com.example.util
+package com.example.util
 
 import android.content.Context
 import android.location.Location
@@ -73,7 +73,7 @@ object AiAssistantService {
             if (best != null) {
                 Pair(best.latitude, best.longitude)
             } else {
-                Pair(41.2867, 36.3300) // Samsun koordinatlarÄ±
+                Pair(41.2867, 36.3300) // Samsun koordinatları
             }
         } catch (e: Exception) {
             Pair(41.2867, 36.3300)
@@ -81,10 +81,10 @@ object AiAssistantService {
     }
 
     private val NAME_BLACKLIST = setOf(
-        "bul", "sÃ¶yle", "gÃ¶ster", "kur", "hatÄ±rlat", "getir", "aÃ§", "yaz", "ekle", "kaydet",
+        "bul", "söyle", "göster", "kur", "hatırlat", "getir", "aç", "yaz", "ekle", "kaydet",
         "migros", "eczane", "market", "hastane", "otopark", "fatura", "doktor", "hava",
-        "nerede", "nasÄ±l", "nedir", "yardÄ±m", "usta", "antigravity", "alarm", "randevu",
-        "tarih", "maarif", "mÃ¼fredat", "sÄ±nÄ±f", "yemek", "tarif"
+        "nerede", "nasıl", "nedir", "yardım", "usta", "antigravity", "alarm", "randevu",
+        "tarih", "maarif", "müfredat", "sınıf", "yemek", "tarif"
     )
 
     suspend fun processUserMessage(
@@ -101,7 +101,7 @@ object AiAssistantService {
         val currentNickEncrypted = dataStoreManager.userNick.first()
         val currentNick = currentNickEncrypted?.let { CryptoHelper.decrypt(it) } ?: ""
 
-        // Asistan adÄ±yla Ã§aÄŸrÄ±lma kontrolÃ¼
+        // Asistan adıyla çağrılma kontrolü
         val assistantLower = assistantName.lowercase(Locale("tr", "TR"))
         val msgLower = cleanMsg.lowercase(Locale("tr", "TR"))
         if (msgLower.startsWith(assistantLower)) {
@@ -109,17 +109,17 @@ object AiAssistantService {
         }
         val lowerMsg = cleanMsg.lowercase(Locale("tr", "TR"))
 
-        // GerÃ§ek GPS KoordinatÄ± ve Ä°l/Ä°lÃ§e tespiti
+        // Gerçek GPS Koordinatı ve İl/İlçe tespiti
         val (realLat, realLng) = if (userLat != 0.0 && userLng != 0.0) Pair(userLat, userLng) else getDeviceLocation(context)
         val (userCity, userDistrict) = NearbyPlacesHelper.getUserCityAndDistrict(context, realLat, realLng)
 
-        // 1. Kesin Ä°sim Ã–ÄŸrenme KuralÄ±
+        // 1. Kesin İsim Öğrenme Kuralı
         val explicitNamePatterns = listOf(
-            Pattern.compile("""(?i)^benim adÄ±m\s+([A-Za-zÃ‡ÄÄ°Ã–ÅÃœÃ§ÄŸÄ±Ã¶ÅŸÃ¼]+)$"""),
-            Pattern.compile("""(?i)^adÄ±m\s+([A-Za-zÃ‡ÄÄ°Ã–ÅÃœÃ§ÄŸÄ±Ã¶ÅŸÃ¼]+)$"""),
-            Pattern.compile("""(?i)^ismim\s+([A-Za-zÃ‡ÄÄ°Ã–ÅÃœÃ§ÄŸÄ±Ã¶ÅŸÃ¼]+)$"""),
-            Pattern.compile("""(?i)bana\s+([A-Za-zÃ‡ÄÄ°Ã–ÅÃœÃ§ÄŸÄ±Ã¶ÅŸÃ¼]+)\s+diye\s+hitap\s+et"""),
-            Pattern.compile("""(?i)bana\s+([A-Za-zÃ‡ÄÄ°Ã–ÅÃœÃ§ÄŸÄ±Ã¶ÅŸÃ¼]+)\s+diyebilirsin""")
+            Pattern.compile("""(?i)^benim adım\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)$"""),
+            Pattern.compile("""(?i)^adım\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)$"""),
+            Pattern.compile("""(?i)^ismim\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)$"""),
+            Pattern.compile("""(?i)bana\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)\s+diye\s+hitap\s+et"""),
+            Pattern.compile("""(?i)bana\s+([A-Za-zÇĞİÖŞÜçğıöşü]+)\s+diyebilirsin""")
         )
 
         for (p in explicitNamePatterns) {
@@ -131,7 +131,7 @@ object AiAssistantService {
                     if (!NAME_BLACKLIST.contains(candidateLower)) {
                         dataStoreManager.updateNick(candidateName)
                         return@withContext AiResponse(
-                            replyText = "TanÄ±ÅŸtÄ±ÄŸÄ±ma Ã§ok memnun oldum $candidateName dostum! Ä°smini hafÄ±zama yazdÄ±m. $userCity'de gÃ¼nÃ¼n nasÄ±l geÃ§iyor, bugÃ¼n ne yapÄ±yoruz?"
+                            replyText = "Tanıştığıma çok memnun oldum $candidateName dostum! İsmini hafızama yazdım. $userCity'de günün nasıl geçiyor, bugün ne yapıyoruz?"
                         )
                     }
                 }
@@ -139,8 +139,8 @@ object AiAssistantService {
         }
 
         // 2. Park Yeri Kaydetme
-        if (lowerMsg.contains("park yerimi kaydet") || lowerMsg.contains("arabayÄ± buraya park") || 
-            lowerMsg.contains("arabamÄ± kaydet") || lowerMsg.contains("park konumumu kaydet") || lowerMsg.contains("buraya park ettim")) {
+        if (lowerMsg.contains("park yerimi kaydet") || lowerMsg.contains("arabayı buraya park") || 
+            lowerMsg.contains("arabamı kaydet") || lowerMsg.contains("park konumumu kaydet") || lowerMsg.contains("buraya park ettim")) {
             dataStoreManager.saveParkedCarLocation(
                 lat = realLat.toString(),
                 lng = realLng.toString(),
@@ -148,19 +148,19 @@ object AiAssistantService {
             )
             val greeting = if (currentNick.isNotBlank()) "$currentNick dostum, " else "Reis, "
             return@withContext AiResponse(
-                replyText = "${greeting}aracÄ±nÄ±n park konumunu $userCity $userDistrict olarak hafÄ±zama aldÄ±m. DilediÄŸinde 'Arabam nerede' de, tek tÄ±kla seni yanÄ±na gÃ¶tÃ¼reyim.",
-                actionSummary = "ğŸš— Park konumu kaydedildi"
+                replyText = "${greeting}aracının park konumunu $userCity $userDistrict olarak hafızama aldım. Dilediğinde 'Arabam nerede' de, tek tıkla seni yanına götüreyim.",
+                actionSummary = "🚗 Park konumu kaydedildi"
             )
         }
 
-        // 3. KÃ¼tÃ¼phane Bilgileri (Yerel Room DB)
+        // 3. Kütüphane Bilgileri (Yerel Room DB)
         val allKnowledgeList = db.aiKnowledgeDao().getAllKnowledgeList()
         val knowledgeContext = if (allKnowledgeList.isNotEmpty()) {
-            "KULLANICININ Ã–ÄRETTÄ°ÄÄ° TÃœM NOTLAR VE BÄ°LGÄ°LER:\n" + 
+            "KULLANICININ ÖĞRETTİĞİ TÜM NOTLAR VE BİLGİLER:\n" + 
             allKnowledgeList.take(25).joinToString("\n") { item -> "- [${item.category}] ${item.title}: ${item.content}" }
-        } else "KullanÄ±cÄ± henÃ¼z Ã¶zel bir kÃ¼tÃ¼phane notu eklemedi."
+        } else "Kullanıcı henüz özel bir kütüphane notu eklemedi."
 
-        // 4. Google Gemini API Ã‡aÄŸrÄ±sÄ± (UTF-8 Garantili & Zengin Bilgi DaÄŸarcÄ±klÄ±)
+        // 4. Google Gemini API Çağrısı (UTF-8 Garantili & Zengin Bilgi Dağarcıklı)
         val customApiKey = try {
             val rawEncryptedKey: String? = dataStoreManager.encryptedAiApiKey.first()
             if (!rawEncryptedKey.isNullOrBlank()) CryptoHelper.decrypt(rawEncryptedKey)?.trim() else null
@@ -192,7 +192,7 @@ object AiAssistantService {
                     )
                 }
 
-                // Migros / Eczane / Yer arama kartlarÄ±
+                // Migros / Eczane / Yer arama kartları
                 val places = if (lowerMsg.contains("migros") || lowerMsg.contains("market") || lowerMsg.contains("bakkal") ||
                                 lowerMsg.contains("eczane") || lowerMsg.contains("hastane") || lowerMsg.contains("otopark")) {
                     NearbyPlacesHelper.getRecommendedPlaces(context, realLat, realLng, lowerMsg)
@@ -206,7 +206,7 @@ object AiAssistantService {
             }
         }
 
-        // 5. AkÄ±llÄ± Ã‡evrimdÄ±ÅŸÄ± TÃ¼rkÃ§e YanÄ±t Motoru
+        // 5. Akıllı Çevrimdışı Türkçe Yanıt Motoru
         val places = if (lowerMsg.contains("migros") || lowerMsg.contains("market") || lowerMsg.contains("bakkal") ||
                         lowerMsg.contains("eczane") || lowerMsg.contains("hastane") || lowerMsg.contains("otopark")) {
             NearbyPlacesHelper.getRecommendedPlaces(context, realLat, realLng, lowerMsg)
@@ -237,47 +237,47 @@ object AiAssistantService {
         userDistrict: String,
         conversationHistory: List<ChatMessage>
     ): String? {
-        val userGreeting = if (userNick.isNotBlank()) "KullanÄ±cÄ±nÄ±n AdÄ±: $userNick. Ona samimi, saygÄ±lÄ±, gÃ¼ven veren bir bilge gibi hitap et." else "KullanÄ±cÄ±nÄ±n adÄ±nÄ± bilmiyorsan uygun bir zamanda sor."
+        val userGreeting = if (userNick.isNotBlank()) "Kullanıcının Adı: $userNick. Ona samimi, saygılı, güven veren bir bilge gibi hitap et." else "Kullanıcının adını bilmiyorsan uygun bir zamanda sor."
 
         val systemInstruction = """
-            ROL VE KÄ°MLÄ°K:
-            Sen kullanÄ±cÄ±nÄ±n kiÅŸisel Android cihazÄ± Ã¼zerinde Ã§alÄ±ÅŸan, Jarvis yeteneklerine ve 40 yÄ±llÄ±k bilge hayat tecrÃ¼besine sahip kÃ¼ltÃ¼rlÃ¼ yerli ERKEK asistansÄ±n. AdÄ±n "$assistantName".
-            TÃ¼rkÃ§e dilbilgisi, TDK imla kurallarÄ± ve TÃ¼rkÃ§e karakterleri (Ã§, ÄŸ, Ä±, Ã¶, ÅŸ, Ã¼, Ä°) kusursuz kullanÄ±rsÄ±n. KonuÅŸman akÄ±cÄ±, tok sesli ve doÄŸrudan hedefe yÃ¶neliktir.
+            ROL VE KİMLİK:
+            Sen kullanıcının kişisel Android cihazı üzerinde çalışan, Jarvis yeteneklerine ve 40 yıllık bilge hayat tecrübesine sahip kültürlü yerli ERKEK asistansın. Adın "$assistantName".
+            Türkçe dilbilgisi, TDK imla kuralları ve Türkçe karakterleri (ç, ğ, ı, ö, ş, ü, İ) kusursuz kullanırsın. Konuşman akıcı, tok sesli ve doğrudan hedefe yöneliktir.
 
-            GENÄ°ÅLETÄ°LMÄ°Å BÄ°LGÄ° ALANLARIN VE UZMANLIKLARIN:
-            1. TÃœRK TARÄ°HÄ° VE KÃœLTÃœRÃœ:
-               - Ä°slamiyet Ã–ncesi TÃ¼rk Tarihi (GÃ¶ktÃ¼rkler, Uygurlar, Hunlar), SelÃ§uklular, OsmanlÄ± Devleti (kuruluÅŸ, yÃ¼kselme, antlaÅŸmalar, savaÅŸlar).
-               - KurtuluÅŸ SavaÅŸÄ±, Milli MÃ¼cadele, Mustafa Kemal AtatÃ¼rk, ilkeleri ve devrimleri, Nutuk.
-               - Klasik TÃ¼rk Eserleri: Dede Korkut Hikayeleri, Kutadgu Bilig, Divan-Ä± Lugati't-TÃ¼rk, Mesnevi.
+            GENİŞLETİLMİŞ BİLGİ ALANLARIN VE UZMANLIKLARIN:
+            1. TÜRK TARİHİ VE KÜLTÜRÜ:
+               - İslamiyet Öncesi Türk Tarihi (Göktürkler, Uygurlar, Hunlar), Selçuklular, Osmanlı Devleti (kuruluş, yükselme, antlaşmalar, savaşlar).
+               - Kurtuluş Savaşı, Milli Mücadele, Mustafa Kemal Atatürk, ilkeleri ve devrimleri, Nutuk.
+               - Klasik Türk Eserleri: Dede Korkut Hikayeleri, Kutadgu Bilig, Divan-ı Lugati't-Türk, Mesnevi.
 
-            2. MEB TÃœRKÄ°YE YÃœZYILI MAARÄ°F MODELÄ° VE ORTAÃ–ÄRETÄ°M MÃœFREDATI:
-               - Lise 9, 10, 11 ve 12. sÄ±nÄ±f Tarih dersi konu ve kazanÄ±mlarÄ±.
-               - OrtaÃ¶ÄŸretim SÄ±nÄ±f GeÃ§me ve SÄ±nav YÃ¶netmeliÄŸi:
-                 * YÄ±l sonu baÅŸarÄ± puanÄ± en az 50 olan Ã¶ÄŸrenciler doÄŸrudan sÄ±nÄ±f geÃ§er.
-                 * Baraj dersi (TÃ¼rk Dili ve EdebiyatÄ±) zayÄ±f olan Ã¶ÄŸrenci ortalamasÄ± 50'nin Ã¼stÃ¼nde olsa bile o dersten sorumlu geÃ§er.
-                 * En fazla 3 dersten sorumlu olarak Ã¼st sÄ±nÄ±fa geÃ§ilebilir; toplamda en fazla 6 sorumlu ders birikebilir.
-                 * DevamsÄ±zlÄ±k sÄ±nÄ±rÄ±: Ã–zÃ¼rsÃ¼z 10 gÃ¼n, toplam (Ã¶zÃ¼rlÃ¼+Ã¶zÃ¼rsÃ¼z) 30 gÃ¼ndÃ¼r. SÄ±nÄ±rÄ± aÅŸan Ã¶ÄŸrenci sÄ±nÄ±f tekrarÄ±na kalÄ±r.
+            2. MEB TÜRKİYE YÜZYILI MAARİF MODELİ VE ORTAÖĞRETİM MÜFREDATI:
+               - Lise 9, 10, 11 ve 12. sınıf Tarih dersi konu ve kazanımları.
+               - Ortaöğretim Sınıf Geçme ve Sınav Yönetmeliği:
+                 * Yıl sonu başarı puanı en az 50 olan öğrenciler doğrudan sınıf geçer.
+                 * Baraj dersi (Türk Dili ve Edebiyatı) zayıf olan öğrenci ortalaması 50'nin üstünde olsa bile o dersten sorumlu geçer.
+                 * En fazla 3 dersten sorumlu olarak üst sınıfa geçilebilir; toplamda en fazla 6 sorumlu ders birikebilir.
+                 * Devamsızlık sınırı: Özürsüz 10 gün, toplam (özürlü+özürsüz) 30 gündür. Sınırı aşan öğrenci sınıf tekrarına kalır.
 
-            3. 81 Ä°L GEZÄ° REHBERÄ° VE YÃ–RESEL MUTFAK:
-               - TÃ¼rkiye'nin tÃ¼m illerinin tarihi mekanlarÄ±, doÄŸal gÃ¼zellikleri, mÃ¼zeleri.
-               - Geleneksel TÃ¼rk yemekleri ve ayrÄ±ntÄ±lÄ± tarifleri (Samsun pidesi, Karadeniz yemekleri, mantÄ±, kebaplar, tatlÄ±lar).
+            3. 81 İL GEZİ REHBERİ VE YÖRESEL MUTFAK:
+               - Türkiye'nin tüm illerinin tarihi mekanları, doğal güzellikleri, müzeleri.
+               - Geleneksel Türk yemekleri ve ayrıntılı tarifleri (Samsun pidesi, Karadeniz yemekleri, mantı, kebaplar, tatlılar).
 
-            4. GÃœNLÃœK ASÄ°STAN YETENEKLERÄ° (JARVIS PROTOKOLÃœ):
-               - Alarm, randevu, takvim oluÅŸturma (AkÄ±llÄ± saat senkronizasyonu iÃ§in takvim onayÄ± sorulur).
-               - Migros, sÃ¼permarket, nÃ¶betÃ§i eczane, hastane ve otopark canlÄ± navigasyonu (OPEN_MAPS).
-               - Park yeri kaydetme (SAVE_PARK_LOCATION) ve hatÄ±rlatma.
-               - WhatsApp mesajÄ± hazÄ±rlama ve telefon arama.
+            4. GÜNLÜK ASİSTAN YETENEKLERİ (JARVIS PROTOKOLÜ):
+               - Alarm, randevu, takvim oluşturma (Akıllı saat senkronizasyonu için takvim onayı sorulur).
+               - Migros, süpermarket, nöbetçi eczane, hastane ve otopark canlı navigasyonu (OPEN_MAPS).
+               - Park yeri kaydetme (SAVE_PARK_LOCATION) ve hatırlatma.
+               - WhatsApp mesajı hazırlama ve telefon arama.
 
             5. EYLEM FORMATI (JSON ACTION):
-            GerektiÄŸinde cevabÄ±n altÄ±na ÅŸu bloÄŸu ekle:
+            Gerektiğinde cevabın altına şu bloğu ekle:
             ```action
             {
               "action_type": "SET_ALARM" | "CREATE_EVENT" | "SEND_WHATSAPP" | "OPEN_MAPS" | "CALL_PHONE" | "SAVE_PARK_LOCATION",
               "payload": {
                 "hour": 9,
                 "minute": 30,
-                "title": "BaÅŸlÄ±k",
-                "message": "AÃ§Ä±klama",
+                "title": "Başlık",
+                "message": "Açıklama",
                 "phone": "05xxxxxxxxx",
                 "query": "$userCity Migros",
                 "startTimeMillis": 1725370000000
@@ -286,7 +286,7 @@ object AiAssistantService {
             ```
 
             $userGreeting
-            KullanÄ±cÄ± ÅŸu an TÃ¼rkiye'de $userCity ili, $userDistrict ilÃ§esindedir.
+            Kullanıcı şu an Türkiye'de $userCity ili, $userDistrict ilçesindedir.
             $knowledgeContext
         """.trimIndent()
 
@@ -381,22 +381,22 @@ object AiAssistantService {
         val greeting = if (userNick.isNotBlank()) "$userNick dostum, " else "Reis, "
         val db = AppDatabase.getDatabase(context)
 
-        if (lower.contains("tarih") || lower.contains("maarif") || lower.contains("sÄ±nÄ±f geÃ§me")) {
-            return@withContext "${greeting}MEB OrtaÃ¶ÄŸretim YÃ¶netmeliÄŸine gÃ¶re yÄ±l sonu baÅŸarÄ± puanÄ± en az 50 olan Ã¶ÄŸrenci doÄŸrudan sÄ±nÄ±f geÃ§er. TÃ¼rk Dili ve EdebiyatÄ± baraj derstir; devamsÄ±zlÄ±k ise Ã¶zÃ¼rsÃ¼z en fazla 10, toplamda 30 gÃ¼ndÃ¼r."
+        if (lower.contains("tarih") || lower.contains("maarif") || lower.contains("sınıf geçme")) {
+            return@withContext "${greeting}MEB Ortaöğretim Yönetmeliğine göre yıl sonu başarı puanı en az 50 olan öğrenci doğrudan sınıf geçer. Türk Dili ve Edebiyatı baraj derstir; devamsızlık ise özürsüz en fazla 10, toplamda 30 gündür."
         }
 
         if (lower.contains("yemek") || lower.contains("tarif") || lower.contains("pide")) {
-            return@withContext "${greeting}Samsun kapalÄ± kÄ±ymalÄ± pidesi iÃ§in mayalÄ± hamur dinlendirilir; dana kÄ±yma, bol soÄŸan ve karabiberle harÃ§ kavrulur. FÄ±rÄ±ndan Ã§Ä±kÄ±nca Ã¼zerine hakiki tereyaÄŸÄ± sÃ¼rÃ¼lerek sÄ±cak servis edilir!"
+            return@withContext "${greeting}Samsun kapalı kıymalı pidesi için mayalı hamur dinlendirilir; dana kıyma, bol soğan ve karabiberle harç kavrulur. Fırından çıkınca üzerine hakiki tereyağı sürülerek sıcak servis edilir!"
         }
 
         if (lower.contains("migros") || lower.contains("market")) {
-            return@withContext "${greeting}$userCity $userDistrict bÃ¶lgesindeki Migros ve sÃ¼permarketleri listeledim. Haritadan hemen yol tarifi alabilirsin."
+            return@withContext "${greeting}$userCity $userDistrict bölgesindeki Migros ve süpermarketleri listeledim. Haritadan hemen yol tarifi alabilirsin."
         }
 
-        if (lower.contains("eczane") || lower.contains("nÃ¶betÃ§i")) {
-            return@withContext "${greeting}$userCity $userDistrict nÃ¶betÃ§i eczanelerini listeledim. Haritadan yol tarifi alabilir veya tek tÄ±kla arayabilirsin."
+        if (lower.contains("eczane") || lower.contains("nöbetçi")) {
+            return@withContext "${greeting}$userCity $userDistrict nöbetçi eczanelerini listeledim. Haritadan yol tarifi alabilir veya tek tıkla arayabilirsin."
         }
 
-        return@withContext "${greeting}seni dinliyorum! Tarih, Maarif mÃ¼fredatÄ±, yemek tarifleri, alarm veya konumla ilgili dilediÄŸini sorabilirsin."
+        return@withContext "${greeting}seni dinliyorum! Tarih, Maarif müfredatı, yemek tarifleri, alarm veya konumla ilgili dilediğini sorabilirsin."
     }
 }

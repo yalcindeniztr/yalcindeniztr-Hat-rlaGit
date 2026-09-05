@@ -75,7 +75,7 @@ fun openPlayStore(context: Context) {
  */
 @Composable
 fun PlayStoreUpdateDialog(
-    newVersionName: String = "v1.1.6",
+    newVersionName: String = "v1.1.7",
     updateHighlights: List<String> = listOf(
         "🤖 Sesli ve Konuşan Yapay Zeka Asistanı",
         "📍 Konuma göre Nöbetçi Eczane, Hastane ve Otopark bulma",

@@ -62,7 +62,7 @@ data class ChatMessage(
     val timestamp: Long = System.currentTimeMillis()
 )
 
-// Sci-Fi Cyber Color Palette
+// Sci-Fi Cyber Renk Paleti
 private val CyberBgDark = Color(0xFF030712)
 private val CyberBgMid = Color(0xFF090D1A)
 private val NeonCyan = Color(0xFF00F2FE)
@@ -88,6 +88,7 @@ fun AiAssistantScreen(
     val allKnowledge by viewModel.allAiKnowledge.collectAsStateWithLifecycle()
 
     val decryptedNick = remember(userNick) { viewModel.getDecryptedUserNick() }
+    val displayAssistantName = remember(assistantName) { if (assistantName.isBlank() || assistantName.equals("ASİSTAN", ignoreCase = true)) "Usta" else assistantName }
 
     var inputText by remember { mutableStateOf("") }
     var isListening by remember { mutableStateOf(false) }
@@ -97,9 +98,9 @@ fun AiAssistantScreen(
 
     val initialGreeting = remember(decryptedNick, assistantName) {
         if (decryptedNick.isNotBlank()) {
-            "NÃ¶ral baÄŸlantÄ± kuruldu $decryptedNick dostum! Ben $assistantName. TÃ¼rk tarihi, Maarif mÃ¼fredatÄ±, yemek tarifleri, mekanlar veya alarmlar... Ne istersen emrindeyim."
+            "Nöral bağlantı kuruldu $decryptedNick dostum! Ben $displayAssistantName. Türk tarihi, Maarif müfredatı, yemek tarifleri, mekanlar veya alarmlar... Ne istersen emrindeyim."
         } else {
-            "Sistem aktif! Ben HatÄ±rlaGit Yapay Zeka Ã‡ekirdeÄŸi $assistantName. Sana Ã¶zel hitap edebilmem iÃ§in adÄ±nÄ± Ã¶ÄŸrenebilir miyim?"
+            "Sistem aktif! Ben HatırlaGit Yapay Zeka Çekirdeği $displayAssistantName. Sana özel hitap edebilmem için adını öğrenebilir miyim?"
         }
     }
 
@@ -112,7 +113,7 @@ fun AiAssistantScreen(
         )
     }
 
-    // Direct and Instant Speech execution helper
+    // Doğrudan ve Hızlı Sesli Yanıt Yürütücüsü
     fun executeUserPrompt(promptText: String) {
         if (promptText.isBlank()) return
         val userMsg = ChatMessage(sender = "USER", text = promptText)
@@ -123,7 +124,7 @@ fun AiAssistantScreen(
             val response = AiAssistantService.processUserMessage(
                 context = context,
                 userMessage = promptText,
-                assistantName = assistantName,
+                assistantName = displayAssistantName,
                 conversationHistory = messages.toList()
             )
             val aiMsg = ChatMessage(
@@ -136,11 +137,10 @@ fun AiAssistantScreen(
             isProcessing = false
             listState.animateScrollToItem(messages.size - 1)
 
-            // Direct Instant Speech (No unnecessary delay, direct Turkish TTS)
+            // Doğrudan Türkçe Sesli Yanıt (Gecikmesiz)
             if (isVoiceResponsesEnabled && response.isSpeechReady) {
                 isSpeaking = true
                 TtsHelper.speak(context, response.replyText)
-                // Speaking indicator resets after a natural duration
                 launch {
                     val durationMs = (response.replyText.length * 60L).coerceIn(2000L, 12000L)
                     kotlinx.coroutines.delay(durationMs)
@@ -150,7 +150,7 @@ fun AiAssistantScreen(
         }
     }
 
-    // Voice recognition launcher
+    // Sesli Tanıma Başlatıcı
     val startVoiceRecognition = rememberVoiceRecognizer { recognizedText ->
         isListening = false
         if (recognizedText.isNotBlank()) {
@@ -158,7 +158,7 @@ fun AiAssistantScreen(
         }
     }
 
-    // Sci-Fi Hologram Transitions & Rotations
+    // Sci-Fi Hologram Animasyonları
     val infiniteTransition = rememberInfiniteTransition(label = "scifi_hud")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -203,7 +203,7 @@ fun AiAssistantScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        // 3D Hologram Avatar Core
+                        // 3D Hologram Çekirdek Avatarı
                         Box(
                             modifier = Modifier
                                 .size(42.dp)
@@ -225,7 +225,7 @@ fun AiAssistantScreen(
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = assistantName.uppercase(),
+                                    text = displayAssistantName.uppercase(),
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Black,
                                     color = Color.White,
@@ -240,7 +240,7 @@ fun AiAssistantScreen(
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
                                     Text(
-                                        text = "v1.1.6",
+                                        text = "v1.1.7",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = NeonCyan
@@ -256,7 +256,7 @@ fun AiAssistantScreen(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = if (isSpeaking) "USTA SESLÄ° CEVAP VERÄ°YOR..." else if (isProcessing) "VERÄ° Ä°ÅLENÄ°YOR..." else "QUANTUM Ã‡EKÄ°RDEK : Ã‡EVRÄ°MÄ°Ã‡Ä°",
+                                    text = if (isSpeaking) "USTA SESLİ CEVAP VERİYOR..." else if (isProcessing) "VERİ İŞLENİYOR..." else "QUANTUM ÇEKİRDEK : ÇEVRİMİÇİ",
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = if (isSpeaking) NeonBlue else if (isProcessing) NeonPurple else NeonGreen,
@@ -278,7 +278,7 @@ fun AiAssistantScreen(
                     }
                 },
                 actions = {
-                    // Knowledge Vault Button
+                    // Kütüphane / Bellek Butonu
                     IconButton(
                         onClick = { showKnowledgeDialog = true },
                         modifier = Modifier
@@ -298,7 +298,7 @@ fun AiAssistantScreen(
                         }
                     }
 
-                    // Mute/Unmute TTS
+                    // Ses Aç/Kapat Butonu
                     IconButton(
                         onClick = {
                             coroutineScope.launch {
@@ -312,7 +312,7 @@ fun AiAssistantScreen(
                     ) {
                         Icon(
                             if (isVoiceResponsesEnabled) Icons.AutoMirrored.Filled.VolumeUp else Icons.AutoMirrored.Filled.VolumeOff,
-                            contentDescription = "Ses AÃ§/Kapat",
+                            contentDescription = "Ses Aç/Kapat",
                             tint = if (isVoiceResponsesEnabled) NeonCyan else Color.Gray
                         )
                     }
@@ -333,7 +333,7 @@ fun AiAssistantScreen(
                     )
                 )
         ) {
-            // Ambient Sci-Fi Hologram Grid Background
+            // Arka Plan Siber Izgara
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val gridSpacing = 40.dp.toPx()
                 val linePaint = NeonCyan.copy(alpha = 0.03f)
@@ -354,7 +354,7 @@ fun AiAssistantScreen(
                     .fillMaxSize()
                     .imePadding()
             ) {
-                // Sinematik CanlÄ± Ses DalgasÄ± (Audio Spectrum Waveform) & Kuantum GÃ¶rselleÅŸtirici
+                // Sinematik Canlı Ses Dalgası (Audio Spectrum Waveform)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -374,14 +374,14 @@ fun AiAssistantScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "NÃ–RAL SPEKTRUM // CANLI SES DALGASI",
+                                text = "NÖRAL SPEKTRUM // CANLI SES DALGASI",
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Black,
                                 color = NeonCyan,
                                 letterSpacing = 0.8.sp
                             )
                             Text(
-                                text = if (isSpeaking) "SES Ã‡IKIÅI: AKTÄ°F" else if (isListening) "DÄ°NLENÄ°YOR" else "BEKLEMEDE",
+                                text = if (isSpeaking) "SES ÇIKIŞI: AKTİF" else if (isListening) "DİNLENİYOR" else "BEKLEMEDE",
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isSpeaking) NeonBlue else if (isListening) NeonPurple else Color(0xFF64748B)
@@ -390,7 +390,7 @@ fun AiAssistantScreen(
 
                         Spacer(modifier = Modifier.height(6.dp))
 
-                        // CanlÄ± Ses DalgasÄ± Canvas
+                        // Canlı Spektrum Çubukları
                         Canvas(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -423,7 +423,7 @@ fun AiAssistantScreen(
                     }
                 }
 
-                // Chat Messages Stream
+                // Sohbet Akışı
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
@@ -436,7 +436,7 @@ fun AiAssistantScreen(
                     items(messages, key = { it.id }) { message ->
                         SciFiChatMessageItem(
                             message = message,
-                            assistantName = assistantName,
+                            assistantName = displayAssistantName,
                             userNick = decryptedNick,
                             onPlaceClick = { place ->
                                 NearbyPlacesHelper.openGoogleMapsNavigation(
@@ -455,12 +455,12 @@ fun AiAssistantScreen(
 
                     if (isProcessing) {
                         item {
-                            SciFiProcessingIndicator(assistantName = assistantName)
+                            SciFiProcessingIndicator(assistantName = displayAssistantName)
                         }
                     }
                 }
 
-                // Bottom Cyber Deck & Controls
+                // Alt Kontrol ve Giriş Paneli
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -476,7 +476,7 @@ fun AiAssistantScreen(
                         )
                         .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 16.dp)
                 ) {
-                    // Quick Action Sci-Fi Chips (Tarih, Maarif, Yemek, Migros, vb.)
+                    // Hızlı Soru Çipleri (Temiz Türkçe Karakterler)
                     LazyRow(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -484,14 +484,14 @@ fun AiAssistantScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         val quickPrompts = listOf(
-                            "ğŸ“œ Maarif SÄ±nÄ±f GeÃ§me" to "MEB Maarif modeli ve lise sÄ±nÄ±f geÃ§me kurallarÄ± nelerdir?",
-                            "ğŸ‡¹ğŸ‡· Lise Tarih KonularÄ±" to "Lise tarih dersi Ã¶nemli konularÄ±nÄ± ve KurtuluÅŸ SavaÅŸÄ±'nÄ± Ã¶zetle",
-                            "ğŸ³ Samsun Pidesi Tarifi" to "Samsun pidesi nasÄ±l yapÄ±lÄ±r ayrÄ±ntÄ±lÄ± anlat",
-                            "ğŸ›’ Migros Market" to "BugÃ¼n bana en yakÄ±n Migros marketi bul",
-                            "ğŸ’Š NÃ¶betÃ§i Eczane" to "Konumuma gÃ¶re en yakÄ±n nÃ¶betÃ§i eczaneleri bul",
-                            "ğŸš— Park Yerimi Kaydet" to "Park yerimi kaydet",
-                            "â° Randevu & Alarm" to "YarÄ±n saat 09:00 iÃ§in randevu oluÅŸtur",
-                            "ğŸ“š Bilgi Ekle" to "Åunu Ã¶ÄŸren: "
+                            "📜 Maarif Sınıf Geçme" to "MEB Maarif modeli ve lise sınıf geçme kuralları nelerdir?",
+                            "🇹🇷 Lise Tarih Konuları" to "Lise tarih dersi önemli konularını ve Kurtuluş Savaşı'nı özetle",
+                            "🍳 Samsun Pidesi Tarifi" to "Samsun pidesi nasıl yapılır ayrıntılı anlat",
+                            "🛒 Migros Market" to "Bugün bana en yakın Migros marketi bul",
+                            "💊 Nöbetçi Eczane" to "Konumuma göre en yakın nöbetçi eczaneleri bul",
+                            "🚗 Park Yerimi Kaydet" to "Park yerimi kaydet",
+                            "⏰ Randevu & Alarm" to "Yarın saat 09:00 için randevu oluştur",
+                            "📚 Bilgi Ekle" to "Şunu öğren: "
                         )
                         items(quickPrompts) { (chipLabel, promptAction) ->
                             Box(
@@ -513,7 +513,7 @@ fun AiAssistantScreen(
                         }
                     }
 
-                    // Sci-Fi Text & Mic Input Row
+                    // Metin ve Gönder Satırı
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -537,7 +537,7 @@ fun AiAssistantScreen(
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        // Send Button
+                        // Gönder Butonu
                         IconButton(
                             onClick = {
                                 if (inputText.isNotBlank()) {
@@ -551,23 +551,31 @@ fun AiAssistantScreen(
                                 .clip(CircleShape)
                                 .background(Brush.linearGradient(listOf(NeonCyan, NeonBlue)))
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "GÃ¶nder", tint = CyberBgDark, modifier = Modifier.size(20.dp))
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Gönder", tint = CyberBgDark, modifier = Modifier.size(20.dp))
                         }
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // 3D Arc Reactor Central Voice Mic Orb
+                    // 3D Kuantum Sesli Komut Butonu (Temiz Türkçe Diksiyon)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 2.dp),
                         contentAlignment = Alignment.Center
                     ) {
+                        val greetingPrompt = if (decryptedNick.isNotBlank()) "Seni dinliyorum $decryptedNick..." else "Seni dinliyorum..."
+                        val buttonText = if (isListening) {
+                            "🎙️ SES ALINIYOR (DİNLENİYOR)..."
+                        } else if (decryptedNick.isNotBlank()) {
+                            "🎙️ SENİ DİNLİYORUM ${decryptedNick.uppercase()}..."
+                        } else {
+                            "🎙️ SENİ DİNLİYORUM..."
+                        }
+
                         Button(
                             onClick = {
                                 isListening = true
-                                val greetingPrompt = if (decryptedNick.isNotBlank()) "Seni dinliyorum $decryptedNick..." else "Seni dinliyorum..."
                                 if (isVoiceResponsesEnabled) {
                                     TtsHelper.speak(context, greetingPrompt)
                                 }
@@ -596,7 +604,7 @@ fun AiAssistantScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (isListening) "ğŸ™ï¸ SES ALINIYOR (DÄ°NLENÄ°YOR)..." else if (decryptedNick.isNotBlank()) "ğŸ™ï¸ SENÄ° DÄ°NLÄ°YORUM ${decryptedNick.uppercase()}..." else "ğŸ™ï¸ SENÄ° DÄ°NLÄ°YORUM...",
+                                    text = buttonText,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Black,
                                     color = CyberBgDark,
@@ -638,7 +646,7 @@ fun SciFiChatMessageItem(
             modifier = Modifier.padding(bottom = 3.dp, start = if (isUser) 0.dp else 4.dp, end = if (isUser) 4.dp else 0.dp)
         ) {
             Text(
-                text = if (isUser) "[ ${if (userNick.isNotBlank()) userNick.uppercase() else "KULLANICI"} // SESLÄ° GÄ°RDÄ° ]" else "[ $assistantName // NÃ–RAL PROTOKOL ]",
+                text = if (isUser) "[ ${if (userNick.isNotBlank()) userNick.uppercase() else "KULLANICI"} // SESLİ GİRDİ ]" else "[ $assistantName // NÖRAL PROTOKOL ]",
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 color = if (isUser) NeonGreen else NeonCyan,
@@ -689,7 +697,7 @@ fun SciFiChatMessageItem(
                     .padding(horizontal = 9.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = "âš¡ ${message.actionSummary}",
+                    text = "⚡ ${message.actionSummary}",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = NeonGreen
@@ -740,7 +748,7 @@ fun SciFiChatMessageItem(
                             }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "ğŸ“ ${place.address}",
+                                text = "📍 ${place.address}",
                                 fontSize = 11.5.sp,
                                 color = Color(0xFF94A3B8)
                             )
@@ -758,7 +766,7 @@ fun SciFiChatMessageItem(
                                 ) {
                                     Icon(Icons.Default.Navigation, contentDescription = null, tint = CyberBgDark, modifier = Modifier.size(14.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("HARÄ°TA & YOL TARÄ°FÄ°", fontSize = 10.sp, fontWeight = FontWeight.Black, color = CyberBgDark)
+                                    Text("HARİTA & YOL TARİFİ", fontSize = 10.sp, fontWeight = FontWeight.Black, color = CyberBgDark)
                                 }
 
                                 if (!place.phone.isNullOrBlank()) {
@@ -807,7 +815,7 @@ fun SciFiProcessingIndicator(assistantName: String) {
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "$assistantName dÃ¼ÅŸÃ¼nÃ¼yor ve veri iÅŸliyor...",
+                    text = "$assistantName düşünüyor ve veri işliyor...",
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = NeonPurple
@@ -834,7 +842,7 @@ fun SciFiKnowledgeDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Psychology, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("USTA NÃ–RAL HAFIZA MERKEZÄ°", fontSize = 14.sp, fontWeight = FontWeight.Black, color = Color.White, letterSpacing = 1.sp)
+                Text("USTA NÖRAL HAFIZA MERKEZİ", fontSize = 14.sp, fontWeight = FontWeight.Black, color = Color.White, letterSpacing = 1.sp)
             }
         },
         text = {
@@ -844,7 +852,7 @@ fun SciFiKnowledgeDialog(
                     .heightIn(max = 420.dp)
             ) {
                 Text(
-                    text = "AsistanÄ±n Usta'ya Ã¶zel bilgiler, notlar ve hatÄ±rlanacak detaylar Ã¶ÄŸretin. Her konuÅŸmada bu hafÄ±za taranÄ±r.",
+                    text = "Asistanın Usta'ya özel bilgiler, notlar ve hatırlanacak detaylar öğretin. Her konuşmada bu hafıza taranır.",
                     fontSize = 11.sp,
                     color = Color(0xFF94A3B8)
                 )
@@ -854,7 +862,7 @@ fun SciFiKnowledgeDialog(
                 OutlinedTextField(
                     value = newTitle,
                     onValueChange = { newTitle = it },
-                    label = { Text("Konu BaÅŸlÄ±ÄŸÄ± (Ã–rn: Aile Doktorum)") },
+                    label = { Text("Konu Başlığı (Örn: Aile Doktorum)") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -870,7 +878,7 @@ fun SciFiKnowledgeDialog(
                 OutlinedTextField(
                     value = newContent,
                     onValueChange = { newContent = it },
-                    label = { Text("AÃ§Ä±klama / Bilgi Notu") },
+                    label = { Text("Açıklama / Bilgi Notu") },
                     modifier = Modifier.fillMaxWidth(),
                     maxLines = 3,
                     shape = RoundedCornerShape(10.dp),
@@ -903,7 +911,7 @@ fun SciFiKnowledgeDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Text("KAYITLI HAFIZA LÄ°STESÄ° (${knowledgeList.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = NeonCyan)
+                Text("KAYITLI HAFIZA LİSTESİ (${knowledgeList.size})", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = NeonCyan)
                 Spacer(modifier = Modifier.height(6.dp))
 
                 LazyColumn(
