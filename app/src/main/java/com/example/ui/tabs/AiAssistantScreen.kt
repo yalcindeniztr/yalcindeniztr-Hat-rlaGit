@@ -1,4 +1,4 @@
-﻿package com.example.ui.tabs
+package com.example.ui.tabs
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -51,6 +51,7 @@ import com.example.util.NearbyPlacesHelper
 import com.example.util.TtsHelper
 import com.example.util.rememberVoiceRecognizer
 import kotlinx.coroutines.launch
+import kotlin.math.sin
 
 data class ChatMessage(
     val id: String = java.util.UUID.randomUUID().toString(),
@@ -91,11 +92,12 @@ fun AiAssistantScreen(
     var inputText by remember { mutableStateOf("") }
     var isListening by remember { mutableStateOf(false) }
     var isProcessing by remember { mutableStateOf(false) }
+    var isSpeaking by remember { mutableStateOf(false) }
     var showKnowledgeDialog by remember { mutableStateOf(false) }
 
     val initialGreeting = remember(decryptedNick, assistantName) {
         if (decryptedNick.isNotBlank()) {
-            "NÃ¶ral baÄŸlantÄ± kuruldu $decryptedNick dostum! Ben $assistantName. Emrindeyim; mekan, alarm, randevu, harita veya genel sorularÄ±nÄ± bekliyorum."
+            "NÃ¶ral baÄŸlantÄ± kuruldu $decryptedNick dostum! Ben $assistantName. TÃ¼rk tarihi, Maarif mÃ¼fredatÄ±, yemek tarifleri, mekanlar veya alarmlar... Ne istersen emrindeyim."
         } else {
             "Sistem aktif! Ben HatÄ±rlaGit Yapay Zeka Ã‡ekirdeÄŸi $assistantName. Sana Ã¶zel hitap edebilmem iÃ§in adÄ±nÄ± Ã¶ÄŸrenebilir miyim?"
         }
@@ -110,35 +112,49 @@ fun AiAssistantScreen(
         )
     }
 
+    // Direct and Instant Speech execution helper
+    fun executeUserPrompt(promptText: String) {
+        if (promptText.isBlank()) return
+        val userMsg = ChatMessage(sender = "USER", text = promptText)
+        messages.add(userMsg)
+        coroutineScope.launch {
+            listState.animateScrollToItem(messages.size - 1)
+            isProcessing = true
+            val response = AiAssistantService.processUserMessage(
+                context = context,
+                userMessage = promptText,
+                assistantName = assistantName,
+                conversationHistory = messages.toList()
+            )
+            val aiMsg = ChatMessage(
+                sender = "AI",
+                text = response.replyText,
+                recommendedPlaces = response.recommendedPlaces,
+                actionSummary = response.actionSummary
+            )
+            messages.add(aiMsg)
+            isProcessing = false
+            listState.animateScrollToItem(messages.size - 1)
+
+            // Direct Instant Speech (No unnecessary delay, direct Turkish TTS)
+            if (isVoiceResponsesEnabled && response.isSpeechReady) {
+                isSpeaking = true
+                TtsHelper.speak(context, response.replyText)
+                // Speaking indicator resets after a natural duration
+                launch {
+                    val durationMs = (response.replyText.length * 60L).coerceIn(2000L, 12000L)
+                    kotlinx.coroutines.delay(durationMs)
+                    isSpeaking = false
+                }
+            }
+        }
+    }
+
     // Voice recognition launcher
     val startVoiceRecognition = rememberVoiceRecognizer { recognizedText ->
         isListening = false
         if (recognizedText.isNotBlank()) {
-            val userMsg = ChatMessage(sender = "USER", text = recognizedText)
-            messages.add(userMsg)
-            coroutineScope.launch {
-                listState.animateScrollToItem(messages.size - 1)
-                isProcessing = true
-                val response = AiAssistantService.processUserMessage(
-                    context = context,
-                    userMessage = recognizedText,
-                    assistantName = assistantName,
-                    conversationHistory = messages.toList()
-                )
-                val aiMsg = ChatMessage(
-                    sender = "AI",
-                    text = response.replyText,
-                    recommendedPlaces = response.recommendedPlaces,
-                    actionSummary = response.actionSummary
-                )
-                messages.add(aiMsg)
-                isProcessing = false
-                listState.animateScrollToItem(messages.size - 1)
-
-                if (isVoiceResponsesEnabled && response.isSpeechReady) {
-                    TtsHelper.speak(context, response.replyText)
-                }
-            }
+            executeUserPrompt(recognizedText)
         }
     }
 
@@ -146,12 +162,21 @@ fun AiAssistantScreen(
     val infiniteTransition = rememberInfiniteTransition(label = "scifi_hud")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = 1.12f,
+        targetValue = 1.15f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
+            animation = tween(900, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseScale"
+    )
+    val wavePhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 6.28f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "wavePhase"
     )
     val ringRotation by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -215,7 +240,7 @@ fun AiAssistantScreen(
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
                                     Text(
-                                        text = "v1.1.5",
+                                        text = "v1.1.6",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = NeonCyan
@@ -227,14 +252,14 @@ fun AiAssistantScreen(
                                     modifier = Modifier
                                         .size(6.dp)
                                         .clip(CircleShape)
-                                        .background(if (isProcessing) NeonPurple else NeonGreen)
+                                        .background(if (isProcessing) NeonPurple else if (isSpeaking) NeonBlue else NeonGreen)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = if (isProcessing) "NÃ–RAL Ä°ÅLEM SÃœRÃœYOR..." else "QUANTUM JARVIS CORE : Ã‡EVRÄ°MÄ°Ã‡Ä°",
+                                    text = if (isSpeaking) "USTA SESLÄ° CEVAP VERÄ°YOR..." else if (isProcessing) "VERÄ° Ä°ÅLENÄ°YOR..." else "QUANTUM Ã‡EKÄ°RDEK : Ã‡EVRÄ°MÄ°Ã‡Ä°",
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isProcessing) NeonPurple else NeonGreen,
+                                    color = if (isSpeaking) NeonBlue else if (isProcessing) NeonPurple else NeonGreen,
                                     letterSpacing = 0.5.sp
                                 )
                             }
@@ -329,21 +354,72 @@ fun AiAssistantScreen(
                     .fillMaxSize()
                     .imePadding()
             ) {
-                // 3D Arc Reactor Holographic Visualizer (When few messages)
-                if (messages.size <= 2) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
+                // Sinematik CanlÄ± Ses DalgasÄ± (Audio Spectrum Waveform) & Kuantum GÃ¶rselleÅŸtirici
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFF070D1F).copy(alpha = 0.85f))
+                        .border(1.dp, NeonCyan.copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                        .padding(10.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        SciFiHologramVisualizer(
-                            pulseScale = pulseScale,
-                            ringRotation = ringRotation,
-                            counterRotation = counterRotation,
-                            isListening = isListening,
-                            isProcessing = isProcessing
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "NÃ–RAL SPEKTRUM // CANLI SES DALGASI",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black,
+                                color = NeonCyan,
+                                letterSpacing = 0.8.sp
+                            )
+                            Text(
+                                text = if (isSpeaking) "SES Ã‡IKIÅI: AKTÄ°F" else if (isListening) "DÄ°NLENÄ°YOR" else "BEKLEMEDE",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isSpeaking) NeonBlue else if (isListening) NeonPurple else Color(0xFF64748B)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // CanlÄ± Ses DalgasÄ± Canvas
+                        Canvas(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(38.dp)
+                        ) {
+                            val barCount = 32
+                            val barWidth = size.width / (barCount * 1.6f)
+                            val isActive = isSpeaking || isListening || isProcessing
+
+                            for (i in 0 until barCount) {
+                                val x = i * (barWidth * 1.6f) + barWidth / 2
+                                val multiplier = if (isActive) {
+                                    (sin(wavePhase + i * 0.35f) * 0.5f + 0.5f).coerceIn(0.15f, 1f)
+                                } else {
+                                    (sin(i * 0.2f) * 0.15f + 0.2f)
+                                }
+                                val barHeight = size.height * multiplier
+                                val topY = (size.height - barHeight) / 2
+                                val barColor = if (i % 2 == 0) NeonCyan else NeonPurple
+
+                                drawLine(
+                                    color = barColor.copy(alpha = if (isActive) 0.9f else 0.4f),
+                                    start = Offset(x, topY),
+                                    end = Offset(x, topY + barHeight),
+                                    strokeWidth = barWidth,
+                                    cap = StrokeCap.Round
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -355,7 +431,7 @@ fun AiAssistantScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(top = 8.dp, bottom = 12.dp)
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 10.dp)
                 ) {
                     items(messages, key = { it.id }) { message ->
                         SciFiChatMessageItem(
@@ -400,7 +476,7 @@ fun AiAssistantScreen(
                         )
                         .padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 16.dp)
                 ) {
-                    // Quick Action Sci-Fi Chips
+                    // Quick Action Sci-Fi Chips (Tarih, Maarif, Yemek, Migros, vb.)
                     LazyRow(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -408,11 +484,13 @@ fun AiAssistantScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         val quickPrompts = listOf(
+                            "ğŸ“œ Maarif SÄ±nÄ±f GeÃ§me" to "MEB Maarif modeli ve lise sÄ±nÄ±f geÃ§me kurallarÄ± nelerdir?",
+                            "ğŸ‡¹ğŸ‡· Lise Tarih KonularÄ±" to "Lise tarih dersi Ã¶nemli konularÄ±nÄ± ve KurtuluÅŸ SavaÅŸÄ±'nÄ± Ã¶zetle",
+                            "ğŸ³ Samsun Pidesi Tarifi" to "Samsun pidesi nasÄ±l yapÄ±lÄ±r ayrÄ±ntÄ±lÄ± anlat",
                             "ğŸ›’ Migros Market" to "BugÃ¼n bana en yakÄ±n Migros marketi bul",
                             "ğŸ’Š NÃ¶betÃ§i Eczane" to "Konumuma gÃ¶re en yakÄ±n nÃ¶betÃ§i eczaneleri bul",
                             "ğŸš— Park Yerimi Kaydet" to "Park yerimi kaydet",
                             "â° Randevu & Alarm" to "YarÄ±n saat 09:00 iÃ§in randevu oluÅŸtur",
-                            "ğŸ¥ En YakÄ±n Hastane" to "En yakÄ±n hastaneyi gÃ¶ster ve yol tarifi ver",
                             "ğŸ“š Bilgi Ekle" to "Åunu Ã¶ÄŸren: "
                         )
                         items(quickPrompts) { (chipLabel, promptAction) ->
@@ -425,30 +503,7 @@ fun AiAssistantScreen(
                                         if (promptAction.endsWith(": ")) {
                                             inputText = promptAction
                                         } else {
-                                            val userMsg = ChatMessage(sender = "USER", text = promptAction)
-                                            messages.add(userMsg)
-                                            coroutineScope.launch {
-                                                listState.animateScrollToItem(messages.size - 1)
-                                                isProcessing = true
-                                                val response = AiAssistantService.processUserMessage(
-                                                    context = context,
-                                                    userMessage = promptAction,
-                                                    assistantName = assistantName,
-                                                    conversationHistory = messages.toList()
-                                                )
-                                                val aiMsg = ChatMessage(
-                                                    sender = "AI",
-                                                    text = response.replyText,
-                                                    recommendedPlaces = response.recommendedPlaces,
-                                                    actionSummary = response.actionSummary
-                                                )
-                                                messages.add(aiMsg)
-                                                isProcessing = false
-                                                listState.animateScrollToItem(messages.size - 1)
-                                                if (isVoiceResponsesEnabled) {
-                                                    TtsHelper.speak(context, response.replyText)
-                                                }
-                                            }
+                                            executeUserPrompt(promptAction)
                                         }
                                     }
                                     .padding(horizontal = 10.dp, vertical = 6.dp)
@@ -467,7 +522,7 @@ fun AiAssistantScreen(
                             value = inputText,
                             onValueChange = { inputText = it },
                             modifier = Modifier.weight(1f),
-                            placeholder = { Text("Usta'ya sor, emir ver veya Ã¶ÄŸret...", fontSize = 12.sp, color = Color(0xFF64748B)) },
+                            placeholder = { Text("Tarih, Maarif, tarif, mekan veya alarm sor...", fontSize = 12.sp, color = Color(0xFF64748B)) },
                             maxLines = 2,
                             shape = RoundedCornerShape(20.dp),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -482,37 +537,13 @@ fun AiAssistantScreen(
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        // Futuristic Send Button
+                        // Send Button
                         IconButton(
                             onClick = {
                                 if (inputText.isNotBlank()) {
                                     val textToSend = inputText
                                     inputText = ""
-                                    val userMsg = ChatMessage(sender = "USER", text = textToSend)
-                                    messages.add(userMsg)
-                                    coroutineScope.launch {
-                                        listState.animateScrollToItem(messages.size - 1)
-                                        isProcessing = true
-                                        val response = AiAssistantService.processUserMessage(
-                                            context = context,
-                                            userMessage = textToSend,
-                                            assistantName = assistantName,
-                                            conversationHistory = messages.toList()
-                                        )
-                                        val aiMsg = ChatMessage(
-                                            sender = "AI",
-                                            text = response.replyText,
-                                            recommendedPlaces = response.recommendedPlaces,
-                                            actionSummary = response.actionSummary
-                                        )
-                                        messages.add(aiMsg)
-                                        isProcessing = false
-                                        listState.animateScrollToItem(messages.size - 1)
-
-                                        if (isVoiceResponsesEnabled) {
-                                            TtsHelper.speak(context, response.replyText)
-                                        }
-                                    }
+                                    executeUserPrompt(textToSend)
                                 }
                             },
                             modifier = Modifier
@@ -589,68 +620,6 @@ fun AiAssistantScreen(
 }
 
 @Composable
-fun SciFiHologramVisualizer(
-    pulseScale: Float,
-    ringRotation: Float,
-    counterRotation: Float,
-    isListening: Boolean,
-    isProcessing: Boolean
-) {
-    Box(
-        modifier = Modifier
-            .size(110.dp)
-            .scale(if (isListening || isProcessing) pulseScale else 1f),
-        contentAlignment = Alignment.Center
-    ) {
-        // Outer Counter-Rotating Purple Arc Ring
-        Canvas(modifier = Modifier.fillMaxSize().rotate(counterRotation)) {
-            drawArc(
-                brush = Brush.sweepGradient(listOf(NeonPurple, Color.Transparent, NeonPurple)),
-                startAngle = 0f,
-                sweepAngle = 270f,
-                useCenter = false,
-                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
-            )
-        }
-
-        // Inner Rotating Cyan Arc Ring
-        Canvas(modifier = Modifier.size(80.dp).rotate(ringRotation)) {
-            drawArc(
-                brush = Brush.sweepGradient(listOf(NeonCyan, Color.Transparent, NeonBlue, NeonCyan)),
-                startAngle = 45f,
-                sweepAngle = 250f,
-                useCenter = false,
-                style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
-            )
-        }
-
-        // Central Hologram Quantum Core
-        Box(
-            modifier = Modifier
-                .size(46.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        listOf(
-                            if (isListening) NeonPurple else if (isProcessing) NeonBlue else NeonCyan,
-                            Color(0xFF0F172A)
-                        )
-                    )
-                )
-                .border(2.dp, NeonCyan, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                if (isListening) Icons.Default.GraphicEq else if (isProcessing) Icons.Default.HourglassTop else Icons.Default.AutoAwesome,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-    }
-}
-
-@Composable
 fun SciFiChatMessageItem(
     message: ChatMessage,
     assistantName: String,
@@ -664,7 +633,6 @@ fun SciFiChatMessageItem(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
-        // Header Tag [ USTA // NÃ–RAL BÄ°LGE ] or [ KULLANICI // SESLÄ° ]
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(bottom = 3.dp, start = if (isUser) 0.dp else 4.dp, end = if (isUser) 4.dp else 0.dp)
@@ -678,7 +646,6 @@ fun SciFiChatMessageItem(
             )
         }
 
-        // Message Box with Sci-Fi Hologram Border
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
@@ -712,7 +679,6 @@ fun SciFiChatMessageItem(
             )
         }
 
-        // Action Executed Summary Badge (if any)
         if (!message.actionSummary.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(4.dp))
             Box(
@@ -731,7 +697,6 @@ fun SciFiChatMessageItem(
             }
         }
 
-        // Recommended Places Cards (Migros, Eczane, Hastane, vb.)
         if (message.recommendedPlaces.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
             Column(

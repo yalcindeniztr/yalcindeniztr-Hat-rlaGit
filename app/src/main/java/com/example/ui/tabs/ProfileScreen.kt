@@ -1524,7 +1524,7 @@ fun ProfileScreen(viewModel: LifeAssistantViewModel) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "HatırlaGit • Sürüm v1.1.5 (Build 67)",
+                    text = "HatırlaGit • Sürüm v1.1.6 (Build 68)",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Slate700
