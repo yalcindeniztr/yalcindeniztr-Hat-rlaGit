@@ -75,7 +75,7 @@ fun openPlayStore(context: Context) {
  */
 @Composable
 fun PlayStoreUpdateDialog(
-    newVersionName: String = "v1.1.8",
+    newVersionName: String = "v1.1.9",
     updateHighlights: List<String> = listOf(
         "🛒 BİM, ŞOK, A101, Migros İndirimleri & 1 Alana 1 Bedava Bülteni",
         "🧹 Roborock ve Mi Home Akıllı Robot Süpürge Başlatma",
