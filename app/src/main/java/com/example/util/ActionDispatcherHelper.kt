@@ -7,6 +7,7 @@ import android.provider.AlarmClock
 import android.provider.CalendarContract
 import com.example.data.AppDatabase
 import com.example.data.ReminderEntity
+import com.example.data.SavedLocationEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -43,7 +44,7 @@ object ActionDispatcherHelper {
             }
         }
 
-        // Clean speech text from Markdown characters for natural TTS
+        // Markdown karakterlerini temizle
         val speechForTts = cleanSpeech
             .replace("**", "")
             .replace("*", "")
@@ -217,7 +218,6 @@ object ActionDispatcherHelper {
                 }
 
                 "START_VACUUM" -> {
-                    // Roborock, Mi Home veya Google Home başlatma
                     val roborockPkg = "com.roborock.smart"
                     val miHomePkg = "com.xiaomi.smarthome"
                     val googleHomePkg = "com.google.android.apps.chromecast.app"
@@ -232,9 +232,6 @@ object ActionDispatcherHelper {
                         context.startActivity(launchIntent)
                         return@withContext "🧹 Akıllı robot süpürge uygulaması açıldı. Temizlik başlatılıyor..."
                     } else {
-                        val storeIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://search?q=roborock")).apply {
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
                         return@withContext "🧹 Cihazınızda Roborock veya Mi Home uygulaması bulunamadı. Lütfen önce süpürgenizin uygulamasını yükleyin."
                     }
                 }
@@ -252,6 +249,35 @@ object ActionDispatcherHelper {
                     } else {
                         MarketDealsHelper.getMorningDealsSummary()
                     }
+                }
+
+                "DAILY_NEWS" -> {
+                    return@withContext DailyNewsHelper.getHeadlinesBriefing()
+                }
+
+                "SAVE_LOCATION" -> {
+                    val name = payload.optString("name", "Kayıtlı Lokasyon")
+                    val lat = payload.optDouble("lat", 0.0)
+                    val lng = payload.optDouble("lng", 0.0)
+                    if (lat != 0.0 && lng != 0.0) {
+                        val loc = SavedLocationEntity(
+                            name = name,
+                            lat = lat,
+                            lng = lng,
+                            timestamp = System.currentTimeMillis()
+                        )
+                        AppDatabase.getDatabase(context).savedLocationDao().insertLocation(loc)
+                        return@withContext "📍 Lokasyon 'Kayıtlı Lokasyonlarım' arasına başarıyla eklendi: $name"
+                    }
+                    return@withContext "Lokasyon koordinatları bulunamadı."
+                }
+
+                "GENERATE_LESSON_PLAN_PDF" -> {
+                    val course = payload.optString("course", "Tarih")
+                    val grade = payload.optString("grade", "9. Sınıf")
+                    val content = payload.optString("content", "")
+                    val (_, summary) = LessonPlanPdfHelper.createLessonPlanPdf(context, course, grade, content)
+                    return@withContext summary
                 }
 
                 "CHECK_NOTIFICATIONS" -> {

@@ -75,14 +75,14 @@ fun openPlayStore(context: Context) {
  */
 @Composable
 fun PlayStoreUpdateDialog(
-    newVersionName: String = "v1.1.9",
+    newVersionName: String = "v1.2.0",
     updateHighlights: List<String> = listOf(
-        "🛒 BİM, ŞOK, A101, Migros İndirimleri & 1 Alana 1 Bedava Bülteni",
-        "🧹 Roborock ve Mi Home Akıllı Robot Süpürge Başlatma",
-        "👗 Gardrops & Alışveriş Bildirim ve Teklif Takibi",
-        "📝 Asistan Araştırmalarını Cihaz Hafızasına Kaydetme",
-        "💬 WhatsApp, SMS ve Instagram Entegrasyonu",
-        "📍 Canlı Konum ve Nöbetçi Eczane/Migros Navigasyonu"
+        "📰 Günlük Gazete Manşetleri & Gündem/Ekonomi Özeti",
+        "📋 MEB Maarif Modeli Uyumlu Günlük Ders Planı Hazırlama & PDF Kaydetme",
+        "📍 Haritada Yer Arama Sonrası Akıllı Lokasyon Kaydetme Teyidi",
+        "🚗 Park Yeri ve Lokasyonlarım Ayrımı",
+        "📚 MEB Maarif Modeli ve Ortaöğretim Sınıf Geçme Yönetmeliği Kütüphanesi",
+        "🛒 BİM, ŞOK, A101, Migros İndirimleri & 1 Alana 1 Bedava Bülteni"
     ),
     onDismiss: () -> Unit
 ) {
