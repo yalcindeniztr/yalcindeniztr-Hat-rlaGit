@@ -252,7 +252,7 @@ fun AiAssistantScreen(
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
                                     Text(
-                                        text = "v1.2.1",
+                                        text = "v1.2.2",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = NeonCyan
@@ -496,6 +496,8 @@ fun AiAssistantScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         val quickPrompts = listOf(
+                            "🌤️ Canlı Hava Durumu" to "Bugün hava nasıl?",
+                            "📅 Günlük Plan & İş Akışı" to "Bugünkü planım ve iş akışımı hazırla",
                             "📰 Gazete Manşetleri" to "Bugünün gazete başlıklarını ve gündemini özetle",
                             "📋 Ders Planı Hazırla" to "Günlük ders planı hazırla",
                             "📍 Konumumu Kaydet" to "Konumumu lokasyonlarıma kaydet",

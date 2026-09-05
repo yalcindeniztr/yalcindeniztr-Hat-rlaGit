@@ -34,15 +34,17 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <View
+    <!-- Divider (Safe ImageView for RemoteViews) -->
+    <ImageView
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginTop="5dp"
         android:layout_marginBottom="6dp"
-        android:background="#26334155" />
+        android:background="#26334155"
+        android:contentDescription="@null" />
 
-    <!-- Hero Microphone Button (Direct Voice Listen) -->
-    <Button
+    <!-- Hero Microphone Button (Using robust TextView for RemoteViews) -->
+    <TextView
         android:id="@+id/widget_btn_usta_mic"
         android:layout_width="match_parent"
         android:layout_height="44dp"
@@ -50,7 +52,10 @@
         android:text="🎙️ USTA'YI DİNLE (DOKUN &amp; KONUŞ)"
         android:textColor="#0A0F1D"
         android:textSize="12sp"
-        android:textStyle="bold" />
+        android:textStyle="bold"
+        android:gravity="center"
+        android:clickable="true"
+        android:focusable="true" />
 
     <!-- Bottom Quick Action Row -->
     <LinearLayout
@@ -60,7 +65,7 @@
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <Button
+        <TextView
             android:id="@+id/widget_btn_lesson_plan"
             android:layout_width="0dp"
             android:layout_height="match_parent"
@@ -69,9 +74,12 @@
             android:background="@drawable/bg_widget_chip"
             android:text="📋 Ders Planı"
             android:textColor="#E2E8F0"
-            android:textSize="10sp" />
+            android:textSize="10sp"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true" />
 
-        <Button
+        <TextView
             android:id="@+id/widget_btn_park"
             android:layout_width="0dp"
             android:layout_height="match_parent"
@@ -81,9 +89,12 @@
             android:background="@drawable/bg_widget_chip"
             android:text="🚗 Park Yeri"
             android:textColor="#E2E8F0"
-            android:textSize="10sp" />
+            android:textSize="10sp"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true" />
 
-        <Button
+        <TextView
             android:id="@+id/widget_btn_news"
             android:layout_width="0dp"
             android:layout_height="match_parent"
@@ -92,7 +103,10 @@
             android:background="@drawable/bg_widget_chip"
             android:text="📰 Manşetler"
             android:textColor="#E2E8F0"
-            android:textSize="10sp" />
+            android:textSize="10sp"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true" />
     </LinearLayout>
 
 </LinearLayout>

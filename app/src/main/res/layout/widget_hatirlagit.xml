@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
@@ -34,12 +34,13 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <View
+    <ImageView
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginTop="6dp"
         android:layout_marginBottom="6dp"
-        android:background="#40FFFFFF" />
+        android:background="#40FFFFFF"
+        android:contentDescription="@null" />
 
     <!-- Upcoming Reminder Section -->
     <LinearLayout
@@ -77,7 +78,7 @@
         android:gravity="center_vertical"
         android:layout_marginTop="4dp">
 
-        <Button
+        <TextView
             android:id="@+id/widget_btn_quick_note"
             android:layout_width="0dp"
             android:layout_height="32dp"
@@ -86,9 +87,12 @@
             android:text="✏️ Hızlı Not"
             android:textSize="10sp"
             android:textColor="#0F172A"
-            android:background="#F1F5F9" />
+            android:background="#F1F5F9"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true" />
 
-        <Button
+        <TextView
             android:id="@+id/widget_btn_voice_note"
             android:layout_width="0dp"
             android:layout_height="32dp"
@@ -97,6 +101,9 @@
             android:text="🎙️ Sesli Not"
             android:textSize="10sp"
             android:textColor="#0F172A"
-            android:background="#F1F5F9" />
+            android:background="#F1F5F9"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true" />
     </LinearLayout>
 </LinearLayout>

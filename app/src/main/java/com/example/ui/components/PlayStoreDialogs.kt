@@ -75,13 +75,13 @@ fun openPlayStore(context: Context) {
  */
 @Composable
 fun PlayStoreUpdateDialog(
-    newVersionName: String = "v1.2.1",
+    newVersionName: String = "v1.2.2",
     updateHighlights: List<String> = listOf(
-        "🎙️ Ana Ekran Usta Asistan Hızlı Erişim Widget'ı (Tek Dokunuşla Sesli Dinleme)",
-        "⏱️ Ses Tanıma Sabır Süresi Uzatması (Sözünüz Bitene Kadar Kesintisiz Dinleme)",
-        "📅 Adım Adım Randevu & Hatırlatıcı Akışı (Takvim ve Akıllı Saat Senkronu)",
-        "🏛️ Kütüphane Bilgi Genişlemesi: Türk Tarihi, İlk Yardım ve Tüketici Hakları",
-        "💬 Öz ve Net Konuşma Modu (Daha Kısa, Seri ve Sonuç Odaklı Yanıtlar)",
+        "🌤️ Canlı Meteorolojik Hava Durumu & Akıllı Günlük Tavsiyeler",
+        "📅 Günlük İş Akışı, Zaman Yönetimi & Gün Planlama Asistanı",
+        "🤖 Jarvis Protokolü: Rafine, Nüktedan, İnsansı Empati & Analitik Zeka",
+        "🛠️ Ana Ekran Widget'ı 'Yüklenemiyor' Hatası Düzeltildi & Stabil Hale Getirildi",
+        "🎙️ Tek Dokunuşla Sesli Dinleme & Sabır Süresi Optimizasyonu",
         "📋 MEB Maarif Modeli Uyumlu Günlük Ders Planı Hazırlama & PDF Kaydetme",
         "📰 Günlük Gazete Manşetleri & Gündem/Ekonomi Özeti"
     ),
