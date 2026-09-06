@@ -31,6 +31,10 @@
         <package android:name="com.dolap.android" />
         <package android:name="com.google.android.keep" />
         <package android:name="com.google.android.apps.chromecast.app" />
+        <package android:name="com.google.android.youtube" />
+        <package android:name="com.google.android.apps.maps" />
+        <package android:name="com.google.android.gm" />
+        <package android:name="com.google.android.googlequicksearchbox" />
         <intent>
             <action android:name="android.intent.action.SENDTO" />
             <data android:scheme="smsto" />

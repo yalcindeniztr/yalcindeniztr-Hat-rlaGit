@@ -179,6 +179,56 @@ Geleneksel Türk Mutfağı Ustalarından Püf Noktaları:
                 )
             }
 
+            // 9. Python YouTube ve Google Asistan Köprüsü
+            if (allList.none { it.title.contains("Python YouTube", ignoreCase = true) }) {
+                db.aiKnowledgeDao().insertKnowledge(
+                    AiKnowledgeEntity(
+                        title = "Python YouTube ve Google Asistan Köprüsü",
+                        content = """
+Python ile YouTube Şarkı Çalma ve Google Asistan Entegrasyon Kılavuzu:
+1. Kütüphaneler: 'pip install pywhatkit SpeechRecognition pyttsx3'
+2. YouTube'da Şarkı Açma:
+   import pywhatkit
+   pywhatkit.playonyt("Şarkı Adı")
+3. Tarayıcı Alternatifi:
+   import webbrowser, urllib.parse
+   webbrowser.open(f"https://www.youtube.com/results?search_query={urllib.parse.quote_plus('Şarkı Adı')}")
+4. Google Asistan Köprüsü:
+   webbrowser.open("https://assistant.google.com/")
+5. Telefonda Çalıştırma: Pydroid 3 veya Termux üzerinden 'python youtube_assistant_bridge.py' komutuyla doğrudan çalıştırılabilir.
+                        """.trimIndent(),
+                        category = "PYTHON_BRIDGE",
+                        isOfficialVerified = true,
+                        source = "HatırlaGit Jarvis Geliştirici Kütüphanesi",
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            }
+
+            // 10. Jarvis Akıllı Uygulama Başlatma ve Cihaz Kontrolü
+            if (allList.none { it.title.contains("Jarvis Akıllı Uygulama", ignoreCase = true) }) {
+                db.aiKnowledgeDao().insertKnowledge(
+                    AiKnowledgeEntity(
+                        title = "Jarvis Akıllı Uygulama Başlatma ve Cihaz Kontrolü",
+                        content = """
+Jarvis / Usta Sesli Uygulama ve Cihaz Başlatma Rehberi:
+• YouTube: 'YouTube'dan [şarkı/video] aç' dendiğinde ilgili parçayı oynatır.
+• Google Asistan: 'Google Asistan'ı aç' veya 'Asistana bağlan' dendiğinde sesli asistanı açar.
+• WhatsApp: 'WhatsApp'ı aç' veya 'mesajlara gir' komutuyla başlatır.
+• Kamera & Galeri: 'Kamerayı aç' veya 'Fotoğrafları göster' ile devreye girer.
+• Harita & Navigasyon: 'Haritayı aç' ile Google Haritalar'ı başlatır.
+• Saat & Alarm: 'Alarmları aç' veya 'Saat uygulamasını aç' ile saat yöneticisini açar.
+• Akıllı Süpürge: 'Süpürgeyi çalıştır' dendiğinde Roborock veya Mi Home uygulamasını başlatır.
+• Takvim & Ajanda: 'Takvimi aç' ile etkinlik takvimini gösterir.
+                        """.trimIndent(),
+                        category = "JARVIS_APP_CONTROL",
+                        isOfficialVerified = true,
+                        source = "HatırlaGit Jarvis İşletim Protokolü",
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            }
+
         } catch (e: Exception) {
             e.printStackTrace()
         }

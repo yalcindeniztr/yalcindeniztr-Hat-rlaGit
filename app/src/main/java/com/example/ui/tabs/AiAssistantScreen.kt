@@ -49,6 +49,14 @@ import com.example.util.AiAssistantService
 import com.example.util.NearbyPlace
 import com.example.util.NearbyPlacesHelper
 import com.example.util.TtsHelper
+import com.example.data.AppDatabase
+import com.example.data.AiChatHistoryEntity
+import com.example.util.InAppSpeechRecognizerManager
+import com.example.util.InAppListeningDialog
+import androidx.compose.material.icons.filled.DeleteSweep
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
 import com.example.util.rememberVoiceRecognizer
 import kotlinx.coroutines.launch
 import kotlin.math.sin
@@ -106,6 +114,8 @@ fun AiAssistantScreen(
         }
     }
 
+    val db = remember { AppDatabase.getDatabase(context) }
+
     val messages = remember {
         mutableStateListOf(
             ChatMessage(
@@ -115,11 +125,43 @@ fun AiAssistantScreen(
         )
     }
 
+    // Geçmiş 20+ konuşmayı veritabanından yükleme (Oturumlar arası kalıcı hafıza)
+    LaunchedEffect(Unit) {
+        val history = withContext(Dispatchers.IO) {
+            db.aiChatHistoryDao().getRecentMessages(30)
+        }
+        if (history.isNotEmpty()) {
+            messages.clear()
+            for (item in history.reversed()) {
+                messages.add(
+                    ChatMessage(
+                        id = item.id.toString(),
+                        sender = item.sender,
+                        text = item.messageText,
+                        actionSummary = item.actionSummary
+                    )
+                )
+            }
+        }
+    }
+
     // Doğrudan ve Hızlı Sesli Yanıt Yürütücüsü
     fun executeUserPrompt(promptText: String) {
         if (promptText.isBlank()) return
         val userMsg = ChatMessage(sender = "USER", text = promptText)
         messages.add(userMsg)
+
+        // Kullanıcı mesajını kalıcı veritabanına kaydet
+        coroutineScope.launch(Dispatchers.IO) {
+            db.aiChatHistoryDao().insertMessage(
+                AiChatHistoryEntity(
+                    sender = "USER",
+                    messageText = promptText,
+                    timestamp = System.currentTimeMillis()
+                )
+            )
+        }
+
         coroutineScope.launch {
             listState.animateScrollToItem(messages.size - 1)
             isProcessing = true
@@ -136,6 +178,19 @@ fun AiAssistantScreen(
                 actionSummary = response.actionSummary
             )
             messages.add(aiMsg)
+
+            // Asistan yanıtını kalıcı veritabanına kaydet
+            launch(Dispatchers.IO) {
+                db.aiChatHistoryDao().insertMessage(
+                    AiChatHistoryEntity(
+                        sender = "AI",
+                        messageText = response.replyText,
+                        timestamp = System.currentTimeMillis(),
+                        actionSummary = response.actionSummary
+                    )
+                )
+            }
+
             isProcessing = false
             listState.animateScrollToItem(messages.size - 1)
 
@@ -170,7 +225,16 @@ fun AiAssistantScreen(
         }
     }
 
-    // Sesli Tanıma Başlatıcı
+    // 10 Saniye Kesintisiz Dinleyen In-App Speech Recognizer Motoru
+    val inAppSpeechManager = remember {
+        InAppSpeechRecognizerManager(context) { recognizedText ->
+            if (recognizedText.isNotBlank()) {
+                executeUserPrompt(recognizedText)
+            }
+        }
+    }
+
+    // Yedek Sistem Diyaloğu Tanıma Başlatıcı
     val startVoiceRecognition = rememberVoiceRecognizer { recognizedText ->
         isListening = false
         if (recognizedText.isNotBlank()) {
@@ -182,7 +246,7 @@ fun AiAssistantScreen(
     androidx.compose.runtime.LaunchedEffect(autoStartListening, initialPrompt) {
         if (autoStartListening) {
             kotlinx.coroutines.delay(350L)
-            startVoiceRecognition("Seni dinliyorum usta...")
+            inAppSpeechManager.startListening(coroutineScope)
         } else if (!initialPrompt.isNullOrBlank()) {
             executeUserPrompt(initialPrompt)
         }
@@ -270,7 +334,7 @@ fun AiAssistantScreen(
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
                                     Text(
-                                        text = "v1.2.2",
+                                        text = "v1.2.6",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.ExtraBold,
                                         color = NeonCyan
@@ -308,6 +372,25 @@ fun AiAssistantScreen(
                     }
                 },
                 actions = {
+                    // Konuşma Geçmişini Temizleme Butonu
+                    IconButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                withContext(Dispatchers.IO) {
+                                    db.aiChatHistoryDao().clearHistory()
+                                }
+                                messages.clear()
+                                messages.add(ChatMessage(sender = "AI", text = initialGreeting))
+                                android.widget.Toast.makeText(context, "Sohbet geçmişi temizlendi.", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.05f))
+                    ) {
+                        Icon(Icons.Default.DeleteSweep, contentDescription = "Geçmişi Temizle", tint = NeonCyan)
+                    }
+
                     // Kütüphane / Bellek Butonu
                     IconButton(
                         onClick = { showKnowledgeDialog = true },
@@ -626,8 +709,9 @@ fun AiAssistantScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         val greetingPrompt = if (decryptedNick.isNotBlank()) "Seni dinliyorum $decryptedNick..." else "Seni dinliyorum..."
-                        val buttonText = if (isListening) {
-                            "🎙️ SES ALINIYOR (DİNLENİYOR)..."
+                        val isActivelyListening = isListening || inAppSpeechManager.isListening
+                        val buttonText = if (isActivelyListening) {
+                            "🎙️ 10 SN DİNLENİYOR (${inAppSpeechManager.remainingSeconds}s)..."
                         } else if (decryptedNick.isNotBlank()) {
                             "🎙️ SENİ DİNLİYORUM ${decryptedNick.uppercase()}..."
                         } else {
@@ -638,8 +722,7 @@ fun AiAssistantScreen(
                             onClick = {
                                 TtsHelper.stop()
                                 isSpeaking = false
-                                isListening = true
-                                startVoiceRecognition(greetingPrompt)
+                                inAppSpeechManager.startListening(coroutineScope)
                             },
                             modifier = Modifier
                                 .fillMaxWidth(0.92f)
@@ -685,6 +768,12 @@ fun AiAssistantScreen(
             onDismiss = { showKnowledgeDialog = false }
         )
     }
+
+    // 10 Saniye Canlı Geri Sayımlı Sesli Dinleme Paneli
+    InAppListeningDialog(
+        manager = inAppSpeechManager,
+        assistantName = displayAssistantName
+    )
 }
 
 @Composable

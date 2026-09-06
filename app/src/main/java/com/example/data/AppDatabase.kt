@@ -5,11 +5,16 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [ReminderEntity::class, SavedLocationEntity::class, AiKnowledgeEntity::class], version = 4, exportSchema = false)
+@Database(
+    entities = [ReminderEntity::class, SavedLocationEntity::class, AiKnowledgeEntity::class, AiChatHistoryEntity::class],
+    version = 5,
+    exportSchema = false
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun reminderDao(): ReminderDao
     abstract fun savedLocationDao(): SavedLocationDao
     abstract fun aiKnowledgeDao(): AiKnowledgeDao
+    abstract fun aiChatHistoryDao(): AiChatHistoryDao
 
     companion object {
         @Volatile
