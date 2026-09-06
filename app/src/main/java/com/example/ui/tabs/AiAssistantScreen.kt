@@ -152,6 +152,24 @@ fun AiAssistantScreen(
         }
     }
 
+    // Kamera / OCR Belge Tarayıcı Başlatıcı
+    val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        if (bitmap != null) {
+            coroutineScope.launch {
+                isProcessing = true
+                val ocrResult = com.example.util.OcrScannerHelper.scanBitmap(bitmap)
+                isProcessing = false
+                if (ocrResult != null && ocrResult.rawText.isNotBlank()) {
+                    executeUserPrompt("Kamera ile taranan belge ve karar metni: " + ocrResult.rawText.take(350))
+                } else {
+                    android.widget.Toast.makeText(context, "Görselden metin ayrıştırılamadı. Lütfen ışıklı ortamda tekrar deneyin.", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     // Sesli Tanıma Başlatıcı
     val startVoiceRecognition = rememberVoiceRecognizer { recognizedText ->
         isListening = false
@@ -496,23 +514,25 @@ fun AiAssistantScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         val quickPrompts = listOf(
+                            "📍 Konumu Lokasyona Kaydet" to "Konumu lokasyona kaydet",
+                            "🚗 Park Yeri Kaydet" to "Park yeri kaydet",
+                            "📝 Hızlı Not Al" to "Hızlı not al",
+                            "📑 ŞÖK Tutanağı Hazırla" to "10-A ŞÖK tutanağı hazırla",
+                            "📚 Yıllık Plan Hazırla (MEB)" to "Tarih 9. sınıf yıllık planı hazırla",
+                            "📝 Açık Uçlu Sınav" to "Tarih 9. sınıf açık uçlu sınav hazırla",
+                            "🧩 Bulmaca & Etkinlik" to "Lise tarih çengel bulmaca ve etkinlik hazırla",
+                            "📺 TV & Dizi Rehberi" to "Bugün TV'de ne var?",
                             "🌤️ Canlı Hava Durumu" to "Bugün hava nasıl?",
                             "📅 Günlük Plan & İş Akışı" to "Bugünkü planım ve iş akışımı hazırla",
                             "📰 Gazete Manşetleri" to "Bugünün gazete başlıklarını ve gündemini özetle",
-                            "📋 Ders Planı Hazırla" to "Günlük ders planı hazırla",
-                            "📍 Konumumu Kaydet" to "Konumumu lokasyonlarıma kaydet",
-                            "🚗 Park Yerimi Kaydet" to "Park yerimi kaydet",
+                            "🍳 Akşam Yemek Tarifi" to "Akşam için lezzetli sulu yemek tarifi ver",
+                            "📜 Maarif Sınıf Geçme" to "MEB Maarif modeli ve lise sınıf geçme kuralları nelerdir?",
                             "🛒 Market İndirimleri" to "Bugünkü BİM, ŞOK, A101 ve Migros indirimleri ile 1 alana 1 bedava fırsatları neler?",
                             "👗 Gardrops Bildirimleri" to "Gardrops ve alışveriş bildirimlerimi özetle",
                             "🧹 Süpürgeyi Çalıştır" to "Akıllı robot süpürgeyi çalıştır",
-                            "📜 Maarif Sınıf Geçme" to "MEB Maarif modeli ve lise sınıf geçme kuralları nelerdir?",
-                            "📝 Araştır ve Kaydet" to "araştır ve kaydet: ",
-                            "💬 WhatsApp Mesajı" to "WhatsApp'tan mesaj gönder",
-                            "🇹🇷 Lise Tarih Konuları" to "Lise tarih dersi önemli konularını ve Kurtuluş Savaşı'nı özetle",
-                            "🍳 Yemek Tarifi" to "Akşam için lezzetli bir yemek tarifi ver",
                             "💊 Nöbetçi Eczane" to "Konumuma göre en yakın nöbetçi eczaneleri bul",
                             "⏰ Randevu & Alarm" to "Yarın saat 09:00 için randevu oluştur",
-                            "📚 Bilgi Ekle" to "Şunu öğren: "
+                            "📝 Araştır ve Kaydet" to "araştır ve kaydet: "
                         )
                         items(quickPrompts) { (chipLabel, promptAction) ->
                             Box(
@@ -557,6 +577,24 @@ fun AiAssistantScreen(
                         )
 
                         Spacer(modifier = Modifier.width(8.dp))
+
+                        // Kamera / Belge OCR Butonu
+                        IconButton(
+                            onClick = { cameraLauncher.launch(null) },
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF1E293B))
+                        ) {
+                            Icon(
+                                Icons.Default.CameraAlt,
+                                contentDescription = "Belge/Fotoğraf Tara",
+                                tint = NeonCyan,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(6.dp))
 
                         // Gönder Butonu
                         IconButton(

@@ -75,10 +75,10 @@ fun rememberVoiceRecognizer(
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "tr-TR")
             putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, "tr-TR")
             putExtra(RecognizerIntent.EXTRA_PROMPT, prompt)
-            // Kullanıcı sözünü bitirene kadar sabırla bekleme (kesilmeyi önler)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 4500L)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 4000L)
-            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 3500L)
+            // Kullanıcı sözünü bitirene kadar sabırla bekleme (en az 10 saniye dinleme sabrı)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 10000L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 10000L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 10000L)
         }
         try {
             speechLauncher.launch(intent)
