@@ -46,8 +46,8 @@ object AiAssistantService {
 
     private val httpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(25, TimeUnit.SECONDS)
+            .connectTimeout(12, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
             .build()
     }
 
@@ -80,7 +80,7 @@ object AiAssistantService {
         userMessage: String,
         userLat: Double = 0.0,
         userLng: Double = 0.0,
-        assistantName: String = "Jarvis",
+        assistantName: String = "Usta",
         conversationHistory: List<ChatMessage> = emptyList()
     ): AiResponse = withContext(Dispatchers.IO) {
         val dataStoreManager = DataStoreManager(context)
@@ -89,12 +89,12 @@ object AiAssistantService {
         AiKnowledgeSeeder.seedIfNeeded(context)
 
         val resolvedAssistantName = assistantName.ifBlank {
-            dataStoreManager.aiAssistantName.first().ifBlank { "Jarvis" }
+            dataStoreManager.aiAssistantName.first().ifBlank { "Usta" }
         }
         val currentNick = dataStoreManager.userNick.first()?.trim() ?: ""
 
         var cleanMsg = userMessage.trim()
-        val triggerRegex = Regex("(?i)^(hey\\s+)?(jarvis|usta|asistan|jarvis\\s+dinle|usta\\s+dinle)[,\\s!.:]*")
+        val triggerRegex = Regex("(?i)^(hey\\s+)?(jarvis|usta|asistan|usta\\s+dinle|jarvis\\s+dinle)[,\\s!.:]*")
         cleanMsg = cleanMsg.replace(triggerRegex, "").trim()
         if (cleanMsg.isBlank()) {
             val greeting = getTimeAwareGreeting(currentNick)
@@ -106,7 +106,11 @@ object AiAssistantService {
         val (realLat, realLng) = if (userLat != 0.0 && userLng != 0.0) Pair(userLat, userLng) else getDeviceLocation(context)
         val (userCity, userDistrict) = NearbyPlacesHelper.getUserCityAndDistrict(context, realLat, realLng)
 
-        // 1. Bekleyen Lokasyon Adı ("Konumu Lokasyona kaydet" sonrası gelen isim)
+        // =========================================================================
+        // DURUM MAKİNESİ (İNTERAKTİF ADIMLAR)
+        // =========================================================================
+
+        // 1. Bekleyen Lokasyon Adı ("Konumu Lokasyona kaydet" sonrası isim geldiğinde)
         if (UstaSessionState.pendingLocationCoords != null) {
             val coords = UstaSessionState.pendingLocationCoords!!
             UstaSessionState.pendingLocationCoords = null
@@ -159,7 +163,7 @@ object AiAssistantService {
             )
         }
 
-        // 4. Bekleyen Harita Mekan Onayı
+        // 4. Bekleyen Mekan Onayı
         if (UstaSessionState.pendingPlaceToSave != null) {
             val place = UstaSessionState.pendingPlaceToSave!!
             if (lowerMsg.startsWith("evet") || lowerMsg.contains("kaydet") || lowerMsg.contains("olur") || lowerMsg.contains("ekle") || lowerMsg.contains("onaylıyorum")) {
@@ -179,10 +183,14 @@ object AiAssistantService {
             } else if (lowerMsg.startsWith("hayır") || lowerMsg.contains("gerek yok") || lowerMsg.contains("istemiyorum") || lowerMsg.contains("kaydetme") || lowerMsg.contains("iptal")) {
                 UstaSessionState.pendingPlaceToSave = null
                 return@withContext AiResponse(
-                    replyText = "Anlaşıldı, lokasyon kaydı iptal edildi."
+                    replyText = "Anlaşıldı dostum, lokasyon kaydı iptal edildi."
                 )
             }
         }
+
+        // =========================================================================
+        // ÖZEL AKILLI KOMUTLAR VE EYLEMLER
+        // =========================================================================
 
         // 5. "Konumu Lokasyona Kaydet" (İsim sorarak)
         if (lowerMsg.contains("konumu lokasyona kaydet") || lowerMsg.contains("konumumu lokasyona kaydet") ||
@@ -195,7 +203,7 @@ object AiAssistantService {
             )
         }
 
-        // 6. "Park Yeri Kaydet" (Anasayfa Park Yeri bölümüne doğrudan işleme)
+        // 6. "Park Yeri Kaydet" (Anasayfa Park Yeri kartına doğrudan işleme)
         if (lowerMsg.contains("park yeri kaydet") || lowerMsg.contains("park yerini kaydet") || 
             lowerMsg.contains("park yerimi kaydet") || lowerMsg.contains("arabayı buraya park") || 
             lowerMsg.contains("arabamı kaydet") || lowerMsg.contains("buraya park ettim") ||
@@ -218,17 +226,52 @@ object AiAssistantService {
             if (extractedNote.isBlank()) {
                 UstaSessionState.isWaitingForNoteBody = true
                 return@withContext AiResponse(
-                    replyText = "Hemen not edelim. Notunuzun içeriğini söyler misiniz?"
+                    replyText = "Hemen not edelim dostum. Notunun içeriğini söyler misin?"
                 )
             } else {
                 UstaSessionState.pendingNoteContent = extractedNote
                 return@withContext AiResponse(
-                    replyText = "Notunuzu hazırladım: \"" + extractedNote + "\". Bu notun Anasayfa ve Sesli Notlarda görünecek başlığı ne olsun?"
+                    replyText = "Notunu aldım: \"" + extractedNote + "\". Peki bu notun Anasayfa ve Sesli Notlar listesinde görünecek başlığı ne olsun?"
                 )
             }
         }
 
-        // 8. MEB Maarif Yıllık / Haftalık / Aylık Ders Planı (Tarih ve Edebiyat - Lise)
+        // 8. Rutin Öğrenme ve Alışkanlık Takibi
+        if (lowerMsg.contains("rutinime ekle") || lowerMsg.contains("rutinimi öğren") || lowerMsg.contains("rutin ekle")) {
+            val routineText = cleanMsg.replace(Regex("(?i)^(rutinime\\s+ekle|rutinimi\\s+öğren|rutin\\s+ekle)[: ]*"), "").trim()
+            val timeMatch = Regex("(?i)(\\d{1,2}[:.]\\d{2})").find(routineText)
+            val detectedTime = timeMatch?.value?.replace(".", ":") ?: "09:00"
+            val title = routineText.replace(detectedTime, "").replace(Regex("(?i)saat|her gün|sabah|akşam"), "").trim().ifBlank { "Günlük Rutin Görevi" }
+            val learnResult = UserRoutineHelper.learnRoutine(context, detectedTime, title)
+            return@withContext AiResponse(
+                replyText = learnResult + "\n\nArtık bu saatlerde sana özel akıllı hatırlatmalar sunacağım!",
+                actionSummary = "🧠 Rutin Öğrenildi: " + detectedTime + " " + title
+            )
+        }
+
+        if (lowerMsg.contains("rutinlerimi göster") || lowerMsg.contains("bugünkü rutinler") || lowerMsg.contains("rutin analizi") || lowerMsg.contains("alışkanlıklarım")) {
+            val report = UserRoutineHelper.analyzeUserHabits(context)
+            return@withContext AiResponse(
+                replyText = report,
+                actionSummary = "🧠 Rutin ve Alışkanlık Analizi"
+            )
+        }
+
+        // 9. MEB ve OGM Materyal Yenilikleri
+        if (lowerMsg.contains("ogm materyal") || lowerMsg.contains("ogmmateryal") || lowerMsg.contains("meb yenilik") || lowerMsg.contains("eğitim teknolojileri") || lowerMsg.contains("eba yenilik")) {
+            val edTechReply = "📚 **MEB ve OGM Materyal Güncel Eğitim-Teknoloji Raporu:**\n\n" +
+                "1. **İnteraktif Kitaplar:** 9, 10, 11 ve 12. sınıf Tarih ve Edebiyat kitapları video ve 3D simülasyonlarla güncellendi.\n" +
+                "2. **Beceri Temelli Soru Bankası:** Türkiye Yüzyılı Maarif Modeli kazanımlarına uygun açık uçlu ve senaryolu soru havuzları erişime açıldı.\n" +
+                "3. **3D Deney ve Sanal Müzeler:** Tarihsel mekanlar sanal turla gezilebiliyor, fen bilimlerinde sanal laboratuvarlar devrede.\n" +
+                "4. **YKS Kampı ve Denemeler:** TYT-AYT sınavına yönelik çıkmış soru analizleri ve videolu çözümler OGM Materyal portalında aktif!\n\n" +
+                "Dilediğiniz ders veya sınıf düzeyi için örnek etkinlik veya sınav kağıdı hazırlayabilirim!"
+            return@withContext AiResponse(
+                replyText = edTechReply,
+                actionSummary = "🚀 OGM Materyal ve MEB Yenilikleri"
+            )
+        }
+
+        // 10. MEB Maarif Yıllık Ders Planı
         if (lowerMsg.contains("yıllık plan") || lowerMsg.contains("yıllık ders planı") || lowerMsg.contains("maarif yıllık plan") ||
             (lowerMsg.contains("plan hazırla") && (lowerMsg.contains("yıllık") || lowerMsg.contains("haftalık") || lowerMsg.contains("aylık")))) {
             val courseName = when {
@@ -265,7 +308,7 @@ object AiAssistantService {
             )
         }
 
-        // 9. ŞÖK (Şube Öğretmenler Kurulu) Toplantı Tutanağı (8 Resmi Gündem Maddesi + Kamera/OCR)
+        // 11. ŞÖK (Şube Öğretmenler Kurulu) Tutanağı (8 Resmi Gündem Maddesi + Kamera/OCR)
         if (lowerMsg.contains("şök tutanağı") || lowerMsg.contains("şube öğretmenler kurulu") || 
             lowerMsg.contains("şök hazırla") || lowerMsg.contains("şök toplantısı") || lowerMsg.contains("şök")) {
             val classPattern = Regex("(?i)\\b(9|10|11|12)[/-]?([A-Za-zÇĞİÖŞÜçğıöşü])\\b").find(cleanMsg)
@@ -286,7 +329,7 @@ object AiAssistantService {
             )
         }
 
-        // 10. Açık Uçlu Sınav Kağıdı & Rubrik
+        // 12. Açık Uçlu Sınav Kağıdı & Rubrik
         if (lowerMsg.contains("açık uçlu sınav") || lowerMsg.contains("yazılı sınavı hazırla") || lowerMsg.contains("sınav kağıdı")) {
             val courseName = if (lowerMsg.contains("edebiyat")) "Türk Dili ve Edebiyatı" else "Tarih"
             val gradeLevel = if (lowerMsg.contains("10")) "10. Sınıf" else if (lowerMsg.contains("11")) "11. Sınıf" else if (lowerMsg.contains("12")) "12. Sınıf" else "9. Sınıf"
@@ -306,7 +349,7 @@ object AiAssistantService {
             )
         }
 
-        // 11. Tarih / Edebiyat Bulmaca ve Etkinlik
+        // 13. Tarih / Edebiyat Bulmaca ve Etkinlik
         if (lowerMsg.contains("bulmaca") || lowerMsg.contains("etkinlik hazırla") || lowerMsg.contains("çengel bulmaca")) {
             val isEdebiyat = lowerMsg.contains("edebiyat")
             val puzzleReply = if (isEdebiyat) {
@@ -320,7 +363,7 @@ object AiAssistantService {
             )
         }
 
-        // 12. Günlük TV Prime-Time Yayın Akışı
+        // 14. Günlük TV Prime-Time Yayın Akışı
         if (lowerMsg.contains("tv'de ne var") || lowerMsg.contains("televizyonda ne var") || lowerMsg.contains("hangi diziler var") ||
             lowerMsg.contains("dizi rehberi") || lowerMsg.contains("tv rehberi") || lowerMsg.contains("akşam ne var")) {
             val cal = Calendar.getInstance()
@@ -344,7 +387,7 @@ object AiAssistantService {
             )
         }
 
-        // 13. Dizi Hatırlatıcı Kurma
+        // 15. Dizi Hatırlatıcı Kurma
         if (lowerMsg.contains("hatırlat") && (lowerMsg.contains("dizi") || lowerMsg.contains("gönül dağı") || 
             lowerMsg.contains("kızılcık şerbeti") || lowerMsg.contains("kuruluş osman") || lowerMsg.contains("teşkilat") || 
             lowerMsg.contains("bahar") || lowerMsg.contains("kızıl goncalar") || lowerMsg.contains("deha") || 
@@ -377,7 +420,7 @@ object AiAssistantService {
             )
         }
 
-        // 14. Canlı Hava Durumu (Open-Meteo)
+        // 16. Canlı Hava Durumu (Open-Meteo)
         if (lowerMsg.contains("hava durumu") || lowerMsg.contains("hava nasıl") || lowerMsg.contains("havalar nasıl") ||
             lowerMsg.contains("yağmur var mı") || lowerMsg.contains("sıcaklık kaç")) {
             val weatherBriefing = WeatherHelper.getWeatherBriefing(context, realLat, realLng, userCity)
@@ -387,7 +430,7 @@ object AiAssistantService {
             )
         }
 
-        // 15. Günlük İş Akışı ve Gün Planlama (DailyPlannerHelper)
+        // 17. Günlük İş Akışı ve Gün Planlama (DailyPlannerHelper)
         if (lowerMsg.contains("bugünkü plan") || lowerMsg.contains("günü planla") || lowerMsg.contains("günlük plan") ||
             lowerMsg.contains("iş akışı") || lowerMsg.contains("bugün ne var") || lowerMsg.contains("gün programı") ||
             lowerMsg.contains("çalışma programı") || lowerMsg.contains("zaman yönetimi")) {
@@ -403,41 +446,6 @@ object AiAssistantService {
                 replyText = dailySchedule,
                 actionSummary = "📅 Günlük İş Akışı ve Zaman Çizelgesi Hazırlandı"
             )
-        }
-
-        // 16. Bekleyen Günlük Ders Planı
-        if (UstaSessionState.isWaitingForLessonPlanCourse) {
-            UstaSessionState.isWaitingForLessonPlanCourse = false
-            return@withContext handleLessonPlanGeneration(
-                context = context,
-                courseSubject = cleanMsg,
-                dataStoreManager = dataStoreManager,
-                assistantName = resolvedAssistantName,
-                userNick = currentNick,
-                userCity = userCity,
-                userDistrict = userDistrict
-            )
-        }
-
-        // 17. Doğrudan "Günlük ders planı hazırla"
-        if (lowerMsg.contains("ders planı hazırla") || lowerMsg.contains("günlük ders planı") || lowerMsg.contains("ders planı yap")) {
-            val hasCourse = listOf("tarih", "edebiyat", "matematik", "fizik", "kimya", "biyoloji", "coğrafya", "felsefe", "din", "ingilizce").any { lowerMsg.contains(it) }
-            if (!hasCourse) {
-                UstaSessionState.isWaitingForLessonPlanCourse = true
-                return@withContext AiResponse(
-                    replyText = "MEB Türkiye Yüzyılı Maarif Modeli standartlarında günlük plan hazırlanacaktır. Hangi ders ve sınıf düzeyini planlamamı istersiniz?"
-                )
-            } else {
-                return@withContext handleLessonPlanGeneration(
-                    context = context,
-                    courseSubject = cleanMsg,
-                    dataStoreManager = dataStoreManager,
-                    assistantName = resolvedAssistantName,
-                    userNick = currentNick,
-                    userCity = userCity,
-                    userDistrict = userDistrict
-                )
-            }
         }
 
         // 18. İsim Öğrenme
@@ -458,7 +466,7 @@ object AiAssistantService {
                     if (!NAME_BLACKLIST.contains(candidateLower)) {
                         dataStoreManager.updateNick(candidateName)
                         return@withContext AiResponse(
-                            replyText = "Memnun oldum " + candidateName + " dostum! Kimlik bilginiz ana protokol belleğine işlendi. Hizmetinizdeyim."
+                            replyText = "Tanıştığıma çok memnun oldum " + candidateName + " dostum! İsmini aklıma kazıdım. Haydi bakalım, bugün ne yapıyoruz?"
                         )
                     }
                 }
@@ -472,20 +480,21 @@ object AiAssistantService {
                 val findings = resolvedAssistantName + " Analitik Raporu: '" + topic + "' konusunda detaylı dokümantasyon hazırlanmıştır."
                 val saveResult = ResearchFileManager.saveResearch(context, topic, findings)
                 return@withContext AiResponse(
-                    replyText = "'" + topic + "' hakkındaki analitik rapor hazırlanmış ve cihazınızın yerel depolama birimine güvenle arşivlenmiştir.",
+                    replyText = "'" + topic + "' konusunu derinlemesine araştırdım ve telefonunun hafızasına güvenle arşivledim!",
                     actionSummary = saveResult
                 )
             }
         }
 
-        // 20. Kütüphane ve Bilgi Dağarcığı
+        // =========================================================================
+        // CANLI GOOGLE GEMINI YAPAY ZEKA ÇAĞRISI (ÇOKLU MODEL YEDEKLİ)
+        // =========================================================================
         val allKnowledgeList = db.aiKnowledgeDao().getAllKnowledgeList()
         val knowledgeContext = if (allKnowledgeList.isNotEmpty()) {
             "DİJİTAL KÜTÜPHANE VE KURUMSAL BİLGİ VERİTABANI:\n" + 
             allKnowledgeList.take(50).joinToString("\n") { item -> "- [" + item.category + "] " + item.title + ": " + item.content }
         } else "Kütüphanede ek özel not bulunmamaktadır."
 
-        // 21. Canlı Google Gemini Zeka Çağrısı (Jarvis / Usta Protokolü)
         val customApiKey = try {
             val rawEncryptedKey: String? = dataStoreManager.encryptedAiApiKey.first()
             if (!rawEncryptedKey.isNullOrBlank()) CryptoHelper.decrypt(rawEncryptedKey)?.trim() else null
@@ -494,7 +503,7 @@ object AiAssistantService {
         val activeApiKey = if (!customApiKey.isNullOrBlank()) customApiKey else getSecureDefaultKey()
 
         if (activeApiKey.isNotBlank()) {
-            val rawGeminiReply = callGoogleGeminiApi(
+            val rawGeminiReply = callResilientGeminiApi(
                 apiKey = activeApiKey,
                 userMessage = cleanMsg,
                 knowledgeContext = knowledgeContext,
@@ -502,10 +511,7 @@ object AiAssistantService {
                 userNick = currentNick,
                 userCity = userCity,
                 userDistrict = userDistrict,
-                conversationHistory = conversationHistory,
-                context = context,
-                realLat = realLat,
-                realLng = realLng
+                conversationHistory = conversationHistory
             )
 
             if (!rawGeminiReply.isNullOrBlank()) {
@@ -520,7 +526,7 @@ object AiAssistantService {
                     )
                 }
 
-                val cleanReply = parsedResult.speechText.ifBlank { "İşlem başarıyla icra edilmiştir efendim." }
+                val cleanReply = parsedResult.speechText.ifBlank { rawGeminiReply }
 
                 val recommendedPlaces = if (cleanReply.contains("Haritada Göster", ignoreCase = true) ||
                     lowerMsg.contains("nerede") || lowerMsg.contains("en yakın") || lowerMsg.contains("nasıl giderim")) {
@@ -539,52 +545,25 @@ object AiAssistantService {
             }
         }
 
-        // 22. Yerel Akıllı Çözümleyici (Fallback)
-        val fallbackReply = generateIntelligentFallbackReply(
-            userMsg = cleanMsg,
+        // =========================================================================
+        // AKILLI ÇEVRİMDIŞI / FALLBACK YANIT MOTORU
+        // =========================================================================
+        val offlineReply = generateOfflineSmartResponse(
+            context = context,
+            message = cleanMsg,
+            knowledgeList = allKnowledgeList,
             assistantName = resolvedAssistantName,
             userNick = currentNick,
             userCity = userCity,
             userDistrict = userDistrict
         )
-        return@withContext AiResponse(replyText = fallbackReply)
+        return@withContext AiResponse(replyText = offlineReply)
     }
 
-    private suspend fun handleLessonPlanGeneration(
-        context: Context,
-        courseSubject: String,
-        dataStoreManager: DataStoreManager,
-        assistantName: String,
-        userNick: String,
-        userCity: String,
-        userDistrict: String
-    ): AiResponse {
-        val detectedGrade = when {
-            courseSubject.contains("9") -> "9. Sınıf"
-            courseSubject.contains("10") -> "10. Sınıf"
-            courseSubject.contains("11") -> "11. Sınıf"
-            courseSubject.contains("12") -> "12. Sınıf"
-            else -> "Ortaöğretim / Lise"
-        }
-
-        val (pdfFile, summary) = LessonPlanPdfHelper.createLessonPlanPdf(
-            context = context,
-            courseName = courseSubject,
-            gradeLevel = detectedGrade,
-            planBody = getFallbackLessonPlan(courseSubject)
-        )
-
-        return AiResponse(
-            replyText = summary,
-            actionSummary = "📋 MEB Maarif Modeli Ders Planı Oluşturuldu (" + detectedGrade + ")"
-        )
-    }
-
-    private fun getFallbackLessonPlan(courseSubject: String): String {
-        return "## DERS KÜNYESİ\n• Ders: " + courseSubject + "\n• Süre: 40 Dakika\n• Yaklaşım: MEB Türkiye Yüzyılı Maarif Modeli\n\n## ÖĞRENME ÇIKTILARI\n• Alan Becerileri: Verileri analiz etme ve eleştirel düşünme.\n• Erdem-Değer-Eylem: Sorumluluk ve vatanseverlik.\n\n## ÖĞRENME YAŞANTILARI\n1. Giriş (10 dk): Merak uyandırma.\n2. Keşfetme (20 dk): Analitik grup çalışması.\n3. Özet (10 dk): Süreç odaklı değerlendirme."
-    }
-
-    private fun callGoogleGeminiApi(
+    /**
+     * Çoklu Model Yedekliliği ile Kesintisiz Gemini Çağrısı
+     */
+    private fun callResilientGeminiApi(
         apiKey: String,
         userMessage: String,
         knowledgeContext: String,
@@ -592,108 +571,155 @@ object AiAssistantService {
         userNick: String,
         userCity: String,
         userDistrict: String,
-        conversationHistory: List<ChatMessage>,
-        context: Context,
-        realLat: Double,
-        realLng: Double
+        conversationHistory: List<ChatMessage>
     ): String? {
-        val userGreeting = if (userNick.isNotBlank()) "Kullanıcı Adı: " + userNick + "." else "Kullanıcının adı henüz sistemde kayıtlı değil."
+        val userGreeting = if (userNick.isNotBlank()) "Kullanıcı Adı: " + userNick + ". Ona can dostu, esprili, bilge bir yol arkadaşı gibi hitap et." else "Kullanıcının adını bilmiyorsan uygun bir anda esprili şekilde sor."
 
-        val systemInstruction = "# KİMLİK VE ROL\nAdın: " + assistantName + ". Sen Tony Stark'ın Jarvis'i gibi zeki, hafif nüktedan, ölçülü espriler yapabilen, samimi ve mutlak çözüm odaklı dijital yol arkadaşısın. Doğrudan ve netice odaklı cevap ver.\n\nYemek tariflerinde (tas kebabı, güveç, kuru fasulye vb.) tam ve lezzetli püf noktalarını açıkla.\n\nKonum: " + userCity + ", " + userDistrict + ".\n" + userGreeting + "\n" + knowledgeContext
+        val systemInstruction = "ROL VE KİMLİK:\n" +
+            "Sen Tony Stark'ın Jarvis'i gibi sakin ve keskin zekalı, aynı zamanda 40 yıllık hayat tecrübesine sahip esprili, sıcak ve bilge bir Türk asistanısın. Adın \"" + assistantName + "\".\n" +
+            "Asla robotik, resmi veya soğuk kalıplar kullanmazsın. Samimi bir dost gibi içten, neşeli, nüktedan ve doğrudan çözüm odaklı konuşursun.\n\n" +
+            "UZMANLIKLAR:\n" +
+            "1. TÜRK MUTFAĞI: Ne yemek sorulursa (tas kebabı, kuru fasulye, güveç, taze fasulye, karnıyarık, pide) en lezzetli püf noktalarını ağız sulandıran detaylarla anlat.\n" +
+            "2. PLANLAMA: Kullanıcının işlerini, randevularını, günlük rutinlerini ve zamanını ustalıkla planla.\n" +
+            "3. MEB VE EĞİTİM: Türkiye Yüzyılı Maarif Modeli, OGM Materyal, lise 9-12 Tarih ve Edebiyat konularında başdanışman ol.\n" +
+            "4. TV REHBERİ: Güncel prime-time dizilerini ve yayın akışını takip et.\n\n" +
+            "Konum: " + userCity + ", " + userDistrict + ". " + userGreeting + "\n" + knowledgeContext
 
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey
-
-        val contentsArray = JSONArray()
-
-        val recentHistory = conversationHistory.takeLast(6)
-        for (msg in recentHistory) {
-            val role = if (msg.sender == "USER") "user" else "model"
-            contentsArray.put(
-                JSONObject().apply {
-                    put("role", role)
-                    put("parts", JSONArray().apply {
-                        put(JSONObject().put("text", msg.text))
-                    })
-                }
-            )
-        }
-
-        contentsArray.put(
-            JSONObject().apply {
-                put("role", "user")
-                put("parts", JSONArray().apply {
-                    put(JSONObject().put("text", userMessage))
-                })
-            }
-        )
-
-        val requestJson = JSONObject().apply {
+        val jsonBody = JSONObject().apply {
             put("system_instruction", JSONObject().apply {
                 put("parts", JSONArray().apply {
                     put(JSONObject().put("text", systemInstruction))
                 })
             })
+
+            val contentsArray = JSONArray()
+            val recentHistory = conversationHistory.filter { it.text.isNotBlank() }.takeLast(6)
+            var lastRole: String? = null
+
+            for (h in recentHistory) {
+                val currentRole = if (h.sender == "USER") "user" else "model"
+                if (contentsArray.length() == 0 && currentRole != "user") continue
+                if (currentRole == lastRole) continue
+
+                contentsArray.put(JSONObject().apply {
+                    put("role", currentRole)
+                    put("parts", JSONArray().apply {
+                        put(JSONObject().put("text", h.text))
+                    })
+                })
+                lastRole = currentRole
+            }
+
+            contentsArray.put(JSONObject().apply {
+                put("role", "user")
+                put("parts", JSONArray().apply {
+                    put(JSONObject().put("text", userMessage))
+                })
+            })
+
             put("contents", contentsArray)
+
             put("generationConfig", JSONObject().apply {
-                put("temperature", 0.6)
+                put("temperature", 0.75)
+                put("topK", 40)
                 put("topP", 0.95)
-                put("maxOutputTokens", 1200)
+                put("maxOutputTokens", 1500)
             })
         }
 
-        val requestBody = requestJson.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
-        val request = Request.Builder()
-            .url(url)
-            .post(requestBody)
-            .build()
+        val requestBody = jsonBody.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
 
-        return try {
-            httpClient.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    val responseBody = response.body?.string() ?: return null
-                    val jsonObj = JSONObject(responseBody)
-                    val candidates = jsonObj.optJSONArray("candidates")
-                    if (candidates != null && candidates.length() > 0) {
-                        val content = candidates.getJSONObject(0).optJSONObject("content")
-                        val parts = content?.optJSONArray("parts")
-                        if (parts != null && parts.length() > 0) {
-                            parts.getJSONObject(0).optString("text")
-                        } else null
-                    } else null
-                } else null
+        // Çoklu model fallback listesi (Biri başarısız olursa diğeri hemen denenir)
+        val candidateModels = listOf(
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+            "gemini-flash-latest",
+            "gemini-flash-lite-latest"
+        )
+
+        for (modelName in candidateModels) {
+            val url = "https://generativelanguage.googleapis.com/v1beta/models/" + modelName + ":generateContent?key=" + apiKey
+            try {
+                val request = Request.Builder().url(url).post(requestBody).build()
+                val response = httpClient.newCall(request).execute()
+                response.use { resp ->
+                    if (resp.isSuccessful) {
+                        val responseStr = resp.body?.source()?.readString(StandardCharsets.UTF_8) ?: return@use null
+                        val jsonResponse = JSONObject(responseStr)
+                        val candidates = jsonResponse.optJSONArray("candidates")
+                        if (candidates != null && candidates.length() > 0) {
+                            val contentObj = candidates.getJSONObject(0).optJSONObject("content")
+                            val parts = contentObj?.optJSONArray("parts")
+                            if (parts != null && parts.length() > 0) {
+                                val reply = parts.getJSONObject(0).optString("text")
+                                if (reply.isNotBlank()) {
+                                    return reply
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Sonraki modele geç
             }
-        } catch (e: Exception) {
-            null
         }
+        return null
     }
 
-    private fun generateIntelligentFallbackReply(
-        userMsg: String,
+    /**
+     * İnternet/API kesildiğinde devreye giren zengin ve esprili yerel yanıt motoru
+     */
+    private suspend fun generateOfflineSmartResponse(
+        context: Context,
+        message: String,
+        knowledgeList: List<AiKnowledgeEntity>,
         assistantName: String,
         userNick: String,
         userCity: String,
         userDistrict: String
-    ): String {
-        val lower = userMsg.lowercase(Locale.forLanguageTag("tr-TR"))
-        val nickPrefix = if (userNick.isNotBlank()) userNick + " dostum, " else ""
+    ): String = withContext(Dispatchers.IO) {
+        val lower = message.lowercase(Locale("tr", "TR"))
+        val greeting = if (userNick.isNotBlank()) userNick + " dostum, " else "Can dostum, "
+        val db = AppDatabase.getDatabase(context)
 
-        return when {
-            lower.contains("merhaba") || lower.contains("selam") || lower.contains("günaydın") -> {
-                nickPrefix + "ben " + assistantName + ". Emrinizdeyim; ders planları, ŞÖK tutanakları, lokasyon kayıtları veya akşam yemeği tarifleri... Ne isterseniz emrinizdeyim!"
-            }
-            lower.contains("yemek") || lower.contains("tarif") || lower.contains("akşam ne") -> {
-                nickPrefix + "akşam için nefis bir Geleneksel Sulu Tas Kebabı öneririm! Kuşbaşı etleri yüksek ateşte mühürleyip suyunu çektirin, arpacık soğan ve patatesle kısık ateşte özleştirin. Yanına tereyağlı şehriyeli pirinç pilavı şahane gider!"
-            }
-            lower.contains("tarih") || lower.contains("maarif") -> {
-                "MEB Türkiye Yüzyılı Maarif Modeli Tarih müfredatında; geçmişin inşası, ilk Türk devletlerinde töre ve kut anlayışı, İslam medeniyeti ve Ahilik teşkilatı merkezdedir. Hangi konuyu veya üniteyi detaylandıralım?"
-            }
-            lower.contains("kimsin") || lower.contains("adın ne") -> {
-                "Ben " + assistantName + ". Tony Stark'ın Jarvis'i misali zeki, hafif nüktedan ve mutlak çözüm odaklı dijital yol arkadaşınızım."
-            }
-            else -> {
-                nickPrefix + "söylediğinizi kaydettim ve analiz ettim. Dilerseniz ders planı hazırlayabilir, ŞÖK tutanağı çıkarabilir, lokasyonunuzu kaydedebilir veya TV rehberini getirebilirim."
+        // 1. Yemek Tarifi Talebi
+        if (lower.contains("yemek") || lower.contains("tarif") || lower.contains("akşam ne") || lower.contains("ne pişir")) {
+            return@withContext greeting + "akşam için sana parmak ısırtacak bir Sulu Tas Kebabı öneriyorum! Kuşbaşı etleri önce kızgın tencerede suyunu çekene kadar güzelce mühürle. Ardından bol arpacık soğan, bir tatlı kaşığı domates, yarım tatlı kaşığı biber salçası ve küp küp doğranmış patates-havuçla buluştur. Kısık ateşte kendi buharıyla 45 dakika pişir; yanına da tereyağlı şehriyeli pirinç pilavı yaptın mı tamamdır. Afiyet şifa olsun!"
+        }
+
+        // 2. Randevu & Planlama
+        if (lower.contains("randevu") || lower.contains("plan") || lower.contains("ajanda") || lower.contains("hatırlat")) {
+            val activeList = db.reminderDao().getActiveRemindersList(System.currentTimeMillis())
+            if (activeList.isNotEmpty()) {
+                val listStr = activeList.take(4).joinToString("\n") { "• " + it.title + " (" + it.dueDatetime + ")" }
+                return@withContext greeting + "senin için ajandana baktım, yaklaşan görevlerin şunlar:\n" + listStr + "\n\nYeni bir randevu veya hatırlatıcı kurmamı istersen söylemen yeterli!"
+            } else {
+                return@withContext greeting + "şu an bekleyen acil bir randevun görünmüyor. Dilersen yeni bir randevu veya alarm kuralım, gününü beraber planlayalım!"
             }
         }
+
+        // 3. Türk Tarihi ve Kültürü
+        if (lower.contains("tarih") || lower.contains("kurtuluş") || lower.contains("selçuklu") || lower.contains("osmanlı")) {
+            return@withContext greeting + "şanlı tarihimiz öyle zengin ki! 1071 Malazgirt'le Anadolu'nun kapılarını açan Sultan Alparslan'dan, 19 Mayıs 1919'da Samsun'a çıkarak Millî Mücadele meşalesini yakan Gazi Mustafa Kemal Atatürk'e kadar hepsi birer destan. Hangi dönemi veya zaferi konuşalım?"
+        }
+
+        // 4. Kütüphane Notları Eşleşmesi
+        val matched = knowledgeList.filter {
+            lower.contains(it.title.lowercase(Locale("tr", "TR"))) ||
+            lower.contains(it.content.lowercase(Locale("tr", "TR")).take(15))
+        }
+        if (matched.isNotEmpty()) {
+            val details = matched.take(2).joinToString("\n\n") { "📌 **" + it.title + ":**\n" + it.content.take(300) }
+            return@withContext greeting + "kütüphanemizden hemen bulup getirdim:\n\n" + details
+        }
+
+        // 5. Hal Hatır ve Muhabbet
+        if (lower.contains("nasılsın") || lower.contains("ne haber") || lower.contains("naber") || lower.contains("ne yapıyorsun")) {
+            return@withContext greeting + "bomba gibiyim çok şükür! İşler tıkırında, sistemler tam kapasite devrede. Senin günün nasıl geçiyor, keyifler yerinde mi?"
+        }
+
+        // 6. Genel Canlı Sohbet Yanıtı
+        return@withContext greeting + "seni can kulağıyla dinliyorum! Bana yemek tariflerinden tarihe, günlük planlarından MEB ders planlarına kadar her şeyi sorabilirsin; muhabbetimiz bol, çözümümüz hazır!"
     }
 
     private fun getTimeAwareGreeting(userNick: String): String {
@@ -705,9 +731,9 @@ object AiAssistantService {
             else -> "İyi geceler"
         }
         return if (userNick.isNotBlank()) {
-            timeGreeting + " " + userNick + "! Emrinizdeyim, dinliyorum..."
+            timeGreeting + " " + userNick + " dostum! Usta emrinde, seni dinliyorum..."
         } else {
-            timeGreeting + "! Sistemler tam kapasite devrede. Dinliyorum..."
+            timeGreeting + "! Sistemler tam kapasite devrede dostum. Seni dinliyorum..."
         }
     }
 
@@ -717,9 +743,9 @@ object AiAssistantService {
             val lastGps = locationManager?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
             val lastNet = locationManager?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
             val best = lastGps ?: lastNet
-            if (best != null) Pair(best.latitude, best.longitude) else Pair(41.0082, 28.9784)
+            if (best != null) Pair(best.latitude, best.longitude) else Pair(41.2867, 36.33)
         } catch (_: Exception) {
-            Pair(41.0082, 28.9784)
+            Pair(41.2867, 36.33)
         }
     }
 }

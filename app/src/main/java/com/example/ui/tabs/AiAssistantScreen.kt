@@ -517,6 +517,8 @@ fun AiAssistantScreen(
                             "📍 Konumu Lokasyona Kaydet" to "Konumu lokasyona kaydet",
                             "🚗 Park Yeri Kaydet" to "Park yeri kaydet",
                             "📝 Hızlı Not Al" to "Hızlı not al",
+                            "🧠 Günlük Rutinlerim" to "Bugünkü rutinlerimi ve alışkanlık analizimi göster",
+                            "🚀 OGM Materyal & MEB" to "OGM Materyal ve MEB eğitim teknolojileri yenilikleri nelerdir?",
                             "📑 ŞÖK Tutanağı Hazırla" to "10-A ŞÖK tutanağı hazırla",
                             "📚 Yıllık Plan Hazırla (MEB)" to "Tarih 9. sınıf yıllık planı hazırla",
                             "📝 Açık Uçlu Sınav" to "Tarih 9. sınıf açık uçlu sınav hazırla",
