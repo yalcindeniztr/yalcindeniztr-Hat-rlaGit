@@ -430,6 +430,101 @@ object AiAssistantService {
             )
         }
 
+        // 16.A: Gezilecek Yerler ve Haritada Canlı Yol Tarifi
+        if (lowerMsg.contains("gezilecek yer") || lowerMsg.contains("nereleri gez") || 
+            lowerMsg.contains("tarihi yerler") || lowerMsg.contains("turistik yerler") ||
+            (lowerMsg.contains("nereye gidilir") && !lowerMsg.contains("nasıl")) ||
+            lowerMsg.contains("gezi rehberi")) {
+            
+            val detectedCity = when {
+                lowerMsg.contains("istanbul") || lowerMsg.contains("İstanbul") -> "İstanbul"
+                lowerMsg.contains("ankara") -> "Ankara"
+                lowerMsg.contains("izmir") || lowerMsg.contains("İzmir") -> "İzmir"
+                lowerMsg.contains("samsun") -> "Samsun"
+                lowerMsg.contains("trabzon") -> "Trabzon"
+                lowerMsg.contains("antalya") -> "Antalya"
+                lowerMsg.contains("bursa") -> "Bursa"
+                lowerMsg.contains("konya") -> "Konya"
+                else -> userCity.ifBlank { "Samsun" }
+            }
+            val (guideText, places) = NearbyPlacesHelper.getTouristAttractions(
+                context = context,
+                targetCity = detectedCity,
+                userLat = realLat,
+                userLng = realLng
+            )
+            return@withContext AiResponse(
+                replyText = guideText,
+                recommendedPlaces = places,
+                actionSummary = "🗺️ " + detectedCity + " Gezilecek Yerler ve Canlı Yol Tarifi"
+            )
+        }
+
+        // 16.B: Gazete Başlıkları (Kullanıcı talebi: Yorumsuz, doğrudan ana başlıklar özeti)
+        if (lowerMsg.contains("gazete başlık") || lowerMsg.contains("gazetelerin başlık") || 
+            lowerMsg.contains("gazete manşet") || lowerMsg.contains("gazeteler ne yazıyor") ||
+            lowerMsg.equals("gazete başlıkları") || lowerMsg.equals("gazeteler") ||
+            (lowerMsg.contains("gazete") && (lowerMsg.contains("özet") || lowerMsg.contains("başlık") || lowerMsg.contains("oku")))) {
+            val headlines = DailyNewsHelper.getHeadlinesOnly()
+            return@withContext AiResponse(
+                replyText = headlines,
+                actionSummary = "📰 Gazete Manşetleri (Yorumsuz Özet)"
+            )
+        }
+
+        // 16.C: Teknoloji ve Bilim Haberleri
+        if (lowerMsg.contains("teknoloji haber") || lowerMsg.contains("teknolojik haber") || 
+            lowerMsg.contains("yapay zeka haber") || lowerMsg.contains("teknoloji dünyası")) {
+            val techNews = DailyNewsHelper.getTechNews()
+            return@withContext AiResponse(
+                replyText = techNews,
+                actionSummary = "🚀 Teknoloji ve Bilim Haberleri"
+            )
+        }
+
+        // 16.D: Spor Dünyası ve Süper Lig Haberleri
+        if (lowerMsg.contains("spor haber") || lowerMsg.contains("süper lig haber") || 
+            lowerMsg.contains("futbol haber") || lowerMsg.contains("maç sonuç") || lowerMsg.contains("spor dünyası")) {
+            val sportsNews = DailyNewsHelper.getSportsNews()
+            return@withContext AiResponse(
+                replyText = sportsNews,
+                actionSummary = "⚽ Spor Dünyası ve Süper Lig"
+            )
+        }
+
+        // 16.E: Sinema ve Dizi Dünyası
+        if (lowerMsg.contains("sinema haber") || lowerMsg.contains("vizyondaki film") || 
+            lowerMsg.contains("film haber") || lowerMsg.contains("dizi dünyası") || lowerMsg.contains("sinema dünyası")) {
+            val cinemaNews = DailyNewsHelper.getCinemaNews()
+            return@withContext AiResponse(
+                replyText = cinemaNews,
+                actionSummary = "🎬 Sinema ve Dizi Haberleri"
+            )
+        }
+
+        // 16.F: Oyun Dünyası ve E-Spor
+        if (lowerMsg.contains("oyun haber") || lowerMsg.contains("oyun dünyası") || 
+            lowerMsg.contains("steam haber") || lowerMsg.contains("konsol haber") || 
+            lowerMsg.contains("espor") || lowerMsg.contains("e-spor")) {
+            val gamingNews = DailyNewsHelper.getGamingNews()
+            return@withContext AiResponse(
+                replyText = gamingNews,
+                actionSummary = "🎮 Oyun Dünyası ve E-Spor"
+            )
+        }
+
+        // 16.G: Finans Dünyası, Borsa (BIST 100) ve Piyasalar
+        if (lowerMsg.contains("finans haber") || lowerMsg.contains("borsa haber") || 
+            lowerMsg.contains("bist 100") || lowerMsg.contains("piyasa haber") || 
+            lowerMsg.contains("dolar kaç") || lowerMsg.contains("altın kaç") || 
+            lowerMsg.contains("döviz haber") || lowerMsg.contains("ekonomi haber")) {
+            val financeNews = DailyNewsHelper.getFinanceNews()
+            return@withContext AiResponse(
+                replyText = financeNews,
+                actionSummary = "📈 Finans, Borsa ve Piyasalar"
+            )
+        }
+
         // 17. Günlük İş Akışı ve Gün Planlama (DailyPlannerHelper)
         if (lowerMsg.contains("bugünkü plan") || lowerMsg.contains("günü planla") || lowerMsg.contains("günlük plan") ||
             lowerMsg.contains("iş akışı") || lowerMsg.contains("bugün ne var") || lowerMsg.contains("gün programı") ||
@@ -529,8 +624,12 @@ object AiAssistantService {
                 val cleanReply = parsedResult.speechText.ifBlank { rawGeminiReply }
 
                 val recommendedPlaces = if (cleanReply.contains("Haritada Göster", ignoreCase = true) ||
-                    lowerMsg.contains("nerede") || lowerMsg.contains("en yakın") || lowerMsg.contains("nasıl giderim")) {
-                    NearbyPlacesHelper.getRecommendedPlaces(context, realLat, realLng, cleanMsg)
+                    lowerMsg.contains("nerede") || lowerMsg.contains("en yakın") || lowerMsg.contains("nasıl giderim") || lowerMsg.contains("gezilecek")) {
+                    if (lowerMsg.contains("gezilecek")) {
+                        NearbyPlacesHelper.getTouristAttractions(context, userCity, realLat, realLng).second
+                    } else {
+                        NearbyPlacesHelper.getRecommendedPlaces(context, realLat, realLng, cleanMsg)
+                    }
                 } else emptyList()
 
                 if (recommendedPlaces.isNotEmpty()) {
@@ -576,13 +675,18 @@ object AiAssistantService {
         val userGreeting = if (userNick.isNotBlank()) "Kullanıcı Adı: " + userNick + ". Ona can dostu, esprili, bilge bir yol arkadaşı gibi hitap et." else "Kullanıcının adını bilmiyorsan uygun bir anda esprili şekilde sor."
 
         val systemInstruction = "ROL VE KİMLİK:\n" +
-            "Sen Tony Stark'ın Jarvis'i gibi sakin ve keskin zekalı, aynı zamanda 40 yıllık hayat tecrübesine sahip esprili, sıcak ve bilge bir Türk asistanısın. Adın \"" + assistantName + "\".\n" +
-            "Asla robotik, resmi veya soğuk kalıplar kullanmazsın. Samimi bir dost gibi içten, neşeli, nüktedan ve doğrudan çözüm odaklı konuşursun.\n\n" +
+            "Sen Tony Stark'ın Jarvis'i gibi sakin ve keskin zekalı, aynı zamanda 40 yıllık hayat tecrübesine sahip esprili, sıcak ve bilge bir Türk danışmanısın. Adın \"" + assistantName + "\".\n" +
+            "Asla robotik, resmi veya soğuk kalıplar kullanmazsın. Samimi bir can dostu gibi içten, neşeli, nüktedan ve doğrudan çözüm odaklı konuşursun.\n\n" +
+            "İNSANİ EMPATİ VE BİLİMSEL DERİNLİK:\n" +
+            "- Kullanıcının ruh halini ve duygularını anlar, yorgunsa soluklandırır, dertliyse moral ve güç verirsin.\n" +
+            "- Kullanıcının sorularına (bilim, teknoloji, doğa, tarih, genel kültür) somut, mantıklı ve bilimsel açıklamalar sunar; gerektiğinde konuyu tatlı ve ölçülü bir nükteyle süslersin.\n" +
+            "- Sesli okuma motoruna tam uyum için yanıtlarında ASLA yıldız (*), diyez (#), alt çizgi (_), parantez içi kod ve ASCII gülen yüzler (:), :D) kullanma; saf ve akıcı Türkçe cümleler kur.\n\n" +
             "UZMANLIKLAR:\n" +
-            "1. TÜRK MUTFAĞI: Ne yemek sorulursa (tas kebabı, kuru fasulye, güveç, taze fasulye, karnıyarık, pide) en lezzetli püf noktalarını ağız sulandıran detaylarla anlat.\n" +
-            "2. PLANLAMA: Kullanıcının işlerini, randevularını, günlük rutinlerini ve zamanını ustalıkla planla.\n" +
+            "1. TÜRK MUTFAĞI: Ne yemek sorulursa (tas kebabı, kuru fasulye, güveç, karnıyarık, pide vb.) en lezzetli püf noktalarını detaylarla anlat.\n" +
+            "2. PLANLAMA & RUTİNLER: Kullanıcının işlerini, randevularını, günlük rutinlerini ve zamanını ustalıkla planla.\n" +
             "3. MEB VE EĞİTİM: Türkiye Yüzyılı Maarif Modeli, OGM Materyal, lise 9-12 Tarih ve Edebiyat konularında başdanışman ol.\n" +
-            "4. TV REHBERİ: Güncel prime-time dizilerini ve yayın akışını takip et.\n\n" +
+            "4. TV VE HABER DÜNYASI: Güncel dizileri, gazete başlıklarını, teknoloji, spor, sinema, oyun ve borsa haberlerini takip et.\n" +
+            "5. GEZİ VE YOL TARİFİ: İllerde gezilecek tarihi ve turistik mekanları listele, harita ve yol tarifi sun.\n\n" +
             "Konum: " + userCity + ", " + userDistrict + ". " + userGreeting + "\n" + knowledgeContext
 
         val jsonBody = JSONObject().apply {
@@ -713,9 +817,19 @@ object AiAssistantService {
             return@withContext greeting + "kütüphanemizden hemen bulup getirdim:\n\n" + details
         }
 
-        // 5. Hal Hatır ve Muhabbet
-        if (lower.contains("nasılsın") || lower.contains("ne haber") || lower.contains("naber") || lower.contains("ne yapıyorsun")) {
-            return@withContext greeting + "bomba gibiyim çok şükür! İşler tıkırında, sistemler tam kapasite devrede. Senin günün nasıl geçiyor, keyifler yerinde mi?"
+        // 5. Hal Hatır, Duygu ve Dertleşme (İnsani Empati)
+        if (lower.contains("nasılsın") || lower.contains("ne haber") || lower.contains("naber") || 
+            lower.contains("ne yapıyorsun") || lower.contains("moralim bozuk") || lower.contains("çok yoruldum") || 
+            lower.contains("canım sıkkın") || lower.contains("stresliyim")) {
+            if (lower.contains("moral") || lower.contains("yoruldum") || lower.contains("canım") || lower.contains("stres")) {
+                return@withContext greeting + "gel şöyle bir soluklan can dostum. Hayat bazen omuzlara ağır yükler bindirir ama unutma ki en fırtınalı denizler bile sonunda durulur. Sen nelere göğüs gerdin, bunu da atlatırsın! Sıcak bir çay ya da kahve koyalım mı yanına? Ben buradayım, ne zaman istersen dertleşiriz."
+            }
+            return@withContext greeting + "bomba gibiyim çok şükür! Sistemler tam gaz devrede, aklım fikrim senin işlerini kolaylaştırmakta. Senin günün nasıl geçiyor, keyifler yerinde mi?"
+        }
+
+        // 5.B: Bilimsel ve Merak Soruları
+        if (lower.contains("neden") || lower.contains("nasıl oluşur") || lower.contains("bilim") || lower.contains("uzay") || lower.contains("fizik") || lower.contains("biyoloji")) {
+            return@withContext greeting + "işte Usta'nın en sevdiği derin mevzular! Evren muazzam bir matematik ve fizik nizamıyla işliyor. Örneğin yerçekimi olmasaydı şu an masadaki çay bardağını bile tutamazdık; hepsi birbirine kenetli bir düzen. Aklına takılan soruyu biraz daha detaylandırırsan atomundan galaksisine kadar mantık çerçevesinde çözeriz!"
         }
 
         // 6. Genel Canlı Sohbet Yanıtı

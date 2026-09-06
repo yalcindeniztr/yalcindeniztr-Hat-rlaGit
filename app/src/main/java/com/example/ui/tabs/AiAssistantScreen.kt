@@ -636,10 +636,9 @@ fun AiAssistantScreen(
 
                         Button(
                             onClick = {
+                                TtsHelper.stop()
+                                isSpeaking = false
                                 isListening = true
-                                if (isVoiceResponsesEnabled) {
-                                    TtsHelper.speak(context, greetingPrompt)
-                                }
                                 startVoiceRecognition(greetingPrompt)
                             },
                             modifier = Modifier

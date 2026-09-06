@@ -63,11 +63,18 @@ fun rememberVoiceRecognizer(
                 ?.firstOrNull()
             if (!spokenText.isNullOrBlank()) {
                 onResult(spokenText)
+            } else {
+                onResult("")
             }
+        } else {
+            onResult("")
         }
     }
 
     return { prompt ->
+        // Mikrofon açılmadan önce varsa çalan TTS sesini derhal durdur (Mikrofon ile hoparlör çakışmasını ve erken kapanmayı önler)
+        TtsHelper.stop()
+
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "tr-TR")
@@ -75,10 +82,14 @@ fun rememberVoiceRecognizer(
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "tr-TR")
             putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, "tr-TR")
             putExtra(RecognizerIntent.EXTRA_PROMPT, prompt)
-            // Kullanıcı sözünü bitirene kadar sabırla bekleme (en az 10 saniye dinleme sabrı)
+            
+            // Kullanıcı sözünü bitirene kadar sabırla bekleme (en az 10 saniye tam aktif mikrofon)
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 10000L)
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 10000L)
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 10000L)
+            putExtra("android.speech.extras.SPEECH_INPUT_MINIMUM_LENGTH_MILLIS", 10000L)
+            putExtra("android.speech.extras.SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS", 10000L)
+            putExtra("android.speech.extras.SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS", 10000L)
         }
         try {
             speechLauncher.launch(intent)
@@ -88,6 +99,7 @@ fun rememberVoiceRecognizer(
                 "Cihazınızda Google Sesli Yazma servisi bulunamadı veya etkin değil.",
                 Toast.LENGTH_LONG
             ).show()
+            onResult("")
         }
     }
 }
