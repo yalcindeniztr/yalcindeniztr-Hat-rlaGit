@@ -74,12 +74,12 @@ class InAppSpeechRecognizerManager(
     private var currentScope: CoroutineScope? = null
     private var hasSpokenAnyWord by mutableStateOf(false)
 
-    fun startListening(coroutineScope: CoroutineScope) {
+    fun startListening(coroutineScope: CoroutineScope, initialSeconds: Int = 10) {
         TtsHelper.stop()
 
         currentScope = coroutineScope
         isListening = true
-        remainingSeconds = 10
+        remainingSeconds = initialSeconds
         partialText = ""
         bestResultText = ""
         rmsDb = 0f

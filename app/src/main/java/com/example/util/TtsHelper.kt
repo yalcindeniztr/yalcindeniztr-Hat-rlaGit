@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.speech.tts.Voice
+import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import java.util.Locale
 
@@ -21,7 +22,7 @@ object TtsHelper {
     private val FEMALE_KEYWORDS = listOf("female", "woman", "kadin", "bayan", "dff", "dfz", "dfa", "f0", "f1", "f2")
     private val MALE_KEYWORDS = listOf("male", "man", "erkek", "tfe", "tfa", "ter", "m0", "m1", "m2", "tr-tr-x-tfe", "tr-tr-x-tfa")
 
-    fun speak(context: Context, text: String) {
+    fun speak(context: Context, text: String, onDone: (() -> Unit)? = null) {
         val appContext = context.applicationContext
         val cleanText = sanitizeForSpeech(text)
         if (cleanText.isBlank()) return
@@ -36,7 +37,7 @@ object TtsHelper {
                                 configureMaleVoice(engine)
                                 isInitialized = true
                                 pendingText?.let { t ->
-                                    executeSpeak(engine, t)
+                                    executeSpeak(engine, t, onDone)
                                     pendingText = null
                                 }
                             }
@@ -46,7 +47,7 @@ object TtsHelper {
                     }
                 } else if (isInitialized) {
                     tts?.let { engine ->
-                        executeSpeak(engine, cleanText)
+                        executeSpeak(engine, cleanText, onDone)
                     }
                 } else {
                     pendingText = cleanText
@@ -148,10 +149,31 @@ object TtsHelper {
         return text
     }
 
-    private fun executeSpeak(engine: TextToSpeech, text: String) {
+    private fun executeSpeak(engine: TextToSpeech, text: String, onDone: (() -> Unit)? = null) {
         engine.setPitch(0.80f)
         engine.setSpeechRate(0.98f)
-        engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "HatirlaGitMaleVoiceUtterance")
+        
+        val utteranceId = "HatirlaGitMaleVoiceUtterance_" + System.currentTimeMillis()
+        if (onDone != null) {
+            engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                override fun onStart(utteranceId: String?) {}
+                override fun onDone(id: String?) {
+                    if (id == utteranceId) {
+                        Handler(Looper.getMainLooper()).post {
+                            onDone.invoke()
+                        }
+                    }
+                }
+                override fun onError(utteranceId: String?) {
+                    if (utteranceId == utteranceId) {
+                        Handler(Looper.getMainLooper()).post {
+                            onDone.invoke()
+                        }
+                    }
+                }
+            })
+        }
+        engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
     }
 
     fun stop() {

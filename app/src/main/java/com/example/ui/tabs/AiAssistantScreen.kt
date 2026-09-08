@@ -145,6 +145,18 @@ fun AiAssistantScreen(
         }
     }
 
+    // Doğrudan ve Hızlı Sesli Yanıt Yürütücüsü referansı
+    var executeUserPromptRef by remember { mutableStateOf<(String) -> Unit>({}) }
+
+    // 10 Saniye Kesintisiz Dinleyen In-App Speech Recognizer Motoru
+    val inAppSpeechManager = remember {
+        InAppSpeechRecognizerManager(context) { recognizedText ->
+            if (recognizedText.isNotBlank()) {
+                executeUserPromptRef(recognizedText)
+            }
+        }
+    }
+
     // Doğrudan ve Hızlı Sesli Yanıt Yürütücüsü
     fun executeUserPrompt(promptText: String) {
         if (promptText.isBlank()) return
@@ -194,18 +206,26 @@ fun AiAssistantScreen(
             isProcessing = false
             listState.animateScrollToItem(messages.size - 1)
 
-            // Doğrudan Türkçe Sesli Yanıt (Gecikmesiz)
+            // Doğrudan Türkçe Sesli Yanıt ve Ardından 5 Saniye Kesintisiz Dinleme Modu
             if (isVoiceResponsesEnabled && response.isSpeechReady) {
                 isSpeaking = true
-                TtsHelper.speak(context, response.replyText)
+                TtsHelper.speak(context, response.replyText) {
+                    isSpeaking = false
+                    // Kullanıcı talebi: Cevap verdikten sonra 5 saniye dinleme modunda soru sormamı beklesin
+                    inAppSpeechManager.startListening(coroutineScope, initialSeconds = 5)
+                }
                 launch {
                     val durationMs = (response.replyText.length * 60L).coerceIn(2000L, 12000L)
                     kotlinx.coroutines.delay(durationMs)
-                    isSpeaking = false
+                    if (isSpeaking) {
+                        isSpeaking = false
+                        inAppSpeechManager.startListening(coroutineScope, initialSeconds = 5)
+                    }
                 }
             }
         }
     }
+    executeUserPromptRef = { prompt -> executeUserPrompt(prompt) }
 
     // Kamera / OCR Belge Tarayıcı Başlatıcı
     val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -225,14 +245,6 @@ fun AiAssistantScreen(
         }
     }
 
-    // 10 Saniye Kesintisiz Dinleyen In-App Speech Recognizer Motoru
-    val inAppSpeechManager = remember {
-        InAppSpeechRecognizerManager(context) { recognizedText ->
-            if (recognizedText.isNotBlank()) {
-                executeUserPrompt(recognizedText)
-            }
-        }
-    }
 
     // Yedek Sistem Diyaloğu Tanıma Başlatıcı
     val startVoiceRecognition = rememberVoiceRecognizer { recognizedText ->
