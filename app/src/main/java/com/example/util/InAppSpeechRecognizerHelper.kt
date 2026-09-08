@@ -108,7 +108,7 @@ class InAppSpeechRecognizerManager(
     private fun triggerPostSpeechCountdown() {
         if (!isListening) return
         hasSpokenAnyWord = true
-        // Konuşma bittiğinde veya duraklandığında 10 saniye beklemek yerine 3 saniye sonra gönder
+        // Konuşma bittikten sonra tam 3 saniye içinde otomatik olarak metin işlenip asistana aktarılır
         if (remainingSeconds > 3) {
             remainingSeconds = 3
         }

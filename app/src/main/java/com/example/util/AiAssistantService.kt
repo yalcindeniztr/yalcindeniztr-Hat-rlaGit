@@ -67,8 +67,8 @@ object AiAssistantService {
 
     private val httpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(12, TimeUnit.SECONDS)
-            .readTimeout(20, TimeUnit.SECONDS)
+            .connectTimeout(4, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
             .build()
     }
 
@@ -1054,12 +1054,13 @@ object AiAssistantService {
 
         val requestBody = jsonBody.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
 
-        // Çoklu model fallback listesi (Biri başarısız olursa diğeri hemen denenir)
+        // Çoklu model fallback listesi (En hızlı ve çalışan modeller en başta: 0.7sn)
         val candidateModels = listOf(
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-flash-lite-latest",
             "gemini-flash-latest",
-            "gemini-flash-lite-latest"
+            "gemini-2.5-pro",
+            "gemini-pro-latest"
         )
 
         for (modelName in candidateModels) {
