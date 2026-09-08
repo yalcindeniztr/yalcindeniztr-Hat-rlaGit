@@ -229,6 +229,32 @@ Jarvis / Usta Sesli Uygulama ve Cihaz Başlatma Rehberi:
                 )
             }
 
+            // 11. 657 Sayılı Devlet Memurları Kanunu ve Güncel Yönetmelikler
+            if (allList.none { it.title.contains("657 Sayılı Devlet Memurları", ignoreCase = true) }) {
+                db.aiKnowledgeDao().insertKnowledge(
+                    AiKnowledgeEntity(
+                        title = "657 Sayılı Devlet Memurları Kanunu ve İzin/Disiplin Yönetmeliği",
+                        content = """
+657 Sayılı Devlet Memurları Kanunu ve Güncel Memur Mevzuatı Esasları:
+1. Temel İlkeler: Sınıflandırma, Kariyer ve Liyakat ilkeleri esastır.
+2. İzin Hakları:
+   • Yıllık İzin: Hizmeti 1 yıldan 10 yıla kadar (10 yıl dahil) olan memurlar için 20 gün; hizmeti 10 yıldan fazla olanlar için 30 gündür. Zorunlu hallerde gidiş-dönüş için 4 güne kadar yol izni verilebilir.
+   • Mazeret İzni: Kadın memura doğum öncesi 8, doğum sonrası 8 hafta analık izni; çoğul gebelikte doğum öncesine 2 hafta eklenir. Erkek memura eşinin doğumu nedeniyle 10 gün babalık izni verilir. Memurun isteği üzerine; kendisinin veya çocuğunun evlenmesi, annesi, babası, eşi, çocuğu veya kardeşinin vefatı halinde 7 gün izin verilir.
+   • Süt İzni: Doğum sonrası analık izni bitiminden itibaren ilk 6 ayda günde 3 saat, ikinci 6 ayda günde 1.5 saat süt izni verilir.
+   • Hastalık ve Refakat İzni: Memurun bakmakla yükümlü olduğu veya refakat etmediği takdirde hayatı tehlikeye girecek ana, baba, eş ve çocukları ile kardeşlerinden birinin ağır bir kaza geçirmesi veya tedavisi uzun süren bir hastalığının bulunması hallerinde 3 aya kadar refakat izni verilir, gerektiğinde bir katına kadar uzatılabilir.
+3. Disiplin Cezaları ve Savunma Hakkı:
+   • Cezalar: Uyarma, Kınama, Aylıktan Kesme, Kademe İlerlemesinin Durdurulması ve Devlet Memurluğundan Çıkarma.
+   • Savunma Hakkı: Savunma için en az 7 gün süre tanınmadan hiçbir disiplin cezası verilemez.
+4. Ödev ve Sorumluluklar: Tarafsızlık ve devlete bağlılık, davranış ve işbirliği, yurt dışında davranış, amir durumda olan devlet memurlarının görev ve sorumlulukları.
+                        """.trimIndent(),
+                        category = "OFFICIAL_LAW",
+                        isOfficialVerified = true,
+                        source = "T.C. Cumhurbaşkanlığı Mevzuat Bilgi Sistemi (657 Sayılı Kanun)",
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            }
+
         } catch (e: Exception) {
             e.printStackTrace()
         }

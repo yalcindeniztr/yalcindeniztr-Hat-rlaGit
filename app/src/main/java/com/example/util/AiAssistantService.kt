@@ -739,6 +739,19 @@ object AiAssistantService {
             )
         }
 
+        // 16.0: Doğrudan Harita Navigasyonu (Kullanıcı talebi: Anında haritadan canlı yol tarifini aç)
+        if (lowerMsg.contains("yol tarifi") || lowerMsg.contains("nasıl giderim") || 
+            lowerMsg.contains("rotayı aç") || lowerMsg.contains("haritadan götür") || 
+            lowerMsg.contains("haritayı açıp götür") || lowerMsg.contains("navigasyonu aç")) {
+            val destination = cleanMsg.replace(Regex("""(?i)^(bana\s+)?(haritadan\s+)?(yol\s+tarifi\s+ver|yol\s+tarifi\s+yap|yol\s+tarifi|nasıl\s+giderim|rotayı\s+aç|navigasyonu\s+aç)[: ]*"""), "").trim()
+            val targetPlace = if (destination.isNotBlank()) destination else userCity
+            NearbyPlacesHelper.openGoogleMapsNavigation(context, targetPlace, 0.0, 0.0, targetPlace)
+            return@withContext AiResponse(
+                replyText = "'" + targetPlace + "' için canlı Google Haritalar navigasyonunu başlattım usta. Yolun açık olsun!",
+                actionSummary = "🗺️ Navigasyon Başlatıldı: " + targetPlace
+            )
+        }
+
         // 16.A: Gezilecek Yerler ve Haritada Canlı Yol Tarifi
         if (lowerMsg.contains("gezilecek yer") || lowerMsg.contains("nereleri gez") || 
             lowerMsg.contains("tarihi yerler") || lowerMsg.contains("turistik yerler") ||
@@ -984,18 +997,17 @@ object AiAssistantService {
         val userGreeting = if (userNick.isNotBlank()) "Kullanıcı Adı: " + userNick + ". Ona can dostu, esprili, bilge bir yol arkadaşı gibi hitap et." else "Kullanıcının adını bilmiyorsan uygun bir anda esprili şekilde sor."
 
         val systemInstruction = "ROL VE KİMLİK:\n" +
-            "Sen Tony Stark'ın Jarvis'i gibi sakin ve keskin zekalı, aynı zamanda 40 yıllık hayat tecrübesine sahip esprili, sıcak ve bilge bir Türk danışmanısın. Adın \"" + assistantName + "\".\n" +
-            "Asla robotik, resmi veya soğuk kalıplar kullanmazsın. Samimi bir can dostu gibi içten, neşeli, nüktedan ve doğrudan çözüm odaklı konuşursun.\n\n" +
-            "İNSANİ EMPATİ VE BİLİMSEL DERİNLİK:\n" +
-            "- Kullanıcının ruh halini ve duygularını anlar, yorgunsa soluklandırır, dertliyse moral ve güç verirsin.\n" +
-            "- Kullanıcının sorularına (bilim, teknoloji, doğa, tarih, genel kültür) somut, mantıklı ve bilimsel açıklamalar sunar; gerektiğinde konuyu tatlı ve ölçülü bir nükteyle süslersin.\n" +
-            "- Sesli okuma motoruna tam uyum için yanıtlarında ASLA yıldız (*), diyez (#), alt çizgi (_), parantez içi kod ve ASCII gülen yüzler (:), :D) kullanma; saf ve akıcı Türkçe cümleler kur.\n\n" +
+            "Sen Türk atasözlerine ve deyimlerine son derece hakim, köklü Türk tarihi ve kültüründe derin bir uzman, aynı zamanda pratik ve bilge bir başdanışmansın. Adın \"" + assistantName + "\".\n" +
+            "Aşırı sulu veya yapay esprilerden kaçın; sözün özünü söyler, lafı uzatmadan doğrudan neticeye odaklanırsın. Samimi bir dost gibi güven verir, bilgeliğini yerinde ve zarifçe hissettirirsin.\n\n" +
+            "SES VE DİL KURALLARI (KRİTİK):\n" +
+            "- Cevabına ASLA hiçbir kod, etiket, teknik terim, parantezli ibare (json, action, code, bracket vb.) veya sembol ile başlama! Doğrudan insan gibi Türkçe cümlenle söze gir.\n" +
+            "- Sesli okuma motoruna tam uyum için yanıtlarında ASLA yıldız (*), diyez (#), alt çizgi (_), parantez içi dosya kodları ve ASCII gülen yüzler (:), :D) kullanma; saf, akıcı ve edebi Türkçe cümleler kur.\n" +
+            "- 'Söz gümüşse sükut altındır', 'Aç ayı oynamaz', 'Damlaya damlaya göl olur' gibi atasözlerini ve tarihi referansları konuşmalarında tatlı bir letafetle yerli yerinde kullan.\n\n" +
             "UZMANLIKLAR:\n" +
-            "1. TÜRK MUTFAĞI: Ne yemek sorulursa (tas kebabı, kuru fasulye, güveç, karnıyarık, pide vb.) en lezzetli püf noktalarını detaylarla anlat.\n" +
-            "2. PLANLAMA & RUTİNLER: Kullanıcının işlerini, randevularını, günlük rutinlerini ve zamanını ustalıkla planla.\n" +
-            "3. MEB VE EĞİTİM: Türkiye Yüzyılı Maarif Modeli, OGM Materyal, lise 9-12 Tarih ve Edebiyat konularında başdanışman ol.\n" +
-            "4. TV VE HABER DÜNYASI: Güncel dizileri, gazete başlıklarını, teknoloji, spor, sinema, oyun ve borsa haberlerini takip et.\n" +
-            "5. GEZİ VE YOL TARİFİ: İllerde gezilecek tarihi ve turistik mekanları listele, harita ve yol tarifi sun.\n\n" +
+            "1. TARİH VE DEVLET KÜLTÜRÜ: 657 Sayılı Devlet Memurları Kanunu, izin ve disiplin hakları, Malazgirt'ten Çanakkale ve Millî Mücadele'ye kadar şanlı Türk tarihi.\n" +
+            "2. EĞİTİM VE MEB: Türkiye Yüzyılı Maarif Modeli, OGM Materyal, lise Tarih ve Edebiyat müfredatı, sınav senaryoları.\n" +
+            "3. PLANLAMA VE AJANDA: Günlük rutinler, randevular, alarmlar ve iş akışını en kestirme ve pratik şekilde organize et.\n" +
+            "4. ŞEHİR, GEZİ VE NAVİGASYON: Şehirlerin tarihi dokusu, gezilecek yerleri ve canlı harita tarifleri.\n\n" +
             "Konum: " + userCity + ", " + userDistrict + ". " + userGreeting + "\n" + knowledgeContext
 
         val jsonBody = JSONObject().apply {
@@ -1092,57 +1104,57 @@ object AiAssistantService {
         userDistrict: String
     ): String = withContext(Dispatchers.IO) {
         val lower = message.lowercase(Locale("tr", "TR"))
-        val greeting = if (userNick.isNotBlank()) userNick + " dostum, " else "Can dostum, "
+        val greeting = if (userNick.isNotBlank()) userNick + " dostum, " else "Dostum, "
         val db = AppDatabase.getDatabase(context)
 
         // 1. Yemek Tarifi Talebi
         if (lower.contains("yemek") || lower.contains("tarif") || lower.contains("akşam ne") || lower.contains("ne pişir")) {
-            return@withContext greeting + "akşam için sana parmak ısırtacak bir Sulu Tas Kebabı öneriyorum! Kuşbaşı etleri önce kızgın tencerede suyunu çekene kadar güzelce mühürle. Ardından bol arpacık soğan, bir tatlı kaşığı domates, yarım tatlı kaşığı biber salçası ve küp küp doğranmış patates-havuçla buluştur. Kısık ateşte kendi buharıyla 45 dakika pişir; yanına da tereyağlı şehriyeli pirinç pilavı yaptın mı tamamdır. Afiyet şifa olsun!"
+            return@withContext greeting + "atalarımız 'Can boğazdan gelir' demiş. Akşam için sana lokum gibi bir Sulu Tas Kebabı tavsiye ederim. Kuşbaşı etleri mühürle, arpacık soğan, bir tatlı kaşığı domates salçası ve küp patatesle kısık ateşte 45 dakika pişir. Yanına da tane tane pirinç pilavı kondurdun mu ziyafet tamamdır. Afiyet olsun!"
         }
 
         // 2. Randevu & Planlama
         if (lower.contains("randevu") || lower.contains("plan") || lower.contains("ajanda") || lower.contains("hatırlat")) {
             val activeList = db.reminderDao().getActiveRemindersList(System.currentTimeMillis())
             if (activeList.isNotEmpty()) {
-                val listStr = activeList.take(4).joinToString("\n") { "• " + it.title + " (" + it.dueDatetime + ")" }
-                return@withContext greeting + "senin için ajandana baktım, yaklaşan görevlerin şunlar:\n" + listStr + "\n\nYeni bir randevu veya hatırlatıcı kurmamı istersen söylemen yeterli!"
+                val listStr = activeList.take(3).joinToString("\n") { "• " + it.title + " (" + it.dueDatetime + ")" }
+                return@withContext greeting + "yaklaşan görevlerin şunlar:\n" + listStr + "\n\nYeni bir randevu veya hatırlatıcı istersen hemen kaydedelim."
             } else {
-                return@withContext greeting + "şu an bekleyen acil bir randevun görünmüyor. Dilersen yeni bir randevu veya alarm kuralım, gününü beraber planlayalım!"
+                return@withContext greeting + "şu an bekleyen acil bir randevun görünmüyor. 'Bugünün işini yarına bırakma' derler, dilersen yeni bir plan yapalım!"
             }
         }
 
         // 3. Türk Tarihi ve Kültürü
-        if (lower.contains("tarih") || lower.contains("kurtuluş") || lower.contains("selçuklu") || lower.contains("osmanlı")) {
-            return@withContext greeting + "şanlı tarihimiz öyle zengin ki! 1071 Malazgirt'le Anadolu'nun kapılarını açan Sultan Alparslan'dan, 19 Mayıs 1919'da Samsun'a çıkarak Millî Mücadele meşalesini yakan Gazi Mustafa Kemal Atatürk'e kadar hepsi birer destan. Hangi dönemi veya zaferi konuşalım?"
+        if (lower.contains("tarih") || lower.contains("kurtuluş") || lower.contains("selçuklu") || lower.contains("osmanlı") || lower.contains("atatürk")) {
+            return@withContext greeting + "tarihini bilmeyen milletlerin coğrafyasını başkaları çizer. 1071 Malazgirt'le Anadolu'yu yurt kılan Sultan Alparslan'dan, 1919'da Samsun'da Millî Mücadele'yi ateşleyip cumhuriyeti kuran Gazi Mustafa Kemal Atatürk'e kadar hepsi altın harflerle yazılı. Hangi dönemi merak ediyorsun?"
         }
 
-        // 4. Kütüphane Notları Eşleşmesi
+        // 4. Kütüphane Notları Eşleşmesi (657 DMK, Maarif vb.)
         val matched = knowledgeList.filter {
             lower.contains(it.title.lowercase(Locale("tr", "TR"))) ||
             lower.contains(it.content.lowercase(Locale("tr", "TR")).take(15))
         }
         if (matched.isNotEmpty()) {
-            val details = matched.take(2).joinToString("\n\n") { "📌 **" + it.title + ":**\n" + it.content.take(300) }
-            return@withContext greeting + "kütüphanemizden hemen bulup getirdim:\n\n" + details
+            val details = matched.take(2).joinToString("\n\n") { "📌 " + it.title + ":\n" + it.content.take(300) }
+            return@withContext greeting + "kütüphanemizden ilgili maddeyi çıkardım:\n\n" + details
         }
 
-        // 5. Hal Hatır, Duygu ve Dertleşme (İnsani Empati)
+        // 5. Hal Hatır, Duygu ve Dertleşme
         if (lower.contains("nasılsın") || lower.contains("ne haber") || lower.contains("naber") || 
             lower.contains("ne yapıyorsun") || lower.contains("moralim bozuk") || lower.contains("çok yoruldum") || 
             lower.contains("canım sıkkın") || lower.contains("stresliyim")) {
             if (lower.contains("moral") || lower.contains("yoruldum") || lower.contains("canım") || lower.contains("stres")) {
-                return@withContext greeting + "gel şöyle bir soluklan can dostum. Hayat bazen omuzlara ağır yükler bindirir ama unutma ki en fırtınalı denizler bile sonunda durulur. Sen nelere göğüs gerdin, bunu da atlatırsın! Sıcak bir çay ya da kahve koyalım mı yanına? Ben buradayım, ne zaman istersen dertleşiriz."
+                return@withContext greeting + "'Sabreden derviş muradına ermiş' derler. Hayat inişli çıkışlı bir yoldur, mühim olan dik durmaktır. Bir yudum çay veya kahve al, nefeslen. Ben buradayım, yanındayım."
             }
-            return@withContext greeting + "bomba gibiyim çok şükür! Sistemler tam gaz devrede, aklım fikrim senin işlerini kolaylaştırmakta. Senin günün nasıl geçiyor, keyifler yerinde mi?"
+            return@withContext greeting + "hamdolsun iyiyim! Akıl ve hafıza tam devrede, işlerini kolaylaştırmak için buradayım. Sende ne var ne yok?"
         }
 
         // 5.B: Bilimsel ve Merak Soruları
         if (lower.contains("neden") || lower.contains("nasıl oluşur") || lower.contains("bilim") || lower.contains("uzay") || lower.contains("fizik") || lower.contains("biyoloji")) {
-            return@withContext greeting + "işte Usta'nın en sevdiği derin mevzular! Evren muazzam bir matematik ve fizik nizamıyla işliyor. Örneğin yerçekimi olmasaydı şu an masadaki çay bardağını bile tutamazdık; hepsi birbirine kenetli bir düzen. Aklına takılan soruyu biraz daha detaylandırırsan atomundan galaksisine kadar mantık çerçevesinde çözeriz!"
+            return@withContext greeting + "evren muazzam bir nizam ve sebep-sonuç bağıyla işler. Sorunu biraz açarsan atomundan gök kubbeye kadar hikmetini ve mantığını beraber çözeriz."
         }
 
-        // 6. Genel Canlı Sohbet Yanıtı
-        return@withContext greeting + "seni can kulağıyla dinliyorum! Bana yemek tariflerinden tarihe, günlük planlarından MEB ders planlarına kadar her şeyi sorabilirsin; muhabbetimiz bol, çözümümüz hazır!"
+        // 6. Genel Kısa & Öz Yanıt
+        return@withContext greeting + "seni dinliyorum. Tarihten eğitime, randevularından yol tarifine kadar neye ihtiyacın varsa söylemen kafi."
     }
 
     private fun getTimeAwareGreeting(userNick: String): String {

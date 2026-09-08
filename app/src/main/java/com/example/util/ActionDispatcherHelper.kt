@@ -44,7 +44,11 @@ object ActionDispatcherHelper {
             }
         }
 
-        // Markdown karakterlerini temizle
+        // Her türlü kod bloğunu, JSON/etiket kalıntısını ve teknik prefixi temizle
+        cleanSpeech = cleanSpeech.replace(Regex("""(?s)```[a-zA-Z0-9_-]*\s*[\s\S]*?```"""), " ")
+        cleanSpeech = cleanSpeech.replace(Regex("""(?s)\{\s*["'](?:action_type|action|command|step)["'][\s\S]*?\}"""), " ")
+        cleanSpeech = cleanSpeech.replace(Regex("""^(?:```[a-zA-Z0-9_-]*|```|\{[\s\S]*?\}|\[[a-zA-Z0-9_-]+\]|CODE:|ACTION:)\s*""", RegexOption.IGNORE_CASE), "")
+
         val speechForTts = cleanSpeech
             .replace("**", "")
             .replace("*", "")
@@ -52,6 +56,7 @@ object ActionDispatcherHelper {
             .replace("##", "")
             .replace("#", "")
             .replace("```", "")
+            .replace(Regex("""^[\s\W\d_]+"""), "")
             .trim()
 
         if (!matchedJsonStr.isNullOrBlank()) {

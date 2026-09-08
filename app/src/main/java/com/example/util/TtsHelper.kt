@@ -100,40 +100,49 @@ object TtsHelper {
     fun sanitizeForSpeech(rawText: String): String {
         var text = rawText
         
-        // 1. JSON eylem bloklarını kaldır
-        text = text.replace(Regex("""(?s)```(?:action|json)?[\s\S]*?```"""), " ")
-        text = text.replace(Regex("""(?s)\{\s*["']action_type["'][\s\S]*?\}"""), " ")
+        // 1. Kod blokları, JSON eylem blokları ve action taglerini tamamen kaldır
+        text = text.replace(Regex("""(?s)```[a-zA-Z0-9_-]*\s*[\s\S]*?```"""), " ")
+        text = text.replace(Regex("""(?s)\{\s*["'](?:action_type|action|command|step)["'][\s\S]*?\}"""), " ")
+        text = text.replace(Regex("""(?s)<(?:action|json|code)>[\s\S]*?</(?:action|json|code)>"""), " ")
+        text = text.replace(Regex("""(?i)\b(?:action_type|action_step|payload|target_package|coords|timestamp)\s*:\s*[^,\n\}]+"""), " ")
 
-        // 2. Markdown ve biçimlendirme işaretlerini kaldır (*, **, #, _, ~, `, >)
-        text = text.replace(Regex("""[*#_~`>]+"""), " ")
+        // 2. Metin başındaki olası teknik prefix, kod veya etiket kalıntılarını temizle
+        text = text.replace(Regex("""^(?:```[a-zA-Z0-9_-]*|```|\{[\s\S]*?\}|\[[a-zA-Z0-9_-]+\]|CODE:|ACTION:)\s*""", RegexOption.IGNORE_CASE), "")
+
+        // 3. Markdown ve biçimlendirme işaretlerini kaldır (*, **, #, _, ~, `, >, =)
+        text = text.replace(Regex("""[*#_~`>=]+"""), " ")
         text = text.replace(Regex("""\[(.*?)\]\(.*?\)"""), "$1")
 
-        // 3. Emojileri ve Unicode sembollerini temizle
+        // 4. Emojileri ve Unicode sembollerini temizle
         text = text.replace(Regex("""[\uD83C-\uDBFF\uDC00-\uDFFF]+"""), " ")
         text = text.replace(Regex("""[\u2600-\u27BF]+"""), " ")
 
-        // 4. ASCII gülen yüzleri ve emoticonları temizle (yıldız/gülen yüz denmesini önler)
+        // 5. ASCII gülen yüzleri ve emoticonları temizle (yıldız/gülen yüz denmesini önler)
         val smileys = listOf(
             ":)", ":-)", ";)", ";-)", ":D", ":-D", ":P", ":-P", 
-            ":(", ":-(", ":/", ":\\", "<3", "^^", "XD", "xD", "O_o", "o_O"
+            ":(", ":-(", ":/", ":\\", "<3", "^^", "XD", "xD", "O_o", "o_O",
+            ":o", ":O", ";D", "B)", "8)"
         )
         for (smiley in smileys) {
             text = text.replace(smiley, "")
         }
 
-        // 5. Madde imlerini akıcı hale getir
+        // 6. Madde imlerini akıcı hale getir
         text = text.replace(Regex("""(?m)^\s*[•\-\*]\s*"""), "")
         text = text.replace(Regex("""(?m)^\s*\d+\.\s*"""), "")
 
-        // 6. Sıcaklık ve birim okunuşlarını düzelt
+        // 7. Sıcaklık ve birim okunuşlarını düzelt
         text = text.replace("°C", " derece")
         text = text.replace("km/s", " kilometre bölü saat")
         text = text.replace("%", "yüzde ")
 
-        // 7. Parantez içi dosya yolları veya teknik kodları temizle
+        // 8. Parantez içi dosya yolları veya teknik kodları temizle
         text = text.replace(Regex("""\([a-zA-Z0-9_/\\.-]{5,}\)"""), "")
 
-        // 8. Çoklu boşlukları temizle
+        // 9. Başta kalan noktalama işaretlerini ve boşlukları temizle
+        text = text.replace(Regex("""^[\s\W\d_]+"""), "")
+
+        // 10. Çoklu boşlukları temizle
         text = text.replace(Regex("""\s+"""), " ").trim()
 
         return text

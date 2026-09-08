@@ -70,17 +70,24 @@ class InAppSpeechRecognizerManager(
     var bestResultText by mutableStateOf("")
 
     private var countdownJob: Job? = null
+    private var silenceFinishJob: Job? = null
+    private var currentScope: CoroutineScope? = null
+    private var hasSpokenAnyWord by mutableStateOf(false)
 
     fun startListening(coroutineScope: CoroutineScope) {
         TtsHelper.stop()
 
+        currentScope = coroutineScope
         isListening = true
         remainingSeconds = 10
         partialText = ""
         bestResultText = ""
         rmsDb = 0f
+        hasSpokenAnyWord = false
 
         countdownJob?.cancel()
+        silenceFinishJob?.cancel()
+
         countdownJob = coroutineScope.launch {
             while (remainingSeconds > 0 && isListening) {
                 delay(1000L)
@@ -95,6 +102,32 @@ class InAppSpeechRecognizerManager(
 
         mainHandler.post {
             initAndStartNativeRecognizer()
+        }
+    }
+
+    private fun triggerPostSpeechCountdown() {
+        if (!isListening) return
+        hasSpokenAnyWord = true
+        // Konuşma bittiğinde veya duraklandığında 10 saniye beklemek yerine 3 saniye sonra gönder
+        if (remainingSeconds > 3) {
+            remainingSeconds = 3
+        }
+
+        silenceFinishJob?.cancel()
+        currentScope?.let { scope ->
+            silenceFinishJob = scope.launch {
+                delay(3000L)
+                if (isListening && hasSpokenAnyWord) {
+                    val currentTxt = when {
+                        bestResultText.isNotBlank() -> bestResultText
+                        partialText.isNotBlank() -> partialText
+                        else -> ""
+                    }
+                    if (currentTxt.isNotBlank()) {
+                        finishAndSubmit()
+                    }
+                }
+            }
         }
     }
 
@@ -114,6 +147,7 @@ class InAppSpeechRecognizerManager(
 
                     override fun onBeginningOfSpeech() {
                         Log.d("InAppSpeech", "Speech started")
+                        hasSpokenAnyWord = true
                     }
 
                     override fun onRmsChanged(rmsdB: Float) {
@@ -124,6 +158,7 @@ class InAppSpeechRecognizerManager(
 
                     override fun onEndOfSpeech() {
                         Log.d("InAppSpeech", "End of speech segment")
+                        triggerPostSpeechCountdown()
                     }
 
                     override fun onError(error: Int) {
@@ -143,6 +178,7 @@ class InAppSpeechRecognizerManager(
                         if (text.isNotBlank()) {
                             bestResultText = text
                             partialText = text
+                            triggerPostSpeechCountdown()
                         }
                         if (isListening && remainingSeconds > 1) {
                             mainHandler.postDelayed({
@@ -159,6 +195,7 @@ class InAppSpeechRecognizerManager(
                         if (text.isNotBlank()) {
                             partialText = text
                             bestResultText = text
+                            triggerPostSpeechCountdown()
                         }
                     }
 
@@ -178,8 +215,8 @@ class InAppSpeechRecognizerManager(
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "tr-TR")
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 10000L)
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 10000L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 3000L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 3000L)
                 putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 10000L)
             }
             speechRecognizer?.startListening(intent)
@@ -191,6 +228,7 @@ class InAppSpeechRecognizerManager(
     fun finishAndSubmit() {
         isListening = false
         countdownJob?.cancel()
+        silenceFinishJob?.cancel()
         mainHandler.post {
             try {
                 speechRecognizer?.stopListening()
