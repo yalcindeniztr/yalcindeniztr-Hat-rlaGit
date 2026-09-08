@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Outer 3D Drop Shadow Ring -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#26000000" />
+            <size android:width="46dp" android:height="46dp" />
+        </shape>
+    </item>
+
+    <!-- Outer Bevel Edge / Glow Ring -->
+    <item android:bottom="2dp" android:right="2dp" android:left="1dp" android:top="1dp">
+        <shape android:shape="oval">
+            <solid android:color="#33FFFFFF" />
+        </shape>
+    </item>
+
+    <!-- 3D Base Body: Vibrant Turquoise (#00F2FE) to Light Red / Coral (#FF6584) Gradient -->
+    <item android:bottom="3dp" android:right="2dp" android:left="2dp" android:top="1dp">
+        <shape android:shape="oval">
+            <gradient
+                android:type="linear"
+                android:angle="135"
+                android:startColor="#00F2FE"
+                android:centerColor="#38BDF8"
+                android:endColor="#FF6584" />
+            <stroke
+                android:width="1.5dp"
+                android:color="#80FFFFFF" />
+        </shape>
+    </item>
+
+    <!-- Top-Left Inner Convex Emboss Specular Highlight for 3D sphere look -->
+    <item android:left="4dp" android:top="3dp" android:right="12dp" android:bottom="16dp">
+        <shape android:shape="oval">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="16dp"
+                android:startColor="#99FFFFFF"
+                android:endColor="#00FFFFFF" />
+        </shape>
+    </item>
+</layer-list>

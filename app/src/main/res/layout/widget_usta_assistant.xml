@@ -1,25 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_usta_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center"
-    android:orientation="vertical"
-    android:background="@drawable/bg_widget_btn_mic"
-    android:padding="6dp"
+    android:foregroundGravity="center"
     android:clickable="true"
     android:focusable="true">
 
-    <TextView
+    <LinearLayout
         android:id="@+id/widget_btn_usta_mic"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_gravity="center"
         android:gravity="center"
-        android:text="🎙️ BAS KONUŞ"
-        android:textColor="#0A0F1D"
-        android:textSize="12sp"
-        android:textStyle="bold"
+        android:orientation="vertical"
+        android:background="@drawable/bg_widget_usta_3d"
         android:clickable="true"
-        android:focusable="true" />
+        android:focusable="true">
 
-</LinearLayout>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="USTA"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-black"
+            android:gravity="center"
+            android:shadowColor="#80000000"
+            android:shadowDx="1.5"
+            android:shadowDy="2.0"
+            android:shadowRadius="2.5" />
+
+    </LinearLayout>
+
+</FrameLayout>

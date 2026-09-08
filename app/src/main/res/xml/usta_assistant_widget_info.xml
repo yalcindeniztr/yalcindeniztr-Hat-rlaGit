@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="68dp"
-    android:minHeight="68dp"
+    android:minWidth="44dp"
+    android:minHeight="44dp"
     android:targetCellWidth="1"
     android:targetCellHeight="1"
     android:updatePeriodMillis="1800000"
-    android:previewImage="@mipmap/ic_launcher"
+    android:previewImage="@drawable/ic_usta_widget_3d"
     android:initialLayout="@layout/widget_usta_assistant"
     android:resizeMode="none"
     android:widgetCategory="home_screen" />
