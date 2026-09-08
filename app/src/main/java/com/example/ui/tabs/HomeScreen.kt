@@ -573,7 +573,10 @@ fun HomeScreen(
                 borderBrush = Brush.horizontalGradient(
                     listOf(Color(0xFF8B5CF6), Color(0xFFEC4899), Color(0xFF3B82F6))
                 ),
-                onClick = { showAiAssistant = true },
+                onClick = { 
+                    viewModel.triggerAiFromWidget(autoListen = true)
+                    showAiAssistant = true 
+                },
                 contentPadding = 12.dp
             ) {
                 Row(

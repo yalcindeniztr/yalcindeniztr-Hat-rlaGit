@@ -49,6 +49,7 @@ import com.example.util.AiAssistantService
 import com.example.util.NearbyPlace
 import com.example.util.NearbyPlacesHelper
 import com.example.util.TtsHelper
+import com.example.util.UstaSessionState
 import com.example.data.AppDatabase
 import com.example.data.AiChatHistoryEntity
 import com.example.util.InAppSpeechRecognizerManager
@@ -106,13 +107,7 @@ fun AiAssistantScreen(
     var isSpeaking by remember { mutableStateOf(false) }
     var showKnowledgeDialog by remember { mutableStateOf(false) }
 
-    val initialGreeting = remember(decryptedNick, assistantName) {
-        if (decryptedNick.isNotBlank()) {
-            "Nöral bağlantı kuruldu $decryptedNick dostum! Ben $displayAssistantName. Türk tarihi, Maarif müfredatı, yemek tarifleri, mekanlar veya alarmlar... Ne istersen emrindeyim."
-        } else {
-            "Sistem aktif! Ben HatırlaGit Yapay Zeka Çekirdeği $displayAssistantName. Sana özel hitap edebilmem için adını öğrenebilir miyim?"
-        }
-    }
+    val initialGreeting = "Buyrun dostum!"
 
     val db = remember { AppDatabase.getDatabase(context) }
 
@@ -206,21 +201,30 @@ fun AiAssistantScreen(
             isProcessing = false
             listState.animateScrollToItem(messages.size - 1)
 
-            // Doğrudan Türkçe Sesli Yanıt ve Ardından 5 Saniye Kesintisiz Dinleme Modu
+            // Doğrudan Türkçe Sesli Yanıt ve Tamamlanınca 5 Saniye Dinleme Modu
             if (isVoiceResponsesEnabled && response.isSpeechReady) {
                 isSpeaking = true
-                TtsHelper.speak(context, response.replyText) {
-                    isSpeaking = false
-                    // Kullanıcı talebi: Cevap verdikten sonra 5 saniye dinleme modunda soru sormamı beklesin
-                    inAppSpeechManager.startListening(coroutineScope, initialSeconds = 5)
+                val trimmedReply = response.replyText.trim()
+                val needsFollowUp = !trimmedReply.endsWith("?") &&
+                    !UstaSessionState.isWaitingForAlarmTime &&
+                    !UstaSessionState.isWaitingForAlarmLabel &&
+                    !UstaSessionState.isWaitingForReminderTitle &&
+                    !UstaSessionState.isWaitingForReminderTime &&
+                    !UstaSessionState.isWaitingForParkNote &&
+                    UstaSessionState.pendingPlaceToSave == null &&
+                    UstaSessionState.pendingLocationCoords == null &&
+                    UstaSessionState.pendingParkCoords == null
+
+                val fullSpeech = if (needsFollowUp) {
+                    "$trimmedReply Başka bir emriniz var mı?"
+                } else {
+                    trimmedReply
                 }
-                launch {
-                    val durationMs = (response.replyText.length * 60L).coerceIn(2000L, 12000L)
-                    kotlinx.coroutines.delay(durationMs)
-                    if (isSpeaking) {
-                        isSpeaking = false
-                        inAppSpeechManager.startListening(coroutineScope, initialSeconds = 5)
-                    }
+
+                TtsHelper.speak(context, fullSpeech) {
+                    isSpeaking = false
+                    // Kullanıcı talebi: Asistan önce cevabını ve işlemini tamamlasın, ardından 'Başka bir emriniz var mı?' diye sorup 5 saniye beklesin
+                    inAppSpeechManager.startListening(coroutineScope, initialSeconds = 5)
                 }
             }
         }
@@ -257,8 +261,12 @@ fun AiAssistantScreen(
     // Widget'tan doğrudan sesli dinleme veya komutla başlatma
     androidx.compose.runtime.LaunchedEffect(autoStartListening, initialPrompt) {
         if (autoStartListening) {
-            kotlinx.coroutines.delay(350L)
-            inAppSpeechManager.startListening(coroutineScope)
+            kotlinx.coroutines.delay(200L)
+            isSpeaking = true
+            TtsHelper.speak(context, "Buyrun dostum!") {
+                isSpeaking = false
+                inAppSpeechManager.startListening(coroutineScope)
+            }
         } else if (!initialPrompt.isNullOrBlank()) {
             executeUserPrompt(initialPrompt)
         }
@@ -732,9 +740,16 @@ fun AiAssistantScreen(
 
                         Button(
                             onClick = {
-                                TtsHelper.stop()
-                                isSpeaking = false
-                                inAppSpeechManager.startListening(coroutineScope)
+                                if (isActivelyListening) {
+                                    inAppSpeechManager.cancel()
+                                } else {
+                                    TtsHelper.stop()
+                                    isSpeaking = true
+                                    TtsHelper.speak(context, "Buyrun dostum!") {
+                                        isSpeaking = false
+                                        inAppSpeechManager.startListening(coroutineScope)
+                                    }
+                                }
                             },
                             modifier = Modifier
                                 .fillMaxWidth(0.92f)

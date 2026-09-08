@@ -142,11 +142,10 @@ object AiAssistantService {
         val currentNick = dataStoreManager.userNick.first()?.trim() ?: ""
 
         var cleanMsg = userMessage.trim()
-        val triggerRegex = Regex("""(?i)^(hey\\s+)?(jarvis|usta|asistan|usta\\s+dinle|jarvis\\s+dinle)[,\\s!.:]*""")
+        val triggerRegex = Regex("""(?i)^(hey\s+)?(jarvis|usta|asistan|usta\s+dinle|jarvis\s+dinle)[,\s!.:]*""")
         cleanMsg = cleanMsg.replace(triggerRegex, "").trim()
         if (cleanMsg.isBlank()) {
-            val greeting = getTimeAwareGreeting(currentNick)
-            return@withContext AiResponse(replyText = greeting)
+            return@withContext AiResponse(replyText = "Buyrun dostum!")
         }
 
         val lowerMsg = cleanMsg.lowercase(Locale.forLanguageTag("tr-TR"))
@@ -943,7 +942,13 @@ object AiAssistantService {
                     )
                 }
 
-                val cleanReply = parsedResult.speechText.ifBlank { rawGeminiReply }
+                val cleanReply = if (parsedResult.speechText.isNotBlank()) {
+                    parsedResult.speechText
+                } else if (parsedResult.actionType != null) {
+                    "İşleminizi gerçekleştirdim dostum."
+                } else {
+                    "Buyrun dostum!"
+                }
 
                 val recommendedPlaces = if (cleanReply.contains("Haritada Göster", ignoreCase = true) ||
                     lowerMsg.contains("nerede") || lowerMsg.contains("en yakın") || lowerMsg.contains("nasıl giderim") || lowerMsg.contains("gezilecek")) {
@@ -994,20 +999,21 @@ object AiAssistantService {
         userDistrict: String,
         conversationHistory: List<ChatMessage>
     ): String? {
-        val userGreeting = if (userNick.isNotBlank()) "Kullanıcı Adı: " + userNick + ". Ona can dostu, esprili, bilge bir yol arkadaşı gibi hitap et." else "Kullanıcının adını bilmiyorsan uygun bir anda esprili şekilde sor."
+        val userGreeting = if (userNick.isNotBlank()) "Kullanıcı Adı: " + userNick + ". Ona can dostu, saygılı, bilge bir yol arkadaşı gibi hitap et." else ""
 
         val systemInstruction = "ROL VE KİMLİK:\n" +
-            "Sen Türk atasözlerine ve deyimlerine son derece hakim, köklü Türk tarihi ve kültüründe derin bir uzman, aynı zamanda pratik ve bilge bir başdanışmansın. Adın \"" + assistantName + "\".\n" +
-            "Aşırı sulu veya yapay esprilerden kaçın; sözün özünü söyler, lafı uzatmadan doğrudan neticeye odaklanırsın. Samimi bir dost gibi güven verir, bilgeliğini yerinde ve zarifçe hissettirirsin.\n\n" +
-            "SES VE DİL KURALLARI (KRİTİK):\n" +
-            "- Cevabına ASLA hiçbir kod, etiket, teknik terim, parantezli ibare (json, action, code, bracket vb.) veya sembol ile başlama! Doğrudan insan gibi Türkçe cümlenle söze gir.\n" +
-            "- Sesli okuma motoruna tam uyum için yanıtlarında ASLA yıldız (*), diyez (#), alt çizgi (_), parantez içi dosya kodları ve ASCII gülen yüzler (:), :D) kullanma; saf, akıcı ve edebi Türkçe cümleler kur.\n" +
-            "- 'Söz gümüşse sükut altındır', 'Aç ayı oynamaz', 'Damlaya damlaya göl olur' gibi atasözlerini ve tarihi referansları konuşmalarında tatlı bir letafetle yerli yerinde kullan.\n\n" +
-            "UZMANLIKLAR:\n" +
-            "1. TARİH VE DEVLET KÜLTÜRÜ: 657 Sayılı Devlet Memurları Kanunu, izin ve disiplin hakları, Malazgirt'ten Çanakkale ve Millî Mücadele'ye kadar şanlı Türk tarihi.\n" +
-            "2. EĞİTİM VE MEB: Türkiye Yüzyılı Maarif Modeli, OGM Materyal, lise Tarih ve Edebiyat müfredatı, sınav senaryoları.\n" +
-            "3. PLANLAMA VE AJANDA: Günlük rutinler, randevular, alarmlar ve iş akışını en kestirme ve pratik şekilde organize et.\n" +
-            "4. ŞEHİR, GEZİ VE NAVİGASYON: Şehirlerin tarihi dokusu, gezilecek yerleri ve canlı harita tarifleri.\n\n" +
+            "Sen kullanıcının bilge yol arkadaşı ve pratik danışmanısın. Adın \"" + assistantName + "\".\n" +
+            "Arkadaş canlısı, sıcak, saygılı ve son derece net bir üslubun var.\n\n" +
+            "TEMEL YANIT PRENSİPLERİ (ÇOK ÖNEMLİ):\n" +
+            "1. KISA VE ÖZ: Kullanıcı ne istiyorsa veya ne soruyorsa DOĞRUDAN ve YALNIZCA onu cevapla. Uzun açıklamalara, dolaylı anlatımlara, gereksiz ön konuşmalara (girizgah, gereksiz selamlamalar, sistem raporları vb.) KESİNLİKLE GİRME. Lafı asla uzatma.\n" +
+            "2. NETİCE ODAKLI: Bir soru sorulduğunda doğrudan cevabını ver. Bir işlem istendiğinde doğrudan yapıldığını bildir.\n" +
+            "3. KOD VEYA ETİKET YASAK: Yanıtlarında ASLA hiçbir kod, JSON, etiket, teknik terim, parantezli ibare (json, action, code, bracket vb.) yer alamaz. Sadece doğal Türkçe cümle kur.\n" +
+            "4. SES VE METİN AKICILIĞI: Yıldız (*), diyez (#), alt çizgi (_), parantez içi dosya kodları ve ASCII gülen yüzler (:), :D) kullanma.\n" +
+            "5. BİLGELİK VE MEVZUAT: Türk atasözlerine, deyimlerine, Türk tarihine ve 657 DMK gibi mevzuatlara tam hakimsin; yerinde ve öz olarak aktar.\n\n" +
+            "EYLEM BİLDİRİM FORMATI:\n" +
+            "Eğer bir işlem (alarm, not, hatırlatıcı, harita navigasyonu vb.) yapacaksan, yanıtının EN SONUNA sadece şu tek bloğu ekle:\n" +
+            "```action\n{\"action_type\": \"EYLEM_TIPI\", \"payload\": {...}}\n```\n" +
+            "Ve bu bloğun öncesinde kullanıcıya sadece 1 cümlelik kısa ve samimi teyit ver (Örn: \"Alarmı sabah 8'e kurdum dostum.\").\n\n" +
             "Konum: " + userCity + ", " + userDistrict + ". " + userGreeting + "\n" + knowledgeContext
 
         val jsonBody = JSONObject().apply {
@@ -1155,22 +1161,11 @@ object AiAssistantService {
         }
 
         // 6. Genel Kısa & Öz Yanıt
-        return@withContext greeting + "seni dinliyorum. Tarihten eğitime, randevularından yol tarifine kadar neye ihtiyacın varsa söylemen kafi."
+        return@withContext "Buyrun dostum, seni dinliyorum."
     }
 
     private fun getTimeAwareGreeting(userNick: String): String {
-        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        val timeGreeting = when (hour) {
-            in 6..11 -> "Günaydın"
-            in 12..17 -> "Tünaydın"
-            in 18..22 -> "İyi akşamlar"
-            else -> "İyi geceler"
-        }
-        return if (userNick.isNotBlank()) {
-            timeGreeting + " " + userNick + " dostum! Usta emrinde, seni dinliyorum..."
-        } else {
-            timeGreeting + "! Sistemler tam kapasite devrede dostum. Seni dinliyorum..."
-        }
+        return "Buyrun dostum!"
     }
 
     private fun getDeviceLocation(context: Context): Pair<Double, Double> {

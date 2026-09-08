@@ -103,12 +103,38 @@ object TtsHelper {
         
         // 1. Kod blokları, JSON eylem blokları ve action taglerini tamamen kaldır
         text = text.replace(Regex("""(?s)```[a-zA-Z0-9_-]*\s*[\s\S]*?```"""), " ")
-        text = text.replace(Regex("""(?s)\{\s*["'](?:action_type|action|command|step)["'][\s\S]*?\}"""), " ")
         text = text.replace(Regex("""(?s)<(?:action|json|code)>[\s\S]*?</(?:action|json|code)>"""), " ")
-        text = text.replace(Regex("""(?i)\b(?:action_type|action_step|payload|target_package|coords|timestamp)\s*:\s*[^,\n\}]+"""), " ")
+
+        // Süslü parantezli ({ ... }) tüm JSON veya kod bloklarını (iç içe olsa dahi) temizle
+        var braceStart = text.indexOf('{')
+        var loopGuard = 0
+        while (braceStart != -1 && loopGuard < 20) {
+            loopGuard++
+            var depth = 0
+            var braceEnd = -1
+            for (i in braceStart until text.length) {
+                if (text[i] == '{') depth++
+                else if (text[i] == '}') {
+                    depth--
+                    if (depth == 0) {
+                        braceEnd = i
+                        break
+                    }
+                }
+            }
+            if (braceEnd != -1) {
+                text = text.substring(0, braceStart) + " " + text.substring(braceEnd + 1)
+            } else {
+                text = text.replace("{", "")
+                break
+            }
+            braceStart = text.indexOf('{')
+        }
+
+        text = text.replace(Regex("""(?i)\b(?:action_type|action_step|payload|target_package|coords|timestamp|status|action|code|json)\s*:\s*[^,\n\}]+"""), " ")
 
         // 2. Metin başındaki olası teknik prefix, kod veya etiket kalıntılarını temizle
-        text = text.replace(Regex("""^(?:```[a-zA-Z0-9_-]*|```|\{[\s\S]*?\}|\[[a-zA-Z0-9_-]+\]|CODE:|ACTION:)\s*""", RegexOption.IGNORE_CASE), "")
+        text = text.replace(Regex("""^(?:```[a-zA-Z0-9_-]*|```|\[[a-zA-Z0-9_-]+\]|CODE:|ACTION:)\s*""", RegexOption.IGNORE_CASE), "")
 
         // 3. Markdown ve biçimlendirme işaretlerini kaldır (*, **, #, _, ~, `, >, =)
         text = text.replace(Regex("""[*#_~`>=]+"""), " ")
@@ -140,8 +166,8 @@ object TtsHelper {
         // 8. Parantez içi dosya yolları veya teknik kodları temizle
         text = text.replace(Regex("""\([a-zA-Z0-9_/\\.-]{5,}\)"""), "")
 
-        // 9. Başta kalan noktalama işaretlerini ve boşlukları temizle
-        text = text.replace(Regex("""^[\s\W\d_]+"""), "")
+        // 9. Başta kalan noktalama işaretlerini ve boşlukları temizle (Türkçe harfleri korur: \p{L})
+        text = text.replace(Regex("""^[^\p{L}\p{N}]+"""), "")
 
         // 10. Çoklu boşlukları temizle
         text = text.replace(Regex("""\s+"""), " ").trim()

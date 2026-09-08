@@ -32,56 +32,111 @@ object ActionDispatcherHelper {
         var cleanSpeech = rawText.trim()
         var matchedJsonStr: String? = null
 
+        // 1. Fenced kod bloklarını kontrol et (```action ... ``` veya ```json ... ```)
         val blockMatch = ACTION_BLOCK_REGEX.find(cleanSpeech)
         if (blockMatch != null) {
             matchedJsonStr = blockMatch.groupValues[1]
             cleanSpeech = cleanSpeech.replace(blockMatch.value, "").trim()
         } else {
-            val inlineMatch = INLINE_ACTION_REGEX.find(cleanSpeech)
-            if (inlineMatch != null) {
-                matchedJsonStr = inlineMatch.groupValues[1]
-                cleanSpeech = cleanSpeech.replace(inlineMatch.value, "").trim()
+            // 2. Metin içinde "action_type" içeren dengeli JSON bloğunu bul ve ayıkla
+            val actionKeyIdx = cleanSpeech.indexOf("\"action_type\"").let { 
+                if (it == -1) cleanSpeech.indexOf("'action_type'") else it 
+            }
+            if (actionKeyIdx != -1) {
+                val startBrace = cleanSpeech.lastIndexOf('{', actionKeyIdx)
+                if (startBrace != -1) {
+                    var braceCount = 0
+                    var endBrace = -1
+                    for (i in startBrace until cleanSpeech.length) {
+                        if (cleanSpeech[i] == '{') braceCount++
+                        else if (cleanSpeech[i] == '}') {
+                            braceCount--
+                            if (braceCount == 0) {
+                                endBrace = i
+                                break
+                            }
+                        }
+                    }
+                    if (endBrace != -1) {
+                        matchedJsonStr = cleanSpeech.substring(startBrace, endBrace + 1)
+                        cleanSpeech = (cleanSpeech.substring(0, startBrace) + " " + cleanSpeech.substring(endBrace + 1)).trim()
+                    }
+                }
             }
         }
 
-        // Her türlü kod bloğunu, JSON/etiket kalıntısını ve teknik prefixi temizle
+        // 3. Kalan tüm kod bloklarını ve teknik JSON/etiket kalıntılarını temizle
         cleanSpeech = cleanSpeech.replace(Regex("""(?s)```[a-zA-Z0-9_-]*\s*[\s\S]*?```"""), " ")
-        cleanSpeech = cleanSpeech.replace(Regex("""(?s)\{\s*["'](?:action_type|action|command|step)["'][\s\S]*?\}"""), " ")
-        cleanSpeech = cleanSpeech.replace(Regex("""^(?:```[a-zA-Z0-9_-]*|```|\{[\s\S]*?\}|\[[a-zA-Z0-9_-]+\]|CODE:|ACTION:)\s*""", RegexOption.IGNORE_CASE), "")
+        cleanSpeech = cleanSpeech.replace(Regex("""(?s)<(?:action|json|code)>[\s\S]*?</(?:action|json|code)>"""), " ")
+        
+        // Kalan herhangi bir dengeli süslü parantez bloğunu kaldır
+        var braceStart = cleanSpeech.indexOf('{')
+        var guard = 0
+        while (braceStart != -1 && guard < 10) {
+            guard++
+            var depth = 0
+            var braceEnd = -1
+            for (i in braceStart until cleanSpeech.length) {
+                if (cleanSpeech[i] == '{') depth++
+                else if (cleanSpeech[i] == '}') {
+                    depth--
+                    if (depth == 0) {
+                        braceEnd = i
+                        break
+                    }
+                }
+            }
+            if (braceEnd != -1) {
+                cleanSpeech = cleanSpeech.substring(0, braceStart) + " " + cleanSpeech.substring(braceEnd + 1)
+            } else {
+                cleanSpeech = cleanSpeech.replace("{", "")
+                break
+            }
+            braceStart = cleanSpeech.indexOf('{')
+        }
 
-        val speechForTts = cleanSpeech
+        cleanSpeech = cleanSpeech.replace(Regex("""(?i)\b(?:action_type|action_step|payload|target_package|coords|timestamp|status|action|code|json)\s*:\s*[^,\n\}]+"""), " ")
+        cleanSpeech = cleanSpeech.replace(Regex("""^(?:```[a-zA-Z0-9_-]*|```|\[[a-zA-Z0-9_-]+\]|CODE:|ACTION:)\s*""", RegexOption.IGNORE_CASE), "")
+
+        var speechForTts = cleanSpeech
             .replace("**", "")
             .replace("*", "")
             .replace("###", "")
             .replace("##", "")
             .replace("#", "")
             .replace("```", "")
-            .replace(Regex("""^[\s\W\d_]+"""), "")
+            .replace(Regex("""^[^\p{L}\p{N}]+"""), "")
+            .replace(Regex("""\s+"""), " ")
             .trim()
 
+        var actionType: String? = null
+        var actionPayload: JSONObject? = null
+
         if (!matchedJsonStr.isNullOrBlank()) {
-            return try {
+            try {
                 val json = JSONObject(matchedJsonStr)
-                val type = json.optString("action_type")
-                val payload = json.optJSONObject("payload") ?: JSONObject()
-                ParsedActionResult(
-                    speechText = speechForTts,
-                    actionType = type,
-                    actionPayload = payload
-                )
-            } catch (e: Exception) {
-                ParsedActionResult(
-                    speechText = speechForTts,
-                    actionType = null,
-                    actionPayload = null
-                )
+                actionType = json.optString("action_type").takeIf { it.isNotBlank() }
+                actionPayload = json.optJSONObject("payload") ?: JSONObject()
+            } catch (_: Exception) { }
+        }
+
+        // Eğer eylem bloğu çıkarıldıktan sonra konuşma metni boş kalmışsa, eyleme uygun kısa onay cümlesi üret
+        if (speechForTts.isBlank()) {
+            speechForTts = when (actionType?.uppercase(Locale.ROOT)) {
+                "SET_ALARM" -> "Alarmı kurdum dostum."
+                "SET_REMINDER" -> "Hatırlatıcıyı kaydettim dostum."
+                "ADD_QUICK_NOTE" -> "Notu ekledim dostum."
+                "NAVIGATE", "SEARCH_MAP" -> "Navigasyonu açıyorum dostum."
+                "SAVE_LOCATION" -> "Konumu kaydettim dostum."
+                "PLAY_MUSIC" -> "Müziği açıyorum dostum."
+                else -> "Buyrun dostum!"
             }
         }
 
         return ParsedActionResult(
             speechText = speechForTts,
-            actionType = null,
-            actionPayload = null
+            actionType = actionType,
+            actionPayload = actionPayload
         )
     }
 

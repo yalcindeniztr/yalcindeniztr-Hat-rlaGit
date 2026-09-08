@@ -75,7 +75,7 @@ fun openPlayStore(context: Context) {
  */
 @Composable
 fun PlayStoreUpdateDialog(
-    newVersionName: String = "v1.2.2",
+    newVersionName: String = "v1.3.1",
     updateHighlights: List<String> = listOf(
         "🌤️ Canlı Meteorolojik Hava Durumu & Akıllı Günlük Tavsiyeler",
         "📅 Günlük İş Akışı, Zaman Yönetimi & Gün Planlama Asistanı",
