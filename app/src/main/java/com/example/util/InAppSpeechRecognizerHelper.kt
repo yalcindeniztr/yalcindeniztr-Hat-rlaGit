@@ -300,7 +300,26 @@ class InAppSpeechRecognizerManager(
             bestResultText.isNotBlank() -> bestResultText
             partialText.isNotBlank() -> partialText
             else -> ""
+        }.trim()
+
+        if (finalText.isBlank()) {
+            cancel()
+            return
         }
+
+        // Akustik Yankı Koruması: Hoparlörden gelen asistan seslerinin kendi kendine soru olarak işlenmesini önle
+        val lowerFinal = finalText.lowercase(java.util.Locale("tr", "TR"))
+        val isSelfEcho = lowerFinal.contains("başka bir emriniz") ||
+                         lowerFinal.contains("emriniz var mı") ||
+                         lowerFinal.contains("buyrun dostum") ||
+                         lowerFinal.contains("yardımcı olabilirim") ||
+                         lowerFinal.equals("var mı", ignoreCase = true) ||
+                         lowerFinal.equals("dostum", ignoreCase = true)
+        if (isSelfEcho) {
+            cancel()
+            return
+        }
+
         onFinalText(finalText)
     }
 

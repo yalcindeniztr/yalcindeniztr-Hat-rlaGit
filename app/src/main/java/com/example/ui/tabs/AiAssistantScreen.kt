@@ -232,7 +232,11 @@ fun AiAssistantScreen(
                 TtsHelper.speak(context, fullSpeech) {
                     isSpeaking = false
                     // Kullanıcı talebi: Asistan önce cevabını ve işlemini tamamlasın, ardından 'Başka bir emriniz var mı?' diye sorup 5 saniye beklesin
-                    inAppSpeechManager.startListening(coroutineScope, initialSeconds = 5)
+                    // Akustik yankının sönmesi için 500ms beklenip dinleme başlatılır
+                    coroutineScope.launch {
+                        kotlinx.coroutines.delay(500L)
+                        inAppSpeechManager.startListening(coroutineScope, initialSeconds = 5)
+                    }
                 }
             }
         }
@@ -269,12 +273,8 @@ fun AiAssistantScreen(
     // Widget'tan doğrudan sesli dinleme veya komutla başlatma
     androidx.compose.runtime.LaunchedEffect(autoStartListening, initialPrompt) {
         if (autoStartListening) {
-            kotlinx.coroutines.delay(200L)
-            isSpeaking = true
-            TtsHelper.speak(context, "Buyrun dostum!") {
-                isSpeaking = false
-                inAppSpeechManager.startListening(coroutineScope)
-            }
+            kotlinx.coroutines.delay(300L)
+            inAppSpeechManager.startListening(coroutineScope)
         } else if (!initialPrompt.isNullOrBlank()) {
             executeUserPrompt(initialPrompt)
         }
@@ -752,11 +752,8 @@ fun AiAssistantScreen(
                                     inAppSpeechManager.cancel()
                                 } else {
                                     TtsHelper.stop()
-                                    isSpeaking = true
-                                    TtsHelper.speak(context, "Buyrun dostum!") {
-                                        isSpeaking = false
-                                        inAppSpeechManager.startListening(coroutineScope)
-                                    }
+                                    isSpeaking = false
+                                    inAppSpeechManager.startListening(coroutineScope)
                                 }
                             },
                             modifier = Modifier

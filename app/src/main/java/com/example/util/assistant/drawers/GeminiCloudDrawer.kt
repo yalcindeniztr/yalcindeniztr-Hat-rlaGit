@@ -32,7 +32,7 @@ object GeminiCloudDrawer : AssistantDrawer {
         lowerQuery: String,
         sessionData: WardrobeSessionData
     ): DrawerResult? {
-        if (sessionData.apiKey.isBlank()) return null
+        if (sessionData.apiKey.isBlank() || !sessionData.apiKey.startsWith("AIzaSy")) return null
 
         val allKnowledge = sessionData.db.aiKnowledgeDao().getAllKnowledgeList()
         val searchWords = lowerQuery.split(Regex("""[\s,?.!;:()'"\-_/]+""")).filter { it.length >= 3 }

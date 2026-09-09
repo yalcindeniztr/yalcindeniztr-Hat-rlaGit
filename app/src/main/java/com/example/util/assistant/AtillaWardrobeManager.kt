@@ -9,6 +9,7 @@ import com.example.util.assistant.drawers.CultureTravelDrawer
 import com.example.util.assistant.drawers.GeminiCloudDrawer
 import com.example.util.assistant.drawers.KnowledgeSearchDrawer
 import com.example.util.assistant.drawers.NavigationDrawer
+import com.example.util.assistant.drawers.OfflineIntelligenceDrawer
 import com.example.util.assistant.drawers.TeacherMebDrawer
 import com.example.util.assistant.drawers.VisionImageDrawer
 import java.util.Locale
@@ -16,16 +17,17 @@ import java.util.Locale
 object AtillaWardrobeManager {
 
     private val drawers: List<AssistantDrawer> = listOf(
-        VisionImageDrawer,       // 1. Resim / OCR / Belge soruları (kütüphaneyi asla dökmez)
-        AlarmDrawer,             // 2. Saat ve alarm komutları
-        CalendarDrawer,          // 3. Takvim ve randevu senkronizasyonu
-        CommunicationDrawer,     // 4. Telefon arama ve WhatsApp mesajı
-        NavigationDrawer,        // 5. Harita, navigasyon ve park yeri
-        TeacherMebDrawer,        // 6. MEB, mevzuat, ŞÖK, sınav ve planlama
-        AppBridgeDrawer,         // 7. YouTube, Google arama, Gemini köprüsü
-        CultureTravelDrawer,     // 8. Kültür, gezi rotaları ve coğrafya
-        GeminiCloudDrawer,       // 9. Canlı Bulut Yapay Zeka (Kısa, öz, thinkingBudget=0)
-        KnowledgeSearchDrawer    // 10. Çevrimdışı Nokta Atışı Kütüphane Arama (Yalnızca ilgili tek konuyu çeker)
+        VisionImageDrawer,          // 1. Resim / OCR / Belge soruları (kütüphaneyi asla dökmez)
+        AlarmDrawer,                // 2. Saat ve alarm komutları
+        CalendarDrawer,             // 3. Takvim ve randevu senkronizasyonu
+        CommunicationDrawer,        // 4. Telefon arama ve WhatsApp mesajı
+        NavigationDrawer,           // 5. Harita, navigasyon ve park yeri
+        TeacherMebDrawer,           // 6. MEB, mevzuat, ŞÖK, sınav ve planlama
+        AppBridgeDrawer,            // 7. YouTube, Google arama, Gemini köprüsü
+        CultureTravelDrawer,        // 8. Kültür, gezi rotaları ve coğrafya
+        GeminiCloudDrawer,          // 9. Canlı Bulut Yapay Zeka (Geçerli API anahtarı varsa)
+        KnowledgeSearchDrawer,      // 10. Çevrimdışı Nokta Atışı Kütüphane Arama (657, ÖMK, Sendika, MEB)
+        OfflineIntelligenceDrawer   // 11. Zengin Çevrimdışı Zeka ve Sohbet Motoru (1.0.1 & 1.2.x mimarisi)
     )
 
     suspend fun dispatch(
