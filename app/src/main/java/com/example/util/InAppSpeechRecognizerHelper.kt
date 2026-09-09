@@ -112,42 +112,67 @@ class InAppSpeechRecognizerManager(
         }
     }
 
+    private fun sanitizeSpeechText(raw: String): String {
+        val trimmed = raw.trim()
+        if (trimmed.isBlank()) return ""
+
+        // 1. Ardışık yinelenen kelimeleri temizle (örn: "alarm alarm kur" -> "alarm kur")
+        val words = trimmed.split(Regex("\\s+"))
+        val cleanWords = mutableListOf<String>()
+        for (w in words) {
+            if (cleanWords.isEmpty() || !cleanWords.last().equals(w, ignoreCase = true)) {
+                cleanWords.add(w)
+            }
+        }
+        var result = cleanWords.joinToString(" ")
+
+        // 2. Ardışık yinelenen kalıpları temizle
+        val phraseRegex = Regex("""(?i)\b(.{3,25})\s+\1\b""")
+        while (phraseRegex.containsMatchIn(result)) {
+            result = phraseRegex.replace(result, "$1")
+        }
+        return result.trim()
+    }
+
     private fun onSpeechInputReceived(text: String, isFinalSegment: Boolean) {
         if (!isListening) return
+        val cleanSegment = text.trim()
+        if (cleanSegment.isBlank()) return
         hasSpokenAnyWord = true
-        // Konuşma devam ederken sessizlik zamanlayıcısını iptal et, sözü asla kesme
+        // Konuşma devam ederken sessizlik zamanlayıcısını iptal et
         silenceFinishJob?.cancel()
 
         if (isFinalSegment) {
-            if (accumulatedText.isNotBlank()) {
-                if (!accumulatedText.endsWith(" ") && !text.startsWith(" ")) {
-                    accumulatedText += " " + text
-                } else {
-                    accumulatedText += text
-                }
-            } else {
-                accumulatedText = text
+            val merged = when {
+                accumulatedText.isBlank() -> cleanSegment
+                cleanSegment.startsWith(accumulatedText, ignoreCase = true) -> cleanSegment
+                accumulatedText.startsWith(cleanSegment, ignoreCase = true) -> accumulatedText
+                accumulatedText.endsWith(cleanSegment, ignoreCase = true) -> accumulatedText
+                cleanSegment.contains(accumulatedText, ignoreCase = true) -> cleanSegment
+                else -> "$accumulatedText $cleanSegment"
             }
-            bestResultText = accumulatedText.trim()
-            partialText = bestResultText
+            accumulatedText = sanitizeSpeechText(merged)
+            bestResultText = accumulatedText
+            partialText = accumulatedText
         } else {
-            val liveText = if (accumulatedText.isNotBlank()) {
-                "$accumulatedText $text".trim()
-            } else {
-                text.trim()
+            val live = when {
+                accumulatedText.isBlank() -> cleanSegment
+                cleanSegment.startsWith(accumulatedText, ignoreCase = true) -> cleanSegment
+                cleanSegment.contains(accumulatedText, ignoreCase = true) -> cleanSegment
+                else -> "$accumulatedText $cleanSegment"
             }
-            partialText = liveText
-            bestResultText = liveText
+            val sanitizedLive = sanitizeSpeechText(live)
+            partialText = sanitizedLive
+            bestResultText = sanitizedLive
         }
     }
 
-    private fun scheduleSilenceCompletion() {
+    private fun scheduleSilenceCompletion(customDelay: Long = 2000L) {
         if (!isListening || !hasSpokenAnyWord) return
         silenceFinishJob?.cancel()
         currentScope?.let { scope ->
             silenceFinishJob = scope.launch {
-                // Kullanıcı sözünü ve isteğini tamamen bitirdikten sonra 4 saniye sessizlik olunca gönder
-                delay(4000L)
+                delay(customDelay)
                 if (isListening && hasSpokenAnyWord) {
                     val currentTxt = when {
                         bestResultText.isNotBlank() -> bestResultText
@@ -191,7 +216,7 @@ class InAppSpeechRecognizerManager(
 
                     override fun onEndOfSpeech() {
                         Log.d("InAppSpeech", "End of speech segment")
-                        scheduleSilenceCompletion()
+                        scheduleSilenceCompletion(1500L)
                     }
 
                     override fun onError(error: Int) {
@@ -210,15 +235,18 @@ class InAppSpeechRecognizerManager(
                         val text = matches?.firstOrNull()?.trim() ?: ""
                         if (text.isNotBlank()) {
                             onSpeechInputReceived(text, isFinalSegment = true)
+                            // Nihai sonuç geldiğinde 1 saniye içinde işlemi tamamla ve asistana aktar
+                            scheduleSilenceCompletion(1000L)
+                        } else {
+                            scheduleSilenceCompletion(1800L)
                         }
-                        scheduleSilenceCompletion()
 
                         if (isListening && remainingSeconds > 1) {
                             mainHandler.postDelayed({
                                 if (isListening && remainingSeconds > 1) {
                                     startNativeListeningIntent()
                                 }
-                            }, 200L)
+                            }, 250L)
                         }
                     }
 

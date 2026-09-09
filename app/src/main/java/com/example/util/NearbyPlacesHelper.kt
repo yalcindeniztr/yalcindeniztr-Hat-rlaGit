@@ -504,19 +504,68 @@ object NearbyPlacesHelper {
         }
     }
 
-    fun insertEventIntoCalendar(context: Context, title: String, description: String, startTimeMillis: Long, endTimeMillis: Long = startTimeMillis + 3600000L) {
+    fun insertEventIntoCalendar(
+        context: Context,
+        title: String,
+        description: String,
+        startTimeMillis: Long,
+        endTimeMillis: Long = startTimeMillis + 3600000L,
+        openUi: Boolean = false
+    ): Boolean {
+        var insertedViaProvider = false
         try {
-            val intent = Intent(Intent.ACTION_INSERT).apply {
-                data = android.provider.CalendarContract.Events.CONTENT_URI
-                putExtra(android.provider.CalendarContract.Events.TITLE, title)
-                putExtra(android.provider.CalendarContract.Events.DESCRIPTION, description)
-                putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME, startTimeMillis)
-                putExtra(android.provider.CalendarContract.EXTRA_EVENT_END_TIME, endTimeMillis)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (androidx.core.content.ContextCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.WRITE_CALENDAR
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                val projection = arrayOf(
+                    android.provider.CalendarContract.Calendars._ID,
+                    android.provider.CalendarContract.Calendars.IS_PRIMARY
+                )
+                val cursor = context.contentResolver.query(
+                    android.provider.CalendarContract.Calendars.CONTENT_URI,
+                    projection,
+                    null,
+                    null,
+                    null
+                )
+                var calendarId: Long = 1
+                cursor?.use {
+                    if (it.moveToFirst()) {
+                        calendarId = it.getLong(0)
+                    }
+                }
+                val values = android.content.ContentValues().apply {
+                    put(android.provider.CalendarContract.Events.DTSTART, startTimeMillis)
+                    put(android.provider.CalendarContract.Events.DTEND, endTimeMillis)
+                    put(android.provider.CalendarContract.Events.TITLE, title)
+                    put(android.provider.CalendarContract.Events.DESCRIPTION, description)
+                    put(android.provider.CalendarContract.Events.CALENDAR_ID, calendarId)
+                    put(android.provider.CalendarContract.Events.EVENT_TIMEZONE, java.util.TimeZone.getDefault().id)
+                }
+                val uri = context.contentResolver.insert(android.provider.CalendarContract.Events.CONTENT_URI, values)
+                insertedViaProvider = (uri != null)
             }
-            context.startActivity(intent)
-        } catch (e: Exception) {
-            e.printStackTrace()
+        } catch (_: Exception) { }
+
+        // Eğer provider ile eklenemediyse veya açıkça UI istenmişse Intent ile aç
+        if (!insertedViaProvider || openUi) {
+            try {
+                val intent = Intent(Intent.ACTION_INSERT).apply {
+                    data = android.provider.CalendarContract.Events.CONTENT_URI
+                    putExtra(android.provider.CalendarContract.Events.TITLE, title)
+                    putExtra(android.provider.CalendarContract.Events.DESCRIPTION, description)
+                    putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME, startTimeMillis)
+                    putExtra(android.provider.CalendarContract.EXTRA_EVENT_END_TIME, endTimeMillis)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                return true
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
+        return insertedViaProvider
     }
 }

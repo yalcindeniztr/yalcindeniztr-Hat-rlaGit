@@ -408,8 +408,102 @@ object AiAssistantService {
         }
 
         // =========================================================================
-        // ÖZEL AKILLI KOMUTLAR VE EYLEMLER
+        // JARVIS PROTOKOLÜ & LOCAL INSTANT AGENTLER (0 GECİKME İLE DOĞRUDAN İŞLEM)
         // =========================================================================
+
+        // 4.1. LOCAL ALARM AGENT: "alarm kur", "uyandır", "saat 7'ye alarm" vb.
+        if (lowerMsg.contains("alarm") || lowerMsg.contains("uyandır")) {
+            val timeMatch = Regex("""(?i)(?:saat\s*)?(\d{1,2})[:.](\d{2})""").find(cleanMsg)
+            val hourOnlyMatch = Regex("""(?i)(?:saat\s*)?(\d{1,2})\s*(?:'ye|'ya|'e|'a|'de|'da)""").find(cleanMsg)
+            val anyHourMatch = Regex("""(?i)\b(\d{1,2})\b""").find(cleanMsg)
+
+            val parsedHour = timeMatch?.groupValues?.get(1)?.toIntOrNull()
+                ?: hourOnlyMatch?.groupValues?.get(1)?.toIntOrNull()
+                ?: anyHourMatch?.groupValues?.get(1)?.toIntOrNull()
+            val parsedMin = timeMatch?.groupValues?.get(2)?.toIntOrNull() ?: 0
+
+            if (parsedHour != null && parsedHour in 0..23 && parsedMin in 0..59) {
+                val label = cleanMsg.replace(Regex("""(?i)(?:saat\s*)?\d{1,2}(?:[:.]\d{2})?|bana|alarm|kur|ayarla|için|uyandır|'ye|'ya|'e|'a|'de|'da"""), "").trim().ifBlank { "Atilla Alarm" }
+                val payload = JSONObject().apply {
+                    put("hour", parsedHour)
+                    put("minute", parsedMin)
+                    put("title", label)
+                }
+                ActionDispatcherHelper.executeAction(context, "SET_ALARM", payload)
+                val timeFormatted = String.format(Locale.ROOT, "%02d:%02d", parsedHour, parsedMin)
+                return@withContext AiResponse(
+                    replyText = "Emredersiniz, alarm $timeFormatted için hem sistem saatinize hem de HatırlaGit'e başarıyla kuruldu.",
+                    actionSummary = "⏰ Alarm: $timeFormatted ($label)"
+                )
+            } else if (!lowerMsg.contains("nasıl") && !lowerMsg.contains("nedir")) {
+                UstaSessionState.isWaitingForAlarmTime = true
+                return@withContext AiResponse(
+                    replyText = "Hangi saate alarm kurmamı istersiniz? (Örneğin: 07:30 veya 8:00)"
+                )
+            }
+        }
+
+        // 4.2. LOCAL CALENDAR AGENT: "takvime ekle", "etkinlik ekle", "randevu ekle", "toplantı ekle"
+        if (lowerMsg.contains("takvime ekle") || lowerMsg.contains("etkinlik ekle") || lowerMsg.contains("randevu ekle") || lowerMsg.contains("toplantı ekle") || lowerMsg.contains("takvimime ekle")) {
+            val cal = Calendar.getInstance()
+            if (lowerMsg.contains("yarın")) {
+                cal.add(Calendar.DAY_OF_YEAR, 1)
+            }
+            val timeMatch = Regex("""(?i)(?:saat\s*)?(\d{1,2})[:.](\d{2})""").find(cleanMsg)
+            val hourOnlyMatch = Regex("""(?i)(?:saat\s*)?(\d{1,2})\s*(?:'ye|'ya|'e|'a|'de|'da)""").find(cleanMsg)
+            val parsedHour = timeMatch?.groupValues?.get(1)?.toIntOrNull() ?: hourOnlyMatch?.groupValues?.get(1)?.toIntOrNull() ?: 10
+            val parsedMin = timeMatch?.groupValues?.get(2)?.toIntOrNull() ?: 0
+
+            cal.set(Calendar.HOUR_OF_DAY, parsedHour)
+            cal.set(Calendar.MINUTE, parsedMin)
+            cal.set(Calendar.SECOND, 0)
+            if (cal.timeInMillis <= System.currentTimeMillis() && !lowerMsg.contains("yarın")) {
+                cal.add(Calendar.DAY_OF_YEAR, 1)
+            }
+
+            val eventTitle = cleanMsg.replace(Regex("""(?i)takvime ekle|takvimime ekle|etkinlik ekle|randevu ekle|toplantı ekle|yarın|bugün|saat\s*\d{1,2}(?:[:.]\d{2})?|'ye|'ya|'e|'a|'de|'da"""), "").trim().ifBlank { "Toplantı / Randevu" }
+            val payload = JSONObject().apply {
+                put("title", eventTitle)
+                put("description", "Atilla tarafından sesle oluşturuldu.")
+                put("startTimeMillis", cal.timeInMillis)
+                put("endTimeMillis", cal.timeInMillis + 3600000L)
+            }
+            ActionDispatcherHelper.executeAction(context, "CREATE_EVENT", payload)
+            val dateStr = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()).format(cal.time)
+            return@withContext AiResponse(
+                replyText = "Emredersiniz, '$eventTitle' etkinliği $dateStr için telefon takviminize ve akıllı saatinize işlendi.",
+                actionSummary = "📅 Takvim: $eventTitle ($dateStr)"
+            )
+        }
+
+        // 4.3. LOCAL CALL & WHATSAPP AGENT: "[Kişi]'yi ara", "[Kişi]'ye whatsapp mesajı at"
+        if (lowerMsg.endsWith("ara") || lowerMsg.contains("telefon et") || lowerMsg.contains("çağrı yap")) {
+            val contactName = cleanMsg.replace(Regex("""(?i)lütfen|bana|'yi ara|'yı ara|'i ara|'ı ara|'yu ara|'yü ara|'ü ara|'u ara|ara|telefon et|çağrı yap"""), "").trim()
+            if (contactName.isNotBlank() && !NAME_BLACKLIST.contains(contactName.lowercase())) {
+                val payload = JSONObject().apply { put("name", contactName) }
+                val summary = ActionDispatcherHelper.executeAction(context, "CALL_PHONE", payload)
+                return@withContext AiResponse(
+                    replyText = "Hemen $contactName kişisini arıyorum.",
+                    actionSummary = summary
+                )
+            }
+        }
+        if (lowerMsg.contains("whatsapp") && (lowerMsg.contains("mesaj") || lowerMsg.contains("yaz") || lowerMsg.contains("gönder"))) {
+            val contactMatch = Regex("""(?i)(?:whatsapp'tan|whatsapp|whatsappta)\s+([a-zA-ZçğıöşüÇĞİÖŞÜ]+)""").find(cleanMsg)
+            val targetName = contactMatch?.groupValues?.get(1)?.trim() ?: ""
+            if (targetName.isNotBlank()) {
+                val messageContent = cleanMsg.replace(Regex("""(?i)^.*?mesaj(?:ı)?\s*(?:at|yaz|gönder)[: ]*"""), "").trim().ifBlank { "Merhaba" }
+                val payload = JSONObject().apply {
+                    put("name", targetName)
+                    put("message", messageContent)
+                }
+                val summary = ActionDispatcherHelper.executeAction(context, "SEND_WHATSAPP", payload)
+                return@withContext AiResponse(
+                    replyText = "$targetName kişisine WhatsApp mesajını hazırladım.",
+                    actionSummary = summary
+                )
+            }
+        }
 
         // 5. "Konumu Lokasyona Kaydet" (İsim sorarak)
         if (lowerMsg.contains("konumu lokasyona kaydet") || lowerMsg.contains("konumumu lokasyona kaydet") ||
@@ -1072,22 +1166,26 @@ object AiAssistantService {
             put("contents", contentsArray)
 
             put("generationConfig", JSONObject().apply {
-                put("temperature", 0.75)
+                put("temperature", 0.65)
                 put("topK", 40)
                 put("topP", 0.95)
-                put("maxOutputTokens", 1500)
+                put("maxOutputTokens", 1000)
+                // Gemini 2.5 düşünme gecikmesini sıfırla, anında ışık hızında yanıt üret
+                put("thinkingConfig", JSONObject().apply {
+                    put("thinkingBudget", 0)
+                })
             })
         }
 
         val requestBody = jsonBody.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
 
-        // Çoklu model fallback listesi (En hızlı ve çalışan modeller en başta: 0.7sn)
+        // Çoklu model fallback listesi (Resmi ve en hızlı çalışan ultra-low-latency modeller)
         val candidateModels = listOf(
-            "gemini-3.5-flash-lite",
-            "gemini-flash-lite-latest",
-            "gemini-flash-latest",
-            "gemini-2.5-pro",
-            "gemini-pro-latest"
+            "gemini-2.0-flash",
+            "gemini-2.5-flash",
+            "gemini-1.5-flash",
+            "gemini-2.0-flash-lite-preview-02-05",
+            "gemini-1.5-pro"
         )
 
         for (modelName in candidateModels) {

@@ -155,16 +155,26 @@ object ActionDispatcherHelper {
                     val title = payload.optString("title", "HatırlaGit Alarm")
                     val message = payload.optString("message", title)
 
-                    // 1. Android Native AlarmClock Intent
-                    val alarmIntent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
-                        putExtra(AlarmClock.EXTRA_HOUR, hour)
-                        putExtra(AlarmClock.EXTRA_MINUTES, minute)
-                        putExtra(AlarmClock.EXTRA_MESSAGE, message)
-                        putExtra(AlarmClock.EXTRA_SKIP_UI, false)
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    if (alarmIntent.resolveActivity(context.packageManager) != null) {
+                    // 1. Android Native AlarmClock Intent (Sistem saati ve Wear OS akıllı saat entegrasyonu)
+                    try {
+                        val alarmIntent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
+                            putExtra(AlarmClock.EXTRA_HOUR, hour)
+                            putExtra(AlarmClock.EXTRA_MINUTES, minute)
+                            putExtra(AlarmClock.EXTRA_MESSAGE, message)
+                            putExtra(AlarmClock.EXTRA_SKIP_UI, true)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
                         context.startActivity(alarmIntent)
+                    } catch (_: Exception) {
+                        try {
+                            val fallbackIntent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
+                                putExtra(AlarmClock.EXTRA_HOUR, hour)
+                                putExtra(AlarmClock.EXTRA_MINUTES, minute)
+                                putExtra(AlarmClock.EXTRA_MESSAGE, message)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            context.startActivity(fallbackIntent)
+                        } catch (_: Exception) {}
                     }
 
                     // 2. HatırlaGit Room DB Kaydı & Alarm Servisi
@@ -182,7 +192,7 @@ object ActionDispatcherHelper {
                         title = title,
                         dueDatetime = sdf.format(cal.time),
                         dueDateMillis = cal.timeInMillis,
-                        customNote = "Usta tarafından sesle oluşturuldu.",
+                        customNote = "Atilla tarafından sesli komutla kuruldu.",
                         encryptedMetadata = "{}",
                         actionStep = "SOUND_CLASSIC_BELL"
                     )
@@ -199,16 +209,17 @@ object ActionDispatcherHelper {
                     val startMillis = payload.optLong("startTimeMillis", System.currentTimeMillis() + 3600000L)
                     val endMillis = payload.optLong("endTimeMillis", startMillis + 3600000L)
 
-                    val intent = Intent(Intent.ACTION_INSERT).apply {
-                        data = CalendarContract.Events.CONTENT_URI
-                        putExtra(CalendarContract.Events.TITLE, title)
-                        putExtra(CalendarContract.Events.DESCRIPTION, description)
-                        putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, startMillis)
-                        putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endMillis)
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    context.startActivity(intent)
+                    // 1. Android ContentResolver ile doğrudan cihaz ve Google Takvim/Wear OS senkronizasyonu
+                    NearbyPlacesHelper.insertEventIntoCalendar(
+                        context = context,
+                        title = title,
+                        description = description,
+                        startTimeMillis = startMillis,
+                        endTimeMillis = endMillis,
+                        openUi = false
+                    )
 
+                    // 2. Room Veritabanına da randevu kaydı ekle
                     val sdf = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
                     val reminder = ReminderEntity(
                         category = "RANDEVU",
@@ -221,7 +232,7 @@ object ActionDispatcherHelper {
                     )
                     AppDatabase.getDatabase(context).reminderDao().insertReminder(reminder)
 
-                    return@withContext "📅 Randevu telefon takviminize ve akıllı saat senkronizasyonuna işlendi: $title"
+                    return@withContext "📅 Etkinlik telefon takviminize ve akıllı saatinize işlendi: $title"
                 }
 
                 "SEND_WHATSAPP" -> {

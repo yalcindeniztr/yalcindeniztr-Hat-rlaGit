@@ -154,8 +154,16 @@ fun AiAssistantScreen(
 
     // Doğrudan ve Hızlı Sesli Yanıt Yürütücüsü
     fun executeUserPrompt(promptText: String) {
-        if (promptText.isBlank()) return
-        val userMsg = ChatMessage(sender = "USER", text = promptText)
+        val cleanPrompt = promptText.trim()
+        if (cleanPrompt.isBlank()) return
+
+        // Çift tetiklemeyi ve aynı şeyleri tekrar etmeyi önle
+        val lastUserMsg = messages.lastOrNull { it.sender == "USER" }?.text?.trim()
+        if (cleanPrompt.equals(lastUserMsg, ignoreCase = true) && isProcessing) {
+            return
+        }
+
+        val userMsg = ChatMessage(sender = "USER", text = cleanPrompt)
         messages.add(userMsg)
 
         // Kullanıcı mesajını kalıcı veritabanına kaydet

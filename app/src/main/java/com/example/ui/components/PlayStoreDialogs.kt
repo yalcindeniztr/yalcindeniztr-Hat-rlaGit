@@ -75,7 +75,7 @@ fun openPlayStore(context: Context) {
  */
 @Composable
 fun PlayStoreUpdateDialog(
-    newVersionName: String = "v1.3.3",
+    newVersionName: String = "v1.3.4",
     updateHighlights: List<String> = listOf(
         "🤖 ATİLLA Kişiselleştirilmiş Asistan & Sesli Komut Entegrasyonu",
         "📅 Doğal Dille Yapay Zeka Destekli Takvim Etkinliği Oluşturma & Yönetim Paneli",

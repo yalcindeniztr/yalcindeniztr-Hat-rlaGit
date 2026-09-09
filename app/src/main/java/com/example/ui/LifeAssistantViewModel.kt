@@ -41,12 +41,12 @@ class LifeAssistantViewModel(application: Application) : AndroidViewModel(applic
     private val prayerMapType = Types.newParameterizedType(Map::class.java, String::class.java, Boolean::class.javaObjectType)
     private val prayerMapAdapter = moshi.adapter<Map<String, Boolean>>(prayerMapType)
 
-    val currentVersionCode = 85
-    val currentVersionName = "1.3.3"
+    val currentVersionCode = 86
+    val currentVersionName = "1.3.4"
     
     // Remote config veya GitHub Releases entegrasyonu için varsayılan fallback
-    val latestAvailableVersionCode = 85
-    val latestAvailableVersionName = "1.3.3"
+    val latestAvailableVersionCode = 86
+    val latestAvailableVersionName = "1.3.4"
 
     // Widget Direct Launcher States
     val directOpenAiAssistant = MutableStateFlow(false)
