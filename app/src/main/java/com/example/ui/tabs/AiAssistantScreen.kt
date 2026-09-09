@@ -249,7 +249,7 @@ fun AiAssistantScreen(
                 val ocrResult = com.example.util.OcrScannerHelper.scanBitmap(bitmap)
                 isProcessing = false
                 if (ocrResult != null && ocrResult.rawText.isNotBlank()) {
-                    executeUserPrompt("Kamera ile taranan belge ve karar metni: " + ocrResult.rawText.take(350))
+                    executeUserPrompt("Kamera ile taranan belge ve karar metni: " + ocrResult.rawText.take(2500))
                 } else {
                     android.widget.Toast.makeText(context, "Görselden metin ayrıştırılamadı. Lütfen ışıklı ortamda tekrar deneyin.", android.widget.Toast.LENGTH_SHORT).show()
                 }
