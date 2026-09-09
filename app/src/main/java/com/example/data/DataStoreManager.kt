@@ -50,12 +50,12 @@ class DataStoreManager(private val context: Context) {
     
     val homeBlockOrder: Flow<List<String>> = context.dataStore.data.map { preferences ->
         val json = preferences[HOME_BLOCK_ORDER] ?: "[]"
-        val defaultList = listOf("BILLS_CARDS", "MY_CAR", "QUICK_NOTE", "VOICE_NOTE", "PARK", "LOCATIONS", "FAVORITES", "ADD_NEW")
+        val defaultList = listOf("CALENDAR", "BILLS_CARDS", "MY_CAR", "QUICK_NOTE", "VOICE_NOTE", "PARK", "LOCATIONS", "FAVORITES", "ADD_NEW")
         if (json == "[]") {
             defaultList
         } else {
             try {
-                val list = json.removePrefix("[").removeSuffix("]").replace("\"", "").split(",").map { it.trim() }.filter { it.isNotEmpty() && it != "ALL" && it != "REMINDERS" }
+                val list = json.removePrefix("[").removeSuffix("]").replace("\"", "").split(",").map { it.trim() }.filter { it.isNotEmpty() && it != "ALL" }
                 if (list.isEmpty()) defaultList else list
             } catch (e: Exception) {
                 defaultList
@@ -355,7 +355,7 @@ class DataStoreManager(private val context: Context) {
     }
 
     val aiAssistantName: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[AI_ASSISTANT_NAME] ?: "Usta"
+        preferences[AI_ASSISTANT_NAME] ?: "ATİLLA"
     }
 
     val isAiVoiceResponsesEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->

@@ -123,16 +123,19 @@ object ActionDispatcherHelper {
         // Eğer eylem bloğu çıkarıldıktan sonra konuşma metni boş kalmışsa, eyleme uygun kısa onay cümlesi üret
         if (speechForTts.isBlank()) {
             speechForTts = when (actionType?.uppercase(Locale.ROOT)) {
-                "SET_ALARM" -> "Alarmı kurdum dostum."
-                "SET_REMINDER" -> "Hatırlatıcıyı kaydettim dostum."
-                "ADD_QUICK_NOTE" -> "Notu ekledim dostum."
-                "NAVIGATE", "SEARCH_MAP" -> "Navigasyonu açıyorum dostum."
-                "SAVE_LOCATION" -> "Konumu kaydettim dostum."
-                "PLAY_MUSIC" -> "Müziği açıyorum dostum."
-                "OPEN_GEMINI" -> "Google Gemini köprüsünü açıyorum dostum."
-                "SEARCH_GOOGLE" -> "Google'da aratıyorum dostum."
-                "OPEN_APP" -> "Uygulamayı açıyorum dostum."
-                else -> "Buyrun dostum!"
+                "CREATE_EVENT" -> "Etkinliği takviminize ekledim."
+                "CALL_PHONE" -> "Aramayı başlatıyorum."
+                "SEND_WHATSAPP" -> "WhatsApp mesajını hazırladım."
+                "SET_ALARM" -> "Alarmı kurdum."
+                "SET_REMINDER" -> "Hatırlatıcıyı kaydettim."
+                "ADD_QUICK_NOTE" -> "Notu ekledim."
+                "NAVIGATE", "SEARCH_MAP" -> "Navigasyonu açıyorum."
+                "SAVE_LOCATION" -> "Konumu kaydettim."
+                "PLAY_MUSIC" -> "Müziği açıyorum."
+                "OPEN_GEMINI" -> "Google Gemini köprüsünü açıyorum."
+                "SEARCH_GOOGLE" -> "Google'da aratıyorum."
+                "OPEN_APP" -> "Uygulamayı açıyorum."
+                else -> "Buyrun, size nasıl yardımcı olabilirim?"
             }
         }
 

@@ -137,15 +137,16 @@ object AiAssistantService {
         AiKnowledgeSeeder.seedIfNeeded(context)
 
         val resolvedAssistantName = assistantName.ifBlank {
-            dataStoreManager.aiAssistantName.first().ifBlank { "Usta" }
+            dataStoreManager.aiAssistantName.first().ifBlank { "ATİLLA" }
         }
         val currentNick = dataStoreManager.userNick.first()?.trim() ?: ""
 
         var cleanMsg = userMessage.trim()
-        val triggerRegex = Regex("""(?i)^(hey\s+)?(jarvis|usta|asistan|usta\s+dinle|jarvis\s+dinle)[,\s!.:]*""")
+        val triggerRegex = Regex("""(?i)^(hey\s+)?(atilla|atila|jarvis|usta|asistan|atilla\s+dinle|usta\s+dinle|jarvis\s+dinle)[,\s!.:]*""")
+        val hadTriggerWord = triggerRegex.find(cleanMsg) != null || cleanMsg.equals("atilla", ignoreCase = true) || cleanMsg.equals("atila", ignoreCase = true)
         cleanMsg = cleanMsg.replace(triggerRegex, "").trim()
-        if (cleanMsg.isBlank()) {
-            return@withContext AiResponse(replyText = "Buyrun dostum!")
+        if (cleanMsg.isBlank() || (hadTriggerWord && cleanMsg.isBlank())) {
+            return@withContext AiResponse(replyText = "Buyrun, size nasıl yardımcı olabilirim?")
         }
 
         val lowerMsg = cleanMsg.lowercase(Locale.forLanguageTag("tr-TR"))
@@ -1024,16 +1025,16 @@ object AiAssistantService {
             "UZMANLIK VE YETKİNLİKLER:\n" +
             "1. ÖĞRETMEN VE MEB MEVZUATI: 7354 Sayılı Öğretmenlik Meslek Kanunu (ÖMK), Uzman ve Başöğretmenlik basamakları ve tazminatları, 657 DMK izin ve disiplin hükümleri, MEB Yönetici ve Öğretmenlerinin Ders ve Ek Ders Yönetmeliği (maaş karşılığı, hazırlık-planlama, nöbet görevi, DYK kursları), BEP (Bireyselleştirilmiş Eğitim Programı), RAM ve zümre tutanakları, Türkiye Yüzyılı Maarif Modeli ve ortak yazılı sınav senaryolarına eksiksiz hakimsin.\n" +
             "2. SENDİKAL HAKLAR VE İŞLEMLER: 4688 Sayılı Kamu Görevlileri Sendikaları Kanunu, sendika üyeliği, istifa prosedürü, sendika kesintisi, sendikal izinler ve sendikal eylem/iş bırakma kararlarının Anayasa Mahkemesi ve Danıştay içtihatları doğrultusundaki yasal güvencelerini çok iyi bilirsin.\n" +
-            "3. CİHAZ VE ASİSTAN KÖPRÜSÜ: Kullanıcının emriyle telefonda Google Gemini köprüsü kurabilir, Google araması yapabilir, rehberdeki kişileri arayabilir (CALL_PHONE: {\"name\": \"...\"}), rehberdeki kişilere WhatsApp mesajı atabilir (SEND_WHATSAPP: {\"name\": \"...\", \"message\": \"...\"}), E-Devlet, MEBBİS, E-Okul, EBA, Takvim, Kamera, Haritalar ve yüklü uygulamaları açabilir, alarmlar ve notlar organize edebilirsin.\n\n" +
+            "3. CİHAZ VE ASİSTAN KÖPRÜSÜ & OTONOM TAKVİM YÖNETİMİ: Kullanıcının emriyle doğal dilden takvime doğrudan etkinlik ekleyebilir (CREATE_EVENT: {\"title\": \"...\", \"description\": \"...\", \"startTimeMillis\": 17...}), rehberdeki kişileri arayabilir (CALL_PHONE: {\"name\": \"...\"}), rehberdeki kişilere WhatsApp mesajı atabilir (SEND_WHATSAPP: {\"name\": \"...\", \"message\": \"...\"}), Google Gemini köprüsü kurabilir, Google araması yapabilir, E-Devlet, MEBBİS, E-Okul, EBA, Kamera, Haritalar ve yüklü uygulamaları açabilir, alarmlar ve notlar organize edebilirsin.\n\n" +
             "TEMEL YANIT PRENSİPLERİ (ÇOK ÖNEMLİ):\n" +
             "1. KISA VE ÖZ: Kullanıcı ne istiyorsa veya ne soruyorsa DOĞRUDAN ve YALNIZCA onu cevapla. Uzun açıklamalara, dolaylı anlatımlara, gereksiz ön konuşmalara (girizgah, gereksiz selamlamalar, sistem raporları vb.) KESİNLİKLE GİRME. Lafı asla uzatma.\n" +
             "2. NETİCE ODAKLI: Bir soru sorulduğunda doğrudan cevabını ver. Bir işlem istendiğinde doğrudan yapıldığını bildir.\n" +
             "3. KOD VEYA ETİKET YASAK: Yanıtlarında ASLA hiçbir kod, JSON, etiket, teknik terim, parantezli ibare (json, action, code, bracket vb.) yer alamaz. Sadece doğal Türkçe cümle kur.\n" +
             "4. SES VE METİN AKICILIĞI: Yıldız (*), diyez (#), alt çizgi (_), parantez içi dosya kodları ve ASCII gülen yüzler (:), :D) kullanma.\n\n" +
             "EYLEM BİLDİRİM FORMATI:\n" +
-            "Eğer bir işlem (arama, whatsapp, alarm, not, hatırlatıcı, harita navigasyonu, gemini köprüsü, google arama, uygulama açma vb.) yapacaksan, yanıtının EN SONUNA sadece şu tek bloğu ekle:\n" +
+            "Eğer bir işlem (takvim etkinliği, arama, whatsapp, alarm, not, hatırlatıcı, harita navigasyonu, gemini köprüsü, google arama, uygulama açma vb.) yapacaksan, yanıtının EN SONUNA sadece şu tek bloğu ekle:\n" +
             "```action\n{\"action_type\": \"EYLEM_TIPI\", \"payload\": {...}}\n```\n" +
-            "Ve bu bloğun öncesinde kullanıcıya sadece 1 cümlelik kısa ve samimi teyit ver (Örn: \"Ahmet'i arıyorum dostum.\", \"WhatsApp mesajını hazırlıyorum dostum.\", \"Alarmı kurdum dostum.\", \"Gemini köprüsünü açıyorum dostum.\").\n\n" +
+            "Ve bu bloğun öncesinde kullanıcıya sadece 1 cümlelik kısa ve samimi teyit ver (Örn: \"Etkinliği takviminize ekledim.\", \"Ahmet'i arıyorum.\", \"WhatsApp mesajını hazırlıyorum.\", \"Alarmı kurdum.\", \"Gemini köprüsünü açıyorum.\").\n\n" +
             "Konum: " + userCity + ", " + userDistrict + ". " + userGreeting + "\n" + knowledgeContext
 
         val jsonBody = JSONObject().apply {

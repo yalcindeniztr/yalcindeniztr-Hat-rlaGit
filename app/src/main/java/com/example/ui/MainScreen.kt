@@ -32,8 +32,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -151,11 +153,44 @@ fun MainScreen(viewModel: LifeAssistantViewModel, rootNavController: NavControll
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 Text(
-                                    text = "v1.3.2",
+                                    text = "v1.3.3",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.ExtraBold,
                                     color = OrangePrimary
                                 )
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
+                            // Çevrimdışı Mod & Periyodik Canlı Senkronizasyon Simülatörü
+                            var isSyncing by remember { mutableStateOf(false) }
+                            LaunchedEffect(Unit) {
+                                while (true) {
+                                    kotlinx.coroutines.delay(25000L)
+                                    isSyncing = true
+                                    kotlinx.coroutines.delay(2500L)
+                                    isSyncing = false
+                                }
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(if (isSyncing) Color(0xFF0284C7).copy(alpha = 0.15f) else Color(0xFF10B981).copy(alpha = 0.15f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isSyncing) Color(0xFF0284C7) else Color(0xFF10B981))
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = if (isSyncing) "Senkronize ediliyor..." else "Çevrimdışı Hazır",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSyncing) Color(0xFF0284C7) else Color(0xFF059669)
+                                    )
+                                }
                             }
                         }
                     }

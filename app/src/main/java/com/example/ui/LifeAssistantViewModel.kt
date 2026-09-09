@@ -41,12 +41,12 @@ class LifeAssistantViewModel(application: Application) : AndroidViewModel(applic
     private val prayerMapType = Types.newParameterizedType(Map::class.java, String::class.java, Boolean::class.javaObjectType)
     private val prayerMapAdapter = moshi.adapter<Map<String, Boolean>>(prayerMapType)
 
-    val currentVersionCode = 84
-    val currentVersionName = "1.3.2"
-
-    // Play Store Güncelleme Simülasyonu / Kontrol State'leri
-    val latestAvailableVersionCode = 84
-    val latestAvailableVersionName = "1.3.2"
+    val currentVersionCode = 85
+    val currentVersionName = "1.3.3"
+    
+    // Remote config veya GitHub Releases entegrasyonu için varsayılan fallback
+    val latestAvailableVersionCode = 85
+    val latestAvailableVersionName = "1.3.3"
 
     // Widget Direct Launcher States
     val directOpenAiAssistant = MutableStateFlow(false)
@@ -69,7 +69,7 @@ class LifeAssistantViewModel(application: Application) : AndroidViewModel(applic
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val aiAssistantName: StateFlow<String> = dataStoreManager.aiAssistantName
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "ASİSTAN")
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "ATİLLA")
 
     val isAiVoiceResponsesEnabled: StateFlow<Boolean> = dataStoreManager.isAiVoiceResponsesEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)

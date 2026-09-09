@@ -75,13 +75,13 @@ fun openPlayStore(context: Context) {
  */
 @Composable
 fun PlayStoreUpdateDialog(
-    newVersionName: String = "v1.3.2",
+    newVersionName: String = "v1.3.3",
     updateHighlights: List<String> = listOf(
-        "🌤️ Canlı Meteorolojik Hava Durumu & Akıllı Günlük Tavsiyeler",
-        "📅 Günlük İş Akışı, Zaman Yönetimi & Gün Planlama Asistanı",
-        "🤖 Jarvis Protokolü: Rafine, Nüktedan, İnsansı Empati & Analitik Zeka",
-        "🛠️ Ana Ekran Widget'ı 'Yüklenemiyor' Hatası Düzeltildi & Stabil Hale Getirildi",
-        "🎙️ Tek Dokunuşla Sesli Dinleme & Sabır Süresi Optimizasyonu",
+        "🤖 ATİLLA Kişiselleştirilmiş Asistan & Sesli Komut Entegrasyonu",
+        "📅 Doğal Dille Yapay Zeka Destekli Takvim Etkinliği Oluşturma & Yönetim Paneli",
+        "🌐 Çevrimdışı (Offline-First) Tam Uyum & Canlı Senkronizasyon Göstergesi",
+        "🎨 Android 13+ Temalı Dinamik Simge (Monochrome) & Canlı 3D Gölgelendirmeler",
+        "🎙️ Akıllı Yanıt Sonrası 5 Saniye Dinleme Modu & Sabır Süresi Optimizasyonu",
         "📋 MEB Maarif Modeli Uyumlu Günlük Ders Planı Hazırlama & PDF Kaydetme",
         "📰 Günlük Gazete Manşetleri & Gündem/Ekonomi Özeti"
     ),

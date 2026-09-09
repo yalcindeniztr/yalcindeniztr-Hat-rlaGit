@@ -99,7 +99,7 @@ fun AiAssistantScreen(
     val allKnowledge by viewModel.allAiKnowledge.collectAsStateWithLifecycle()
 
     val decryptedNick = remember(userNick) { viewModel.getDecryptedUserNick() }
-    val displayAssistantName = remember(assistantName) { if (assistantName.isBlank() || assistantName.equals("ASİSTAN", ignoreCase = true)) "Usta" else assistantName }
+    val displayAssistantName = remember(assistantName) { if (assistantName.isBlank() || assistantName.equals("ASİSTAN", ignoreCase = true)) "ATİLLA" else assistantName }
 
     var inputText by remember { mutableStateOf("") }
     var isListening by remember { mutableStateOf(false) }
@@ -107,7 +107,7 @@ fun AiAssistantScreen(
     var isSpeaking by remember { mutableStateOf(false) }
     var showKnowledgeDialog by remember { mutableStateOf(false) }
 
-    val initialGreeting = "Buyrun dostum!"
+    val initialGreeting = "Buyrun, size nasıl yardımcı olabilirim?"
 
     val db = remember { AppDatabase.getDatabase(context) }
 

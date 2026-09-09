@@ -81,6 +81,7 @@ fun HomeScreen(
     onNavigateToCategory: (String) -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val allReminders by viewModel.allReminders.collectAsStateWithLifecycle()
     val customCategories by viewModel.customCategories.collectAsStateWithLifecycle()
     val favoriteCategories by viewModel.favoriteCategories.collectAsStateWithLifecycle()
@@ -96,6 +97,7 @@ fun HomeScreen(
     var showAddBlockDialog by remember { mutableStateOf(false) }
     var showQuickNoteDialog by remember { mutableStateOf(false) }
     var showAiAssistant by remember { mutableStateOf(false) }
+    var showCalendarDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(directOpenAiAssistant) {
         if (directOpenAiAssistant) {
@@ -213,6 +215,36 @@ fun HomeScreen(
             onSaveNote = { reminder ->
                 viewModel.addReminder(reminder)
                 showQuickNoteDialog = false
+            }
+        )
+    }
+
+    if (showCalendarDialog) {
+        com.example.ui.components.CalendarManagementDialog(
+            allReminders = allReminders,
+            onDismiss = { showCalendarDialog = false },
+            onAddEvent = { title, dateMillis, note ->
+                val sdf = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault())
+                val newReminder = ReminderEntity(
+                    category = "RANDEVU",
+                    title = title,
+                    dueDatetime = sdf.format(java.util.Date(dateMillis)),
+                    dueDateMillis = dateMillis,
+                    customNote = note,
+                    encryptedMetadata = "{}",
+                    actionStep = "SOUND_CLASSIC_BELL"
+                )
+                viewModel.addReminder(newReminder)
+                // Cihaz takvimine de opsiyonel olarak işle
+                com.example.util.NearbyPlacesHelper.insertEventIntoCalendar(
+                    context = context,
+                    title = title,
+                    description = note,
+                    startTimeMillis = dateMillis
+                )
+            },
+            onDeleteEvent = { eventId ->
+                viewModel.deleteReminder(eventId)
             }
         )
     }
@@ -711,6 +743,7 @@ fun HomeScreen(
                                                 onNavigateToCategory("MY_CAR")
                                             }
                                         }
+                                        "CALENDAR", "REMINDERS" -> showCalendarDialog = true
                                         "QUICK_NOTE" -> showQuickNoteDialog = true
                                         "VOICE_NOTE" -> onNavigateToVoiceNotes()
                                         "PARK" -> onNavigateToParkScreen()
@@ -985,9 +1018,10 @@ fun CategoryBlock(
         modifier = modifier
             .height(96.dp)
             .shadow(
-                elevation = 5.dp,
+                elevation = 7.dp,
                 shape = ovalShape,
-                spotColor = gradientColors.first().copy(alpha = 0.5f)
+                ambientColor = Color.Black.copy(alpha = 0.25f),
+                spotColor = gradientColors.first().copy(alpha = 0.65f)
             )
             .clip(ovalShape)
             .background(
@@ -1101,6 +1135,15 @@ fun RenderBlock(
     onAction: (String) -> Unit
 ) {
     when (blockKey) {
+        "CALENDAR" -> CategoryBlock(
+            title = "Takvim",
+            subtitle = "Etkinlik & Randevu",
+            icon = Icons.Default.CalendarMonth,
+            gradientColors = listOf(Color(0xFF8B5CF6), Color(0xFF6D28D9)),
+            textColor = Color.White,
+            modifier = modifier,
+            onClick = { onAction("CALENDAR") }
+        )
         "BILLS_CARDS" -> CategoryBlock(
             title = "Faturalar & Kartlar",
             icon = Icons.Default.ReceiptLong,
