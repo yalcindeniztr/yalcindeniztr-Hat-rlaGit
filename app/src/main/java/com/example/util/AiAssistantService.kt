@@ -1254,14 +1254,23 @@ object AiAssistantService {
             return@withContext greeting + "tarihini bilmeyen milletlerin coğrafyasını başkaları çizer. 1071 Malazgirt'le Anadolu'yu yurt kılan Sultan Alparslan'dan, 1919'da Samsun'da Millî Mücadele'yi ateşleyip cumhuriyeti kuran Gazi Mustafa Kemal Atatürk'e kadar hepsi altın harflerle yazılı. Hangi dönemi merak ediyorsun?"
         }
 
-        // 4. Kütüphane Notları Eşleşmesi (657 DMK, Maarif vb.)
-        val matched = knowledgeList.filter {
-            lower.contains(it.title.lowercase(Locale("tr", "TR"))) ||
-            lower.contains(it.content.lowercase(Locale("tr", "TR")).take(15))
-        }
-        if (matched.isNotEmpty()) {
-            val details = matched.take(2).joinToString("\n\n") { "📌 " + it.title + ":\n" + it.content.take(300) }
-            return@withContext greeting + "kütüphanemizden ilgili maddeyi çıkardım:\n\n" + details
+        // 4. Kütüphane Notları Eşleşmesi (Akıllı Semantik ve Anahtar Kelime Puanlaması)
+        val searchWords = lower.split(Regex("""[\s,?.!;:()'"\-_/]+""")).filter { it.length >= 3 }
+        val scoredKnowledge = knowledgeList.map { entity ->
+            val titleLower = entity.title.lowercase(Locale("tr", "TR"))
+            val contentLower = entity.content.lowercase(Locale("tr", "TR"))
+            var score = 0
+            for (w in searchWords) {
+                if (titleLower.contains(w)) score += 5
+                if (contentLower.contains(w)) score += 2
+            }
+            Pair(entity, score)
+        }.filter { it.second >= 4 }.sortedByDescending { it.second }
+
+        if (scoredKnowledge.isNotEmpty()) {
+            val best = scoredKnowledge.take(2)
+            val details = best.joinToString("\n\n") { "📌 " + it.first.title + ":\n" + it.first.content }
+            return@withContext greeting + "kütüphanemizden ilgili resmî/kültürel bilgileri derledim:\n\n" + details
         }
 
         // 5. Hal Hatır, Duygu ve Dertleşme

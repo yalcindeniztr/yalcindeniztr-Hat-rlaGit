@@ -356,6 +356,146 @@ MEB Ders ve Ek Ders Saatlerine İlişkin Karar Hükümleri:
                 )
             }
 
+            // 16. Türkiye Gezi ve Seyahat Rehberi: 81 İl ve Öne Çıkan Rotalar
+            if (allList.none { it.title.contains("Türkiye Gezi ve Seyahat", ignoreCase = true) }) {
+                db.aiKnowledgeDao().insertKnowledge(
+                    AiKnowledgeEntity(
+                        title = "Türkiye Gezi ve Seyahat Rehberi: Bölgeler ve Tarihi Rotalar",
+                        content = """
+Türkiye 7 Bölge Gezi Rotaları ve Öne Çıkan Seyahat Durakları:
+1. Marmara Bölgesi: İstanbul (Tarihi Yarımada, Ayasofya, Sultanahmet, Boğaz, Galata, Topkapı), Edirne (Selimiye Camii, Meriç Köprüsü), Bursa (Ulu Cami, Cumalıkızık, Uludağ), Çanakkale (Gelibolu Şehitliği, Truva Antik Kenti, Assos), Balıkesir (Ayvalık, Cunda Adası).
+2. Ege Bölgesi: İzmir (Efes Antik Kenti, Şirince, Çeşme, Bergama), Aydın (Kuşadası, Afrodisias, Milet, Didim), Muğla (Bodrum Kalesi, Fethiye Ölüdeniz, Saklıkent, Dalyan Kral Mezarları), Denizli (Pamukkale Travertenleri, Hierapolis), Manisa (Sardes Antik Kenti, Spil Dağı).
+3. Akdeniz Bölgesi: Antalya (Kaleiçi, Aspendos, Perge, Düden ve Manavgat Şelaleleri, Alanya Kalesi, Olympos, Kaş, Kalkan), Mersin (Kızkalesi, Cennet-Cehennem Obrukları), Adana (Taşköprü, Sabancı Merkez Camii), Hatay (Antakya Arkeoloji Müzesi, Aziz Piyer Kilisesi, Harbiye Şelaleleri).
+4. İç Anadolu Bölgesi: Ankara (Anıtkabir, Anadolu Medeniyetleri Müzesi, Hacı Bayram Veli Camii, Gordion), Nevşehir (Kapadokya, Göreme Açık Hava Müzesi, Derinkuyu Yeraltı Şehri, Ürgüp, Uçhisar), Konya (Mevlana Müzesi, Çatalhöyük, Beyşehir Gölü), Sivas (Divriği Ulu Camii, Çifte Minareli Medrese), Eskişehir (Odunpazarı, Sazova Parkı).
+5. Karadeniz Bölgesi: Trabzon (Sümela Manastırı, Ayasofya, Uzungöl), Rize (Ayder Yaylası, Zilkale, Fırtına Deresi, Pokut Yaylası), Samsun (Bandırma Vapuru Müzesi, Amisos Tepesi, Şahinkaya Kanyonu), Karabük (Safranbolu Tarihi Konakları), Kastamonu (Kastamonu Kalesi, Ilgaz Dağı), Amasya (Kral Kaya Mezarları, Yalıboyu Evleri), Artvin (Karagöl, Mençuna Şelalesi).
+6. Doğu Anadolu Bölgesi: Van (Van Gölü, Akdamar Adası ve Kilisesi, Van Kalesi, Muradiye Şelalesi), Ağrı (İshak Paşa Sarayı, Doğubayazıt), Kars (Ani Harabeleri, Çıldır Gölü, Kars Kalesi), Erzurum (Çifte Minareli Medrese, Yakutiye, Palandöken), Erzincan (Girlevik Şelalesi, Kemaliye Karanlık Kanyon), Malatya (Arslantepe Höyüğü).
+7. Güneydoğu Anadolu Bölgesi: Şanlıurfa (Göbeklitepe, Balıklıgöl, Harran Kümbet Evleri, Halfeti), Gaziantep (Zeugma Mozaik Müzesi, Gaziantep Kalesi, Bakırcılar Çarşısı), Mardin (Deyrulzafaran Manastırı, Kasımiye Medresesi, Dara Antik Kenti, Eski Mardin Taş Evleri), Diyarbakır (Diyarbakır Kalesi ve Surları, Hevsel Bahçeleri, Ulu Cami, Ongözlü Köprü), Adıyaman (Nemrut Dağı Heykelleri, Cendere Köprüsü).
+                        """.trimIndent(),
+                        category = "TURKEY_TRAVEL",
+                        isOfficialVerified = true,
+                        source = "T.C. Kültür ve Turizm Bakanlığı Seyahat Portalı",
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            }
+
+            // 17. Türkiye UNESCO Dünya Mirası Eserleri ve Kültür Varlıkları
+            if (allList.none { it.title.contains("UNESCO Dünya Mirası", ignoreCase = true) }) {
+                db.aiKnowledgeDao().insertKnowledge(
+                    AiKnowledgeEntity(
+                        title = "Türkiye UNESCO Dünya Mirası Listesindeki Eserler ve Anıtlar",
+                        content = """
+Türkiye'nin UNESCO Dünya Mirası Listesi'nde Yer Alan Başlıca Kültürel Varlıkları:
+1. Göbeklitepe (Şanlıurfa): M.Ö. 10.000'e uzanan, insanlık tarihinin bilinen en eski anıtsal tapınak kompleksi. T biçimli steller üzerinde hayvan kabartmaları bulunur.
+2. Efes Antik Kenti (İzmir): Celsus Kütüphanesi, Artemis Tapınağı, Büyük Tiyatro ve Meryem Ana Evi'ni barındıran Helenistik ve Roma döneminin metropolü.
+3. Kapadokya ve Göreme Millî Parkı (Nevşehir): Peri bacaları, tüf kayalara oyulmuş manastırlar, kiliseler ve Derinkuyu/Kaymaklı yeraltı şehirleri.
+4. Nemrut Dağı (Adıyaman): Kommagene Krallığı hükümdarı I. Antiochos'un tanrılar panteonunu birleştiren devasa anıt heykelleri ve tümülüsü.
+5. Divriği Ulu Camii ve Darüşşifası (Sivas): Anadolu Selçuklu / Mengücekli şaheseri; taş işçiliğindeki 'gölge namaz kılan insan' silüeti ve eşsiz bezemeleriyle İslam mimarisinin zirvesidir.
+6. Çatalhöyük Neolitik Kenti (Konya): M.Ö. 7400'lere dayanan, kapısız ve sokaksız, çatılardan girilen evleriyle ilk yerleşik kentleşme modeli.
+7. Pamukkale ve Hierapolis (Denizli): Kalsiyum oksitli termal suların oluşturduğu beyaz travertenler ve antik termal hamam kompleksi.
+8. Afrodisias (Aydın): Aşk ve güzellik tanrıçası Afrodit'e adanan, antik dünyanın en büyük mermer heykelcilik okulu ve stadyumu.
+9. Selimiye Camii ve Külliyesi (Edirne): Mimar Sinan'ın 'Ustalık eserim' dediği, 4 minareli, muazzam kubbeli Türk-İslam mimarisinin başyapıtı.
+10. Ani Arkeolojik Alanı (Kars): Orta Çağ İpek Yolu üzerinde 'Binbir Kiliseli Şehir' olarak anılan surlar, katedral ve Selçuklu Menûçihr Camii.
+11. Safranbolu Şehri (Karabük): Geleneksel Osmanlı ahşap sivil mimarisini, han, hamam ve çeşmelerini özgün dokusuyla koruyan müze kent.
+12. Truva Arkeolojik Alanı (Çanakkale): Homeros'un İlyada Destanı'na konu olan 9 farklı medeniyet katmanına sahip efsanevi antik kent.
+13. Bursa ve Cumalıkızık: Osmanlı İmparatorluğu'nun ilk başkenti, külliyeleri, İpek Hanı ve yaşayan 700 yıllık erken Osmanlı köyü Cumalıkızık.
+14. Bergama Çok Katmanlı Kültürel Peyzajı (İzmir): Parşömenin anavatanı, antik dünyanın en dik tiyatrosu ve Asklepion sağlık merkezi.
+15. Diyarbakır Kalesi ve Hevsel Bahçeleri: Çin Seddi'nden sonra dünyanın en uzun ve sağlam bazalt taş surları ile Dicle Nehri kıyısındaki tarihi bahçeler.
+16. Arslantepe Höyüğü (Malatya): İlk devlet ve bürokrasi sisteminin, kerpiç sarayın ve en eski bronz kılıçların bulunduğu höyük.
+17. Gordion (Ankara): Frigya Krallığı'nın başkenti; Kral Midas'ın mezarı (tümülüs) ve Gordion düğümü efsanesinin beşiği.
+                        """.trimIndent(),
+                        category = "CULTURAL_HERITAGE",
+                        isOfficialVerified = true,
+                        source = "UNESCO & T.C. Kültür Varlıkları ve Müzeler Genel Müdürlüğü",
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            }
+
+            // 18. Türkiye Coğrafyası: 7 Bölge, Dağlar, Akarsular, Göller ve Ovalar
+            if (allList.none { it.title.contains("Türkiye Coğrafyası", ignoreCase = true) }) {
+                db.aiKnowledgeDao().insertKnowledge(
+                    AiKnowledgeEntity(
+                        title = "Türkiye Fiziki ve Beşeri Coğrafyası: Dağlar, Akarsular, Göller",
+                        content = """
+Türkiye'nin Coğrafi Özellikleri, Doğal Varlıkları ve İklim Haritası:
+1. Dağ Silsileleri ve Volkanik Dağlar:
+   • Kuzey Anadolu Dağları: Karadeniz boyunca uzanır (Kaçkarlar 3932 m, Küre Dağları, Ilgaz Dağı, Köroğlu Dağları).
+   • Toros Dağları: Akdeniz kuşağında uzanır (Batı, Orta ve Güneydoğu Toroslar; Aladağlar, Bolkar Dağları, Beydağları).
+   • Volkanik Dağlar: Ağrı Dağı (5137 m - Türkiye'nin en yüksek zirvesi), Erciyes Dağı (3917 m), Hasan Dağı, Süphan Dağı, Nemrut Volkanı (Krater Gölü ile meşhur), Kula Volkanları (Türkiye'nin en genç volkanik sahası - Jeopark).
+   • Buzul Dağları: Cilo (Reşko Zirvesi 4135 m) Dağları.
+2. Başlıca Akarsular ve Havzalar:
+   • Karadeniz'e Dökülenler: Kızılırmak (Türkiye sınırları içindeki en uzun nehir - 1355 km), Yeşilırmak, Sakarya Nehri, Çoruh Nehri (Rafting cenneti).
+   • Basra Körfezi'ne Dökülenler: Fırat ve Dicle Nehirleri (Mezopotamya'ya hayat veren can damarları).
+   • Hazar Denizi'ne (Kapalı Havza) Dökülenler: Aras ve Kura Nehirleri.
+   • Akdeniz'e Dökülenler: Seyhan, Ceyhan, Göksu, Manavgat, Aksu, Dalaman.
+   • Ege Denizi'ne Dökülenler: Büyük Menderes, Küçük Menderes, Gediz, Bakırçay, Meriç Nehri (Türkiye-Yunanistan sınırı).
+3. Göller ve Sulak Alanlar:
+   • Tektonik Göller: Tuz Gölü (Türkiye'nin 2. büyük gölü), Beyşehir Gölü (En büyük tatlı su gölü), Eğirdir, Burdur, İznik, Sapanca, Manyas (Kuş Gölü), Hazar Gölü.
+   • Volkanik ve Set Gölleri: Van Gölü (Türkiye'nin en büyük gölü - 3713 km², sodalı), Nemrut Krater Gölü, Çıldır Gölü (Kışın buz tutan göl), Uzungöl, Abant ve Yedigöller.
+4. İklim Kuşakları: Karadeniz İklimi (Her mevsim yağışlı, ılıman), Akdeniz İklimi (Yazları sıcak ve kurak, kışları ılık ve yağışlı - maki bitki örtüsü), Karasal İklim (Yazları sıcak ve kurak, kışları soğuk ve kar yağışlı - bozkır/step bitki örtüsü).
+                        """.trimIndent(),
+                        category = "GEOGRAPHY_RESOURCES",
+                        isOfficialVerified = true,
+                        source = "Harita Genel Müdürlüğü & TÜİK Coğrafi İstatistikleri",
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            }
+
+            // 19. Türk Kültürü, Medeniyetler Kronolojisi ve Yöresel Mutfak Mirası
+            if (allList.none { it.title.contains("Medeniyetler Kronolojisi", ignoreCase = true) }) {
+                db.aiKnowledgeDao().insertKnowledge(
+                    AiKnowledgeEntity(
+                        title = "Anadolu Medeniyetleri Kronolojisi, Kültür ve Coğrafi İşaretli Lezzetler",
+                        content = """
+Anadolu Tarihi Medeniyetler Kronolojisi ve Gastronomi Mirası:
+1. Anadolu Medeniyetleri Sıralaması:
+   • Paleolitik & Neolitik: Göbeklitepe, Çatalhöyük, Hacılar, Çayönü.
+   • Tunç ve Demir Çağı: Hattiler, Hititler (Hattuşa - Kadeş Antlaşması), Frigler (Gordion - Kral Midas), Lidyalılar (Sardes - İlk madeni para), Urartular (Tuşpa/Van - Su kanalları), İyonlar (Efes, Milet - Felsefe ve bilim).
+   • Klasik ve Orta Çağ: Persler, Büyük İskender ve Helenistik Krallıklar, Roma İmparatorluğu, Doğu Roma (Bizans).
+   • Türk-İslam Dönemi: Büyük Selçuklu, Anadolu Selçuklu Devleti (Konya başkent, kervansaraylar, Ahilik teşkilatı), Anadolu Beylikleri (Karamanoğulları, Candaroğulları, Karesioğulları, Dulkadiroğulları vb.), Osmanlı İmparatorluğu (1299-1922) ve Türkiye Cumhuriyeti (1923-Günümüz).
+2. Coğrafi İşaretli Tescilli Türk Lezzetleri:
+   • Güneydoğu & Akdeniz: Gaziantep Baklavası ve Beyranı, Şanlıurfa Urfa Kebabı ve Çiğköftesi, Hatay Künefesi ve Tepsi Kebabı, Adana Kebabı, Mersin Tantunisi, Kahramanmaraş Dövme Dondurması.
+   • İç Anadolu: Kayseri Mantısı ve Pastırması, Konya Etliekmeği, Ankara Tavası, Sivas Köftesi, Nevşehir Testi Kebabı.
+   • Karadeniz: Trabzon Akçaabat Köftesi ve Vakfıkebir Ekmeği, Samsun Bafra ve Terme Pidesi, Rize Muhlaması (Kuymak), Çorum Leblebisi.
+   • Ege & Marmara: Bursa İskender Kebabı ve Kestane Şekeri, İzmir Kumrusu ve Boyozu, Aydın İnciri, Balıkesir Susurluk Tostu ve Ayranı, Afyonkarahisar Sucuğu ve Kaymağı, Edirne Tava Ciğeri.
+   • Doğu Anadolu: Erzurum Cağ Kebabı ve Oltu Taşı, Van Kahvaltısı ve Otlu Peyniri, Malatya Kayısısı, Kars Kaşarı ve Gravyeri.
+                        """.trimIndent(),
+                        category = "TURKISH_CULTURE",
+                        isOfficialVerified = true,
+                        source = "Türk Patent ve Marka Kurumu & Kültür Portalı",
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            }
+
+            // 20. MEB Öğretmen Atama, Sosyal Etkinlikler ve Okul Gezileri Genelgesi
+            if (allList.none { it.title.contains("Atama ve Sosyal Etkinlikler", ignoreCase = true) }) {
+                db.aiKnowledgeDao().insertKnowledge(
+                    AiKnowledgeEntity(
+                        title = "MEB Öğretmen Atama, Yer Değiştirme, Sosyal Etkinlikler ve Okul Gezileri Mevzuatı",
+                        content = """
+Öğretmenler İçin Atama, Gezi Onayları ve Sosyal Etkinlikler Rehberi:
+1. Öğretmen Atama ve Yer Değiştirme Yönetmeliği:
+   • Hizmet Puanı: Görev yapılan il/ilçenin hizmet alanına (1-6. hizmet alanları), zorunlu çalışma süresine, başarı belgelerine (Teşekkür, Takdir, Üstün Başarı), yüksek lisans/doktora ve DYK kurs görevlerine göre her ay otomatik puan eklenir.
+   • Mazeret Tayinleri: Eş durumu (aile birliği mazereti), sağlık mazereti ve can güvenliği mazeretine bağlı yer değiştirmeler her yıl yarıyıl (Ocak-Şubat) ve yaz tatili (Ağustos) dönemlerinde 2 aşamalı olarak yapılır.
+   • İsteğe Bağlı İl İçi ve İl Dışı Atama: Bulunulan eğitim kurumunda en az 3 yıllık çalışma süresini tamamlayan öğretmenler her yıl Mayıs-Haziran aylarında hizmet puanı üstünlüğüne göre tercih yapabilir.
+2. MEB Sosyal Etkinlikler Yönetmeliği ve Okul Gezileri Çerçeve Yönergesi:
+   • Okul Dışı Gezi Onay Süreci: İl içi gezilerde gezi tarihinden en az 7 gün önce okul müdürlüğüne; il dışı gezilerde ise en az 15 gün önce il/ilçe millî eğitim müdürlüğüne onay dosyası sunulur.
+   • Gerekli Belgeler: Gezi Planı, Kafile Listesi, Veli İzin Onay Belgeleri, Araç Uygunluk Belgesi (TÜVTÜRK muayene, zorunlu koltuk ferdi kaza sigortası, D2 yetki belgesi), Şoför Ehliyet ve SRC/Psikoteknik belgeleri.
+   • Görevli Öğretmen Oranı: Her 10 öğrenci için en az 1 refakatçi öğretmen görevlendirilir; kafile başkanı bir müdür yardımcısı veya kıdemli öğretmendir.
+3. Resmi Yazışma, DYS ve Dilekçe Hakkı:
+   • 3071 Sayılı Dilekçe Hakkının Kullanılması Kanunu uyarınca memurların idareye verdikleri dilekçelere en geç 30 gün içinde gerekçeli cevap verilmesi kanuni zorunluluktur.
+   • DYS (Doküman Yönetim Sistemi) üzerinden gelen resmi yazılar ve tebellüğ belgeleri yasal tebligat niteliğindedir.
+                        """.trimIndent(),
+                        category = "TEACHER_OFFICIAL_GUIDE",
+                        isOfficialVerified = true,
+                        source = "MEB Tebliğler Dergisi & Resmî Gazete",
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
