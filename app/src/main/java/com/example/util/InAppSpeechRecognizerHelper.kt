@@ -73,8 +73,9 @@ class InAppSpeechRecognizerManager(
     private var silenceFinishJob: Job? = null
     private var currentScope: CoroutineScope? = null
     private var hasSpokenAnyWord by mutableStateOf(false)
+    private var accumulatedText = ""
 
-    fun startListening(coroutineScope: CoroutineScope, initialSeconds: Int = 10) {
+    fun startListening(coroutineScope: CoroutineScope, initialSeconds: Int = 15) {
         TtsHelper.stop()
 
         currentScope = coroutineScope
@@ -82,6 +83,7 @@ class InAppSpeechRecognizerManager(
         remainingSeconds = initialSeconds
         partialText = ""
         bestResultText = ""
+        accumulatedText = ""
         rmsDb = 0f
         hasSpokenAnyWord = false
 
@@ -96,7 +98,12 @@ class InAppSpeechRecognizerManager(
                 }
             }
             if (isListening) {
-                finishAndSubmit()
+                if (hasSpokenAnyWord) {
+                    finishAndSubmit()
+                } else {
+                    // Kullanıcı 5 saniye içinde soru sormadıysa sakince beklemeye geçer
+                    cancel()
+                }
             }
         }
 
@@ -105,24 +112,49 @@ class InAppSpeechRecognizerManager(
         }
     }
 
-    private fun triggerPostSpeechCountdown() {
+    private fun onSpeechInputReceived(text: String, isFinalSegment: Boolean) {
         if (!isListening) return
         hasSpokenAnyWord = true
-        // Konuşma bittikten sonra tam 3 saniye içinde otomatik olarak metin işlenip asistana aktarılır
-        if (remainingSeconds > 3) {
-            remainingSeconds = 3
-        }
+        // Konuşma devam ederken sessizlik zamanlayıcısını iptal et, sözü asla kesme
+        silenceFinishJob?.cancel()
 
+        if (isFinalSegment) {
+            if (accumulatedText.isNotBlank()) {
+                if (!accumulatedText.endsWith(" ") && !text.startsWith(" ")) {
+                    accumulatedText += " " + text
+                } else {
+                    accumulatedText += text
+                }
+            } else {
+                accumulatedText = text
+            }
+            bestResultText = accumulatedText.trim()
+            partialText = bestResultText
+        } else {
+            val liveText = if (accumulatedText.isNotBlank()) {
+                "$accumulatedText $text".trim()
+            } else {
+                text.trim()
+            }
+            partialText = liveText
+            bestResultText = liveText
+        }
+    }
+
+    private fun scheduleSilenceCompletion() {
+        if (!isListening || !hasSpokenAnyWord) return
         silenceFinishJob?.cancel()
         currentScope?.let { scope ->
             silenceFinishJob = scope.launch {
-                delay(3000L)
+                // Kullanıcı sözünü ve isteğini tamamen bitirdikten sonra 4 saniye sessizlik olunca gönder
+                delay(4000L)
                 if (isListening && hasSpokenAnyWord) {
                     val currentTxt = when {
                         bestResultText.isNotBlank() -> bestResultText
                         partialText.isNotBlank() -> partialText
+                        accumulatedText.isNotBlank() -> accumulatedText
                         else -> ""
-                    }
+                    }.trim()
                     if (currentTxt.isNotBlank()) {
                         finishAndSubmit()
                     }
@@ -148,6 +180,7 @@ class InAppSpeechRecognizerManager(
                     override fun onBeginningOfSpeech() {
                         Log.d("InAppSpeech", "Speech started")
                         hasSpokenAnyWord = true
+                        silenceFinishJob?.cancel()
                     }
 
                     override fun onRmsChanged(rmsdB: Float) {
@@ -158,7 +191,7 @@ class InAppSpeechRecognizerManager(
 
                     override fun onEndOfSpeech() {
                         Log.d("InAppSpeech", "End of speech segment")
-                        triggerPostSpeechCountdown()
+                        scheduleSilenceCompletion()
                     }
 
                     override fun onError(error: Int) {
@@ -176,10 +209,10 @@ class InAppSpeechRecognizerManager(
                         val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         val text = matches?.firstOrNull()?.trim() ?: ""
                         if (text.isNotBlank()) {
-                            bestResultText = text
-                            partialText = text
-                            triggerPostSpeechCountdown()
+                            onSpeechInputReceived(text, isFinalSegment = true)
                         }
+                        scheduleSilenceCompletion()
+
                         if (isListening && remainingSeconds > 1) {
                             mainHandler.postDelayed({
                                 if (isListening && remainingSeconds > 1) {
@@ -193,9 +226,7 @@ class InAppSpeechRecognizerManager(
                         val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         val text = matches?.firstOrNull()?.trim() ?: ""
                         if (text.isNotBlank()) {
-                            partialText = text
-                            bestResultText = text
-                            triggerPostSpeechCountdown()
+                            onSpeechInputReceived(text, isFinalSegment = false)
                         }
                     }
 
@@ -215,9 +246,9 @@ class InAppSpeechRecognizerManager(
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "tr-TR")
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 3000L)
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 3000L)
-                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 10000L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 5000L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 5000L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 15000L)
             }
             speechRecognizer?.startListening(intent)
         } catch (e: Exception) {

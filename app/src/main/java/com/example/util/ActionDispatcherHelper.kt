@@ -129,6 +129,9 @@ object ActionDispatcherHelper {
                 "NAVIGATE", "SEARCH_MAP" -> "Navigasyonu açıyorum dostum."
                 "SAVE_LOCATION" -> "Konumu kaydettim dostum."
                 "PLAY_MUSIC" -> "Müziği açıyorum dostum."
+                "OPEN_GEMINI" -> "Google Gemini köprüsünü açıyorum dostum."
+                "SEARCH_GOOGLE" -> "Google'da aratıyorum dostum."
+                "OPEN_APP" -> "Uygulamayı açıyorum dostum."
                 else -> "Buyrun dostum!"
             }
         }
@@ -219,10 +222,26 @@ object ActionDispatcherHelper {
                 }
 
                 "SEND_WHATSAPP" -> {
-                    val phone = payload.optString("phone", "").replace(Regex("[^0-9]"), "")
+                    var phone = payload.optString("phone", "").replace(Regex("[^0-9+]"), "")
+                    val name = payload.optString("name", "")
                     val message = payload.optString("message", "")
-                    val url = if (phone.isNotBlank()) {
-                        "https://api.whatsapp.com/send?phone=$phone&text=${Uri.encode(message)}"
+
+                    var resolvedName: String? = null
+                    if (phone.isBlank() && name.isNotBlank()) {
+                        if (ContactHelper.hasContactsPermission(context)) {
+                            val contact = ContactHelper.findContactByName(context, name)
+                            if (contact != null) {
+                                phone = contact.phoneNumber.replace(Regex("[^0-9+]"), "")
+                                resolvedName = contact.name
+                            }
+                        } else {
+                            return@withContext "🔒 Rehberinizdeki kişilere WhatsApp mesajı gönderebilmem için lütfen Rehber İznini etkinleştirin dostum."
+                        }
+                    }
+
+                    val cleanDigits = phone.replace("+", "")
+                    val url = if (cleanDigits.isNotBlank()) {
+                        "https://api.whatsapp.com/send?phone=$cleanDigits&text=${Uri.encode(message)}"
                     } else {
                         "https://api.whatsapp.com/send?text=${Uri.encode(message)}"
                     }
@@ -230,7 +249,11 @@ object ActionDispatcherHelper {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     context.startActivity(intent)
-                    return@withContext "💬 WhatsApp mesajı hazırlandı."
+                    return@withContext if (resolvedName != null) {
+                        "💬 $resolvedName kişisine WhatsApp mesajı hazırlandı."
+                    } else {
+                        "💬 WhatsApp mesajı hazırlandı."
+                    }
                 }
 
                 "SEND_SMS" -> {
@@ -350,12 +373,31 @@ object ActionDispatcherHelper {
                 }
 
                 "CALL_PHONE" -> {
-                    val phone = payload.optString("phone", "")
+                    var phone = payload.optString("phone", "")
+                    val name = payload.optString("name", "")
+                    var resolvedName: String? = null
+
+                    if (phone.isBlank() && name.isNotBlank()) {
+                        if (ContactHelper.hasContactsPermission(context)) {
+                            val contact = ContactHelper.findContactByName(context, name)
+                            if (contact != null) {
+                                phone = contact.phoneNumber
+                                resolvedName = contact.name
+                            }
+                        } else {
+                            return@withContext "🔒 Rehberinizdeki kişileri arayabilmem için lütfen Rehber İznini etkinleştirin dostum."
+                        }
+                    }
+
                     if (phone.isNotBlank()) {
                         NearbyPlacesHelper.makePhoneCall(context, phone)
-                        return@withContext "📞 Arama başlatılıyor: $phone"
+                        return@withContext if (resolvedName != null) {
+                            "📞 $resolvedName aranıyor ($phone)..."
+                        } else {
+                            "📞 Arama başlatılıyor: $phone"
+                        }
                     }
-                    return@withContext "Telefon numarası bulunamadı."
+                    return@withContext "Aranacak kişi veya telefon numarası bulunamadı dostum."
                 }
 
                 "SAVE_PARK_LOCATION" -> {
@@ -370,6 +412,24 @@ object ActionDispatcherHelper {
                         )
                     }
                     return@withContext "🚗 Park konumunuz başarıyla kaydedildi."
+                }
+
+                "OPEN_GEMINI" -> {
+                    val prompt = payload.optString("prompt", "")
+                    val (_, msg) = AppLauncherHelper.openGoogleGemini(context, prompt)
+                    return@withContext msg
+                }
+
+                "SEARCH_GOOGLE" -> {
+                    val query = payload.optString("query", "")
+                    val (_, msg) = AppLauncherHelper.searchGoogle(context, query)
+                    return@withContext msg
+                }
+
+                "OPEN_APP" -> {
+                    val appName = payload.optString("app_name", "")
+                    val (_, msg) = AppLauncherHelper.openApplicationByVoice(context, appName)
+                    return@withContext msg
                 }
 
                 else -> "Eylem tamamlandı."

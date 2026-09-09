@@ -444,7 +444,27 @@ object AiAssistantService {
             )
         }
 
-        // 7.B: Google Asistan Köprüsü
+        // 7.B: Google Gemini Köprüsü
+        if (lowerMsg.contains("gemini") || lowerMsg.contains("bard") || lowerMsg.contains("geminiye sor") || lowerMsg.contains("google ai")) {
+            val q = cleanMsg.replace(Regex("(?i)^(gemini'yi aç|gemini aç|geminiye sor|gemini köprüsü kur|gemini köprüsü|bard|google ai)[: ]*"), "").trim()
+            val (success, message) = AppLauncherHelper.openGoogleGemini(context, q)
+            return@withContext AiResponse(
+                replyText = message,
+                actionSummary = "✨ Google Gemini Köprüsü"
+            )
+        }
+
+        // 7.C: Google Arama
+        if (lowerMsg.startsWith("google'da ara") || lowerMsg.startsWith("internette ara") || lowerMsg.startsWith("webde ara") || lowerMsg.startsWith("google ara")) {
+            val q = cleanMsg.replace(Regex("(?i)^(google'da ara|internette ara|webde ara|google ara)[: ]*"), "").trim()
+            val (success, message) = AppLauncherHelper.searchGoogle(context, q)
+            return@withContext AiResponse(
+                replyText = message,
+                actionSummary = "🔍 Google Araması: " + q
+            )
+        }
+
+        // 7.D: Google Asistan Köprüsü
         if (lowerMsg.contains("google asistan") || lowerMsg.contains("asistana bağlan") || lowerMsg.contains("asistan köprüsü")) {
             val (success, message) = AppLauncherHelper.openGoogleAssistant(context)
             return@withContext AiResponse(
@@ -453,18 +473,15 @@ object AiAssistantService {
             )
         }
 
-        // 7.C: Jarvis Uygulama Başlatma ve İzinli Erişim
-        if ((lowerMsg.endsWith("aç") || lowerMsg.endsWith("başlat") || lowerMsg.contains("uygulamasını aç") || lowerMsg.contains("çalıştır")) &&
-            (lowerMsg.contains("whatsapp") || lowerMsg.contains("kamera") || lowerMsg.contains("galeri") || 
-             lowerMsg.contains("harita") || lowerMsg.contains("navigasyon") || lowerMsg.contains("saat") || 
-             lowerMsg.contains("alarmlar") || lowerMsg.contains("takvim") || lowerMsg.contains("roborock") || 
-             lowerMsg.contains("süpürge") || lowerMsg.contains("mi home") || lowerMsg.contains("gmail") || 
-             lowerMsg.contains("ayarlar"))) {
+        // 7.E: Uygulama Başlatma ve Cihaz Kontrolü
+        if (lowerMsg.endsWith("aç") || lowerMsg.endsWith("başlat") || lowerMsg.contains("uygulamasını aç") || lowerMsg.contains("uygulamayı aç") || lowerMsg.contains("çalıştır")) {
             val (success, message) = AppLauncherHelper.openApplicationByVoice(context, cleanMsg)
-            return@withContext AiResponse(
-                replyText = message,
-                actionSummary = "🚀 Uygulama: " + cleanMsg
-            )
+            if (success) {
+                return@withContext AiResponse(
+                    replyText = message,
+                    actionSummary = "🚀 " + message
+                )
+            }
         }
 
         // 7.D: Python YouTube & Google Asistan Köprü Kodu
@@ -1002,18 +1019,21 @@ object AiAssistantService {
         val userGreeting = if (userNick.isNotBlank()) "Kullanıcı Adı: " + userNick + ". Ona can dostu, saygılı, bilge bir yol arkadaşı gibi hitap et." else ""
 
         val systemInstruction = "ROL VE KİMLİK:\n" +
-            "Sen kullanıcının bilge yol arkadaşı ve pratik danışmanısın. Adın \"" + assistantName + "\".\n" +
-            "Arkadaş canlısı, sıcak, saygılı ve son derece net bir üslubun var.\n\n" +
+            "Sen Google AI Studio ve Antigravity ileri mühendislik mimarisiyle donatılmış, üstün analitik akıl yürütmeye sahip, köklü Türk tarihi ve pedagojisine hakim başdanışmansın. Adın \"" + assistantName + "\".\n" +
+            "Arkadaş canlısı, saygılı, pratik ve son derece net bir yol arkadaşısın.\n\n" +
+            "UZMANLIK VE YETKİNLİKLER:\n" +
+            "1. ÖĞRETMEN VE MEB MEVZUATI: 7354 Sayılı Öğretmenlik Meslek Kanunu (ÖMK), Uzman ve Başöğretmenlik basamakları ve tazminatları, 657 DMK izin ve disiplin hükümleri, MEB Yönetici ve Öğretmenlerinin Ders ve Ek Ders Yönetmeliği (maaş karşılığı, hazırlık-planlama, nöbet görevi, DYK kursları), BEP (Bireyselleştirilmiş Eğitim Programı), RAM ve zümre tutanakları, Türkiye Yüzyılı Maarif Modeli ve ortak yazılı sınav senaryolarına eksiksiz hakimsin.\n" +
+            "2. SENDİKAL HAKLAR VE İŞLEMLER: 4688 Sayılı Kamu Görevlileri Sendikaları Kanunu, sendika üyeliği, istifa prosedürü, sendika kesintisi, sendikal izinler ve sendikal eylem/iş bırakma kararlarının Anayasa Mahkemesi ve Danıştay içtihatları doğrultusundaki yasal güvencelerini çok iyi bilirsin.\n" +
+            "3. CİHAZ VE ASİSTAN KÖPRÜSÜ: Kullanıcının emriyle telefonda Google Gemini köprüsü kurabilir, Google araması yapabilir, rehberdeki kişileri arayabilir (CALL_PHONE: {\"name\": \"...\"}), rehberdeki kişilere WhatsApp mesajı atabilir (SEND_WHATSAPP: {\"name\": \"...\", \"message\": \"...\"}), E-Devlet, MEBBİS, E-Okul, EBA, Takvim, Kamera, Haritalar ve yüklü uygulamaları açabilir, alarmlar ve notlar organize edebilirsin.\n\n" +
             "TEMEL YANIT PRENSİPLERİ (ÇOK ÖNEMLİ):\n" +
             "1. KISA VE ÖZ: Kullanıcı ne istiyorsa veya ne soruyorsa DOĞRUDAN ve YALNIZCA onu cevapla. Uzun açıklamalara, dolaylı anlatımlara, gereksiz ön konuşmalara (girizgah, gereksiz selamlamalar, sistem raporları vb.) KESİNLİKLE GİRME. Lafı asla uzatma.\n" +
             "2. NETİCE ODAKLI: Bir soru sorulduğunda doğrudan cevabını ver. Bir işlem istendiğinde doğrudan yapıldığını bildir.\n" +
             "3. KOD VEYA ETİKET YASAK: Yanıtlarında ASLA hiçbir kod, JSON, etiket, teknik terim, parantezli ibare (json, action, code, bracket vb.) yer alamaz. Sadece doğal Türkçe cümle kur.\n" +
-            "4. SES VE METİN AKICILIĞI: Yıldız (*), diyez (#), alt çizgi (_), parantez içi dosya kodları ve ASCII gülen yüzler (:), :D) kullanma.\n" +
-            "5. BİLGELİK VE MEVZUAT: Türk atasözlerine, deyimlerine, Türk tarihine ve 657 DMK gibi mevzuatlara tam hakimsin; yerinde ve öz olarak aktar.\n\n" +
+            "4. SES VE METİN AKICILIĞI: Yıldız (*), diyez (#), alt çizgi (_), parantez içi dosya kodları ve ASCII gülen yüzler (:), :D) kullanma.\n\n" +
             "EYLEM BİLDİRİM FORMATI:\n" +
-            "Eğer bir işlem (alarm, not, hatırlatıcı, harita navigasyonu vb.) yapacaksan, yanıtının EN SONUNA sadece şu tek bloğu ekle:\n" +
+            "Eğer bir işlem (arama, whatsapp, alarm, not, hatırlatıcı, harita navigasyonu, gemini köprüsü, google arama, uygulama açma vb.) yapacaksan, yanıtının EN SONUNA sadece şu tek bloğu ekle:\n" +
             "```action\n{\"action_type\": \"EYLEM_TIPI\", \"payload\": {...}}\n```\n" +
-            "Ve bu bloğun öncesinde kullanıcıya sadece 1 cümlelik kısa ve samimi teyit ver (Örn: \"Alarmı sabah 8'e kurdum dostum.\").\n\n" +
+            "Ve bu bloğun öncesinde kullanıcıya sadece 1 cümlelik kısa ve samimi teyit ver (Örn: \"Ahmet'i arıyorum dostum.\", \"WhatsApp mesajını hazırlıyorum dostum.\", \"Alarmı kurdum dostum.\", \"Gemini köprüsünü açıyorum dostum.\").\n\n" +
             "Konum: " + userCity + ", " + userDistrict + ". " + userGreeting + "\n" + knowledgeContext
 
         val jsonBody = JSONObject().apply {

@@ -147,6 +147,17 @@ fun ProfileScreen(viewModel: LifeAssistantViewModel) {
         viewModel.toggleLocationPermission(fineGranted || coarseGranted)
     }
 
+    var isContactsPermissionGranted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val contactsPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        isContactsPermissionGranted = isGranted
+    }
+
     // Image Picker Launcher
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -1155,6 +1166,80 @@ fun ProfileScreen(viewModel: LifeAssistantViewModel) {
                 }
             }
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Contacts Permission Card (Kişilere Erişim & WhatsApp/Arama)
+            EmbossedCard(
+                modifier = Modifier.fillMaxWidth(),
+                cornerRadius = 12.dp,
+                elevation = 3.dp,
+                contentPadding = 14.dp
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isContactsPermissionGranted) Color(0xFFDCFCE7) else Color(0xFFF1F5F9)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = if (isContactsPermissionGranted) Color(0xFF16A34A) else Slate700,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "Rehber Erişimi (Arama & WhatsApp)",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Slate900
+                            )
+                            Text(
+                                text = if (isContactsPermissionGranted) "Kişilerle sesli arama & WhatsApp mesajı aktif" else "İzin verilmedi (Sesli aramada isim eşleşmez)",
+                                fontSize = 11.sp,
+                                color = if (isContactsPermissionGranted) Color(0xFF15803D) else Slate700
+                            )
+                        }
+                    }
+
+                    Switch(
+                        checked = isContactsPermissionGranted,
+                        onCheckedChange = { checked ->
+                            if (checked) {
+                                val hasPerm = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
+                                if (!hasPerm) {
+                                    contactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+                                } else {
+                                    isContactsPermissionGranted = true
+                                }
+                            } else {
+                                // Kullanıcı izni sistem ayarlarından kapatabilir
+                                isContactsPermissionGranted = false
+                                Toast.makeText(context, "İzni tamamen geri almak için lütfen Cihaz Sistem İzin Ayarlarını kullanın.", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = Color(0xFF10B981),
+                            uncheckedThumbColor = Color.White,
+                            uncheckedTrackColor = Color(0xFFCBD5E1)
+                        )
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
 
             // Open System Settings Link
@@ -1524,7 +1609,7 @@ fun ProfileScreen(viewModel: LifeAssistantViewModel) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "HatırlaGit • Sürüm v1.3.1 (Build 83)",
+                    text = "HatırlaGit • Sürüm v1.3.2 (Build 84)",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Slate700

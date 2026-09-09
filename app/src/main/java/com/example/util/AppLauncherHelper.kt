@@ -55,15 +55,117 @@ object AppLauncherHelper {
         }
     }
 
+    fun openGoogleGemini(context: Context, query: String = ""): Pair<Boolean, String> {
+        return try {
+            val geminiPackage = "com.google.android.apps.bard"
+            val launchIntent = context.packageManager.getLaunchIntentForPackage(geminiPackage)
+            if (launchIntent != null) {
+                launchIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                if (query.isNotBlank()) {
+                    launchIntent.putExtra(Intent.EXTRA_TEXT, query)
+                }
+                context.startActivity(launchIntent)
+                Pair(true, "✨ Google Gemini köprüsü kuruldu, uygulama açılıyor...")
+            } else {
+                val targetUrl = if (query.isNotBlank()) {
+                    "https://gemini.google.com/app?q=${Uri.encode(query)}"
+                } else {
+                    "https://gemini.google.com"
+                }
+                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl)).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(webIntent)
+                Pair(true, "✨ Google Gemini web köprüsü açılıyor...")
+            }
+        } catch (e: Exception) {
+            Pair(false, "Gemini köprüsü kurulamadı: ${e.localizedMessage}")
+        }
+    }
+
+    fun searchGoogle(context: Context, searchQuery: String): Pair<Boolean, String> {
+        return try {
+            val encoded = Uri.encode(searchQuery)
+            val searchIntent = Intent(Intent.ACTION_WEB_SEARCH).apply {
+                putExtra(android.app.SearchManager.QUERY, searchQuery)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            if (searchIntent.resolveActivity(context.packageManager) != null) {
+                context.startActivity(searchIntent)
+                Pair(true, "🔍 Google'da '$searchQuery' aranıyor...")
+            } else {
+                val webUri = Uri.parse("https://www.google.com/search?q=$encoded")
+                val webIntent = Intent(Intent.ACTION_VIEW, webUri).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(webIntent)
+                Pair(true, "🔍 Web üzerinden '$searchQuery' aranıyor...")
+            }
+        } catch (e: Exception) {
+            Pair(false, "Google araması açılamadı: ${e.localizedMessage}")
+        }
+    }
+
     fun openApplicationByVoice(context: Context, appKeyword: String): Pair<Boolean, String> {
         val lower = appKeyword.lowercase(Locale("tr", "TR")).trim()
         return try {
             when {
+                lower.contains("gemini") || lower.contains("bard") || lower.contains("google ai") -> {
+                    val q = lower.replace(Regex("(?i)gemini'yi aç|gemini aç|geminiye sor|gemini|bard"), "").trim()
+                    openGoogleGemini(context, q)
+                }
+                lower.startsWith("google'da ara") || lower.startsWith("internette ara") || lower.startsWith("webde ara") -> {
+                    val q = lower.replace(Regex("(?i)^(google'da ara|internette ara|webde ara)[: ]*"), "").trim()
+                    searchGoogle(context, q)
+                }
                 lower.contains("whatsapp") || lower.contains("watsap") || lower.contains("vatsap") -> {
                     launchPackage(context, "com.whatsapp", "WhatsApp")
                 }
                 lower.contains("youtube") || lower.contains("yutup") -> {
                     launchPackage(context, "com.google.android.youtube", "YouTube")
+                }
+                lower.contains("mebbis") -> {
+                    val r = launchPackage(context, "tr.gov.eba.mebbis", "MEBBİS")
+                    if (r.first) r else {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://mebbis.meb.gov.tr")).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK })
+                        Pair(true, "📚 MEBBİS portalı açıldı dostum.")
+                    }
+                }
+                lower.contains("e-okul") || lower.contains("eokul") -> {
+                    val r = launchPackage(context, "com.meb.eokulogrenci", "E-Okul")
+                    if (r.first) r else {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://e-okul.meb.gov.tr")).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK })
+                        Pair(true, "🏫 E-Okul portalı açıldı dostum.")
+                    }
+                }
+                lower.contains("eba") -> {
+                    val r = launchPackage(context, "tr.gov.eba.hesap", "EBA")
+                    if (r.first) r else {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://eba.gov.tr")).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK })
+                        Pair(true, "📖 EBA portalı açıldı dostum.")
+                    }
+                }
+                lower.contains("edevlet") || lower.contains("e-devlet") -> {
+                    val r = launchPackage(context, "tr.gov.turkiye.edevlet.kapisi", "E-Devlet")
+                    if (r.first) r else {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://turkiye.gov.tr")).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK })
+                        Pair(true, "🇹🇷 E-Devlet Kapısı açıldı dostum.")
+                    }
+                }
+                lower.contains("hesap makinesi") || lower.contains("hesapla") -> {
+                    val r1 = launchPackage(context, "com.google.android.calculator", "Hesap Makinesi")
+                    if (r1.first) r1 else {
+                        val calcIntent = Intent(Intent.ACTION_MAIN).apply {
+                            addCategory(Intent.CATEGORY_APP_CALCULATOR)
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        if (calcIntent.resolveActivity(context.packageManager) != null) {
+                            context.startActivity(calcIntent)
+                            Pair(true, "🔢 Hesap Makinesi açıldı.")
+                        } else {
+                            Pair(false, "Hesap makinesi bulunamadı.")
+                        }
+                    }
                 }
                 lower.contains("kamera") || lower.contains("fotoğraf çek") -> {
                     val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
@@ -125,7 +227,33 @@ object AppLauncherHelper {
                     openGoogleAssistant(context)
                 }
                 else -> {
-                    Pair(false, "Uygulama bulunamadı veya henüz izinli listeye eklenmemiş usta.")
+                    // Dinamik Yüklü Uygulama Eşleştiricisi
+                    val pm = context.packageManager
+                    val cleanTarget = lower.replace("uygulamasını aç", "")
+                        .replace("uygulamayı aç", "")
+                        .replace("uygulaması", "")
+                        .replace("aç", "")
+                        .trim()
+                    
+                    val installedApps = pm.getInstalledApplications(0)
+                    val matchedApp = installedApps.firstOrNull { appInfo ->
+                        val appLabel = pm.getApplicationLabel(appInfo).toString().lowercase(Locale("tr", "TR"))
+                        appLabel.contains(cleanTarget) || cleanTarget.contains(appLabel)
+                    }
+
+                    if (matchedApp != null) {
+                        val launchIntent = pm.getLaunchIntentForPackage(matchedApp.packageName)
+                        if (launchIntent != null) {
+                            launchIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            context.startActivity(launchIntent)
+                            val resolvedName = pm.getApplicationLabel(matchedApp).toString()
+                            Pair(true, "🚀 $resolvedName uygulaması açıldı dostum!")
+                        } else {
+                            Pair(false, "Uygulama açılamadı dostum.")
+                        }
+                    } else {
+                        Pair(false, "Cihazınızda '$cleanTarget' isimli bir uygulama bulunamadı dostum.")
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -138,7 +266,7 @@ object AppLauncherHelper {
         return if (launchIntent != null) {
             launchIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
             context.startActivity(launchIntent)
-            Pair(true, "🚀 $appLabel uygulaması açıldı usta!")
+            Pair(true, "🚀 $appLabel uygulaması açıldı dostum!")
         } else {
             Pair(false, "📱 $appLabel uygulaması cihazınızda yüklü görünmüyor.")
         }

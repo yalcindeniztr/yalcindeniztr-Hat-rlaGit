@@ -245,11 +245,112 @@ Jarvis / Usta Sesli Uygulama ve Cihaz Başlatma Rehberi:
 3. Disiplin Cezaları ve Savunma Hakkı:
    • Cezalar: Uyarma, Kınama, Aylıktan Kesme, Kademe İlerlemesinin Durdurulması ve Devlet Memurluğundan Çıkarma.
    • Savunma Hakkı: Savunma için en az 7 gün süre tanınmadan hiçbir disiplin cezası verilemez.
-4. Ödev ve Sorumluluklar: Tarafsızlık ve devlete bağlılık, davranış ve işbirliği, yurt dışında davranış, amir durumda olan devlet memurlarının görev ve sorumlulukları.
+4. Ödev ve Sorumluluklar: Tarafsızlık ve devlete bağlılık, davranış ve işbirliği, amir durumda olan devlet memurlarının görev ve sorumlulukları.
                         """.trimIndent(),
                         category = "OFFICIAL_LAW",
                         isOfficialVerified = true,
                         source = "T.C. Cumhurbaşkanlığı Mevzuat Bilgi Sistemi (657 Sayılı Kanun)",
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            }
+
+            // 12. 7354 Sayılı Öğretmenlik Meslek Kanunu (ÖMK) ve Kariyer Basamakları
+            if (allList.none { it.title.contains("Öğretmenlik Meslek Kanunu", ignoreCase = true) }) {
+                db.aiKnowledgeDao().insertKnowledge(
+                    AiKnowledgeEntity(
+                        title = "7354 Sayılı Öğretmenlik Meslek Kanunu (ÖMK) ve Haklar",
+                        content = """
+7354 Sayılı Öğretmenlik Meslek Kanunu ve Güncel Düzenlemeler:
+1. Kariyer Basamakları:
+   • Öğretmen: Adaylık sürecini veya Millî Eğitim Akademisi programını başarıyla tamamlayanlar.
+   • Uzman Öğretmen: Öğretmenlikte en az 10 yıl hizmeti bulunan, mesleki gelişim eğitimini tamamlayan ve kademe ilerlemesi cezası bulunmayan öğretmenler uzman öğretmen unvanı ve ek tazminat alır.
+   • Başöğretmen: Uzman öğretmenlikte en az 10 yıl hizmeti bulunan öğretmenler başöğretmen unvanı ve en üst derece tazminat alır.
+2. Öğretmene Karşı Şiddete Karşı Ağırlaştırılmış Yaptırımlar:
+   • Görevi başındaki veya görevi sebebiyle öğretmene, eğitim çalışanına karşı işlenen kasten yaralama, tehdit, hakaret ve direnme suçlarında cezalar yarı oranında (%50) artırılır ve hapis cezaları ertelenemez.
+3. Hak ve Güvenceler: Mesleki bağımsızlık, akademik özgürlük, pedagojik rehberlik ve görev güvencesi kanunla teminat altındadır.
+                        """.trimIndent(),
+                        category = "TEACHER_LAW",
+                        isOfficialVerified = true,
+                        source = "T.C. Resmî Gazete / MEB (7354 Sayılı Kanun)",
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            }
+
+            // 13. 4688 Sayılı Kamu Görevlileri Sendikaları ve Toplu Sözleşme Kanunu
+            if (allList.none { it.title.contains("Sendikal", ignoreCase = true) }) {
+                db.aiKnowledgeDao().insertKnowledge(
+                    AiKnowledgeEntity(
+                        title = "4688 Sayılı Sendika Kanunu, Sendikal Haklar ve İşlemler",
+                        content = """
+Öğretmenler ve Eğitim Çalışanları İçin Sendikal Haklar Rehberi (4688 Sayılı Kanun):
+1. Sendika Üyeliği:
+   • 3 nüsha üyelik başvuru formu doldurulur ve okul/kurum evrakına teslim edilir. Bir nüshası sendikaya gönderilir. Üyelik aidatı maaştan bordro yoluyla kesilir.
+2. Sendikadan Çekilme (İstifa):
+   • Memur 3 nüsha istifa formunu doldurarak okul idaresine teslim eder. Evrak kayıt numarası alındıktan sonra 30 günün bitimiyle istifa hukuken kesinleşir.
+3. Sendikal İzinler ve Güvenceler:
+   • İlçe Temsilcisi: Haftada 4 saat veya yetkili sendika için tam gün izin hakkı.
+   • İl Yönetim Kurulu: Haftada 1 tam gün sendikal izinli sayılır.
+   • Sendika Yöneticisi Güvencesi: Sendika yöneticileri rızaları dışında başka bir ile veya ilçeye resen atanamaz.
+4. Eylem ve İş Bırakma Güvencesi (Hukuki Çerçeve):
+   • Anayasa Mahkemesi, Danıştay ve AİHM yerleşik içtihatlarına göre; yetkili sendikanın aldığı meşru karar doğrultusunda 1 günlük veya süreli iş bırakma eylemine katılan memura 'göreve gelmemek' suçundan disiplin cezası verilemez. Bu eylem anayasal sendikal hak kapsamındadır.
+5. Toplu Sözleşme İkramiyesi: Sendikalı kamu görevlilerine yılda 4 kez (Ocak, Nisan, Temmuz, Ekim) toplu sözleşme ikramiyesi ödenir.
+                        """.trimIndent(),
+                        category = "SYNDICAL_RIGHTS",
+                        isOfficialVerified = true,
+                        source = "4688 Sayılı Kanun / Danıştay ve AYM Kararları",
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            }
+
+            // 14. MEB Yönetici ve Öğretmenlerinin Ders ve Ek Ders Yönetmeliği
+            if (allList.none { it.title.contains("Ek Ders Yönetmeliği", ignoreCase = true) }) {
+                db.aiKnowledgeDao().insertKnowledge(
+                    AiKnowledgeEntity(
+                        title = "MEB Yönetici ve Öğretmenlerinin Ek Ders ve Ücret Yönetmeliği",
+                        content = """
+MEB Ders ve Ek Ders Saatlerine İlişkin Karar Hükümleri:
+1. Maaş Karşılığı ve Zorunlu Ek Ders:
+   • Branş Öğretmenleri: Haftada 15 saat maaş karşılığı, 15 saate kadar zorunlu ek ders, 6 saate kadar isteğe bağlı ek ders (Toplam haftalık max 30 saat girebilir).
+   • Sınıf ve Okul Öncesi Öğretmenleri: Haftada 18 saat maaş karşılığı, 12 saat zorunlu ek ders.
+2. Hazırlık ve Planlama Görevi:
+   • Okutulan her 10 saat ders için 1 saat ek ders verilir (Haftalık en fazla 3 saat).
+3. Nöbet Görevi:
+   • Okulda fiilen tutulan nöbet görevi için haftada 3 saat ek ders ücreti ödenir.
+4. Sosyal Kulüp ve Rehberlik:
+   • Sınıf rehber öğretmenliği veya eğitsel kulüp yürüten öğretmenlere haftada 2 saat ek ders ücreti ödenir.
+5. Destekleme ve Yetiştirme Kursları (DYK):
+   • Hafta içi veya hafta sonu DYK kurslarında fiilen okutulan derslerin ek ders ücreti %100 artırımlı olarak ödenir.
+6. Sınav Görevleri: MEB merkezi sınavları (LGS, bursluluk, e-Sınav) ve ÖSYM sınavlarında oturum bazlı sınav ücreti ödenir.
+                        """.trimIndent(),
+                        category = "TEACHER_FINANCIALS",
+                        isOfficialVerified = true,
+                        source = "2006/11350 Sayılı Bakanlar Kurulu Kararı / MEB",
+                        createdAt = System.currentTimeMillis()
+                    )
+                )
+            }
+
+            // 15. MEB BEP (Bireyselleştirilmiş Eğitim), Rehberlik ve Zümre Tutanakları
+            if (allList.none { it.title.contains("BEP ve Zümre", ignoreCase = true) }) {
+                db.aiKnowledgeDao().insertKnowledge(
+                    AiKnowledgeEntity(
+                        title = "MEB BEP (Özel Eğitim), Rehberlik ve Zümre İşlemleri",
+                        content = """
+Öğretmenler İçin Özel Eğitim, BEP ve Zümre Rehberi:
+1. BEP (Bireyselleştirilmiş Eğitim Programı):
+   • RAM (Rehberlik ve Araştırma Merkezi) raporu bulunan kaynaştırma/bütünleştirme öğrencileri için okul BEP Geliştirme Birimi toplanır.
+   • Ders öğretmeni öğrencinin eğitsel performans düzeyine uygun BEP planını hazırlar.
+   • Yazılı sınavlar öğrencinin BEP kazanımlarına göre ayrı açık uçlu sorularla yapılır.
+2. Zümre Öğretmenler Kurulu Tutanakları:
+   • Sene başı, 2. dönem başı ve sene sonu olmak üzere yılda en az 3 kez toplanır.
+   • Yıllık planlar, ortak sınav tarihleri ve konu soru dağılım tabloları, Maarif Modeli beceri temelli öğrenme süreçleri zümre tutanaklarında karara bağlanır.
+                        """.trimIndent(),
+                        category = "TEACHING_PEDAGOGY",
+                        isOfficialVerified = true,
+                        source = "MEB Özel Eğitim Hizmetleri Yönetmeliği & TTKB",
                         createdAt = System.currentTimeMillis()
                     )
                 )
