@@ -54,7 +54,7 @@ object AtillaWardrobeManager {
         // Genel yedek yanıt
         return DrawerResult(
             replyText = "Emredersiniz efendim, sizi dinliyorum.",
-            actionSummary = "⚡ Jarvis Dinlemede"
+            actionSummary = "⚡ Atila Dinlemede"
         )
     }
 }

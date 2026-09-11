@@ -44,9 +44,9 @@ object KnowledgeSearchDrawer : AssistantDrawer {
             .joinToString("\n")
 
         val reply = if (cleanSummary.isNotBlank()) {
-            "📌 ${topMatch.title}:\n$cleanSummary"
+            "Efendim, ${topMatch.title} maddesi uyarınca:\n$cleanSummary"
         } else {
-            "📌 ${topMatch.title}:\n${topMatch.content.take(300)}..."
+            "Efendim, ${topMatch.title}:\n${topMatch.content.take(300)}..."
         }
 
         return DrawerResult(

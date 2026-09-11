@@ -14,7 +14,6 @@ import com.example.ui.tabs.ChatMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -57,7 +56,7 @@ object UstaSessionState {
 
 object AiAssistantService {
 
-        private fun setSystemAlarm(context: Context, hour: Int, minute: Int, message: String): Boolean {
+    private fun setSystemAlarm(context: Context, hour: Int, minute: Int, message: String): Boolean {
         return try {
             val intent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
                 putExtra(AlarmClock.EXTRA_HOUR, hour)
@@ -103,17 +102,12 @@ object AiAssistantService {
         }
     }
 
-    private val NAME_BLACKLIST = setOf(
-        "migros", "market", "bakkal", "eczane", "hastane", "otopark", "otobüs", "cami",
-        "randevu", "hatırlat", "alarm", "harita", "tarih", "günlük", "yemek", "usta", "jarvis", "asistan"
-    )
-
     suspend fun processUserMessage(
         context: Context,
         userMessage: String,
         userLat: Double = 0.0,
         userLng: Double = 0.0,
-        assistantName: String = "Usta",
+        assistantName: String = "ATİLA",
         conversationHistory: List<ChatMessage> = emptyList()
     ): AiResponse = withContext(Dispatchers.IO) {
         val dataStoreManager = DataStoreManager(context)
@@ -121,13 +115,11 @@ object AiAssistantService {
 
         AiKnowledgeSeeder.seedIfNeeded(context)
 
-        val resolvedAssistantName = assistantName.ifBlank {
-            dataStoreManager.aiAssistantName.first().ifBlank { "ATİLLA" }
-        }
+        val resolvedAssistantName = "ATİLA"
         val currentNick = dataStoreManager.userNick.first()?.trim() ?: ""
 
         var cleanMsg = userMessage.trim()
-        val triggerRegex = Regex("""(?i)^(hey\s+)?(atilla|atila|jarvis|usta|asistan|atilla\s+dinle|usta\s+dinle|jarvis\s+dinle)[,\s!.:]*""")
+        val triggerRegex = Regex("""(?i)^(hey\s+)?(atilla|atila|jarvis|usta|asistan|atilla\s+dinle|atila\s+dinle|usta\s+dinle)[,\s!.:]*""")
         val hadTriggerWord = triggerRegex.find(cleanMsg) != null || cleanMsg.equals("atilla", ignoreCase = true) || cleanMsg.equals("atila", ignoreCase = true)
         cleanMsg = cleanMsg.replace(triggerRegex, "").trim()
         if (cleanMsg.isBlank() || (hadTriggerWord && cleanMsg.isBlank())) {
@@ -140,7 +132,126 @@ object AiAssistantService {
         val (userCity, userDistrict) = NearbyPlacesHelper.getUserCityAndDistrict(context, realLat, realLng)
 
         // =========================================================================
-        // DURUM MAKİNESİ (İNTERAKTİF ADIMLAR)
+        // 1. DOĞRUDAN SESLİ / HIZLI NOT KAYDETME (GARANTİLİ ROOM + LOCALSTORAGE)
+        // =========================================================================
+        if (lowerMsg.startsWith("sesli not al") || lowerMsg.startsWith("not al") || lowerMsg.startsWith("not ekle") || lowerMsg.startsWith("hızlı not al")) {
+            val noteContent = cleanMsg.replace(Regex("(?i)^(sesli not al|not al|not ekle|hızlı not al)[: ]*"), "").trim()
+            val noteBody = noteContent.ifBlank { "Kayıtlı Not" }
+            val noteTitle = noteBody.take(40).trim()
+            val now = System.currentTimeMillis()
+            val dateStr = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.forLanguageTag("tr-TR")).format(Date(now))
+
+            db.reminderDao().insertReminder(
+                ReminderEntity(
+                    category = "SESLİ NOT",
+                    title = noteTitle,
+                    customNote = noteBody,
+                    dueDateMillis = now,
+                    dueDatetime = dateStr,
+                    isFavorite = true,
+                    encryptedMetadata = "{}",
+                    actionStep = "NOTE_SAVED"
+                )
+            )
+            LocalStorageManager.saveLocalNote(context, noteTitle, noteBody, "SESLİ NOT")
+            return@withContext AiResponse(
+                replyText = "Efendim, notunuz 'Sesli Notlar' listenize ve yerel belleğe başarıyla kaydedildi.",
+                actionSummary = "📝 Not Kaydedildi: $noteTitle"
+            )
+        }
+
+        // =========================================================================
+        // 2. DOĞRUDAN KONUM KAYDETME (GARANTİLİ GPS + ROOM + LOCALSTORAGE)
+        // =========================================================================
+        if (lowerMsg.contains("konumumu kaydet") || lowerMsg.contains("burayı kaydet") || lowerMsg.contains("konum kaydet") || lowerMsg.contains("haritaya kaydet") || lowerMsg.contains("lokasyona kaydet")) {
+            val locName = cleanMsg.replace(Regex("(?i)konumumu kaydet|burayı kaydet|konum kaydet|haritaya kaydet|lokasyona kaydet|olarak|adıyla|adı|bana"), "").trim()
+                .ifBlank { "$userCity $userDistrict Konumu" }
+
+            db.savedLocationDao().insertLocation(
+                SavedLocationEntity(
+                    name = locName,
+                    lat = realLat,
+                    lng = realLng,
+                    timestamp = System.currentTimeMillis()
+                )
+            )
+            LocalStorageManager.saveLocalLocation(context, locName, realLat, realLng)
+            return@withContext AiResponse(
+                replyText = "Efendim, '$locName' konumunuz ($userCity $userDistrict) 'Kayıtlı Lokasyonlarım' listenize ve yerel belleğe başarıyla kaydedildi.",
+                actionSummary = "📍 Konum Kaydedildi: $locName"
+            )
+        }
+
+        // =========================================================================
+        // 3. DOĞRUDAN İLAÇ HATIRLATICISI EKLEME
+        // =========================================================================
+        if (lowerMsg.startsWith("ilaç ekle") || lowerMsg.startsWith("ilaç hatırlat") || lowerMsg.contains("ilacımı ekle")) {
+            val medName = cleanMsg.replace(Regex("(?i)^(ilaç ekle|ilaç hatırlat|ilacımı ekle)[: ]*"), "").trim()
+            val timeMatch = Regex("""(?i)(\d{1,2})[:.](\d{2})""").find(cleanMsg)
+            val hour = timeMatch?.groupValues?.get(1)?.toIntOrNull() ?: 9
+            val min = timeMatch?.groupValues?.get(2)?.toIntOrNull() ?: 0
+            val drugTitle = medName.replace(Regex("""(?i)\d{1,2}[:.]\d{2}"""), "").trim().ifBlank { "İlaç Dozu" }
+
+            val cal = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, hour)
+                set(Calendar.MINUTE, min)
+                set(Calendar.SECOND, 0)
+                if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
+            }
+            val dateStr = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.forLanguageTag("tr-TR")).format(cal.time)
+            val newRem = ReminderEntity(
+                category = "MEDICINE",
+                title = "💊 $drugTitle",
+                customNote = "Saat ${String.format(Locale.ROOT, "%02d:%02d", hour, min)} ilaç dozu.",
+                dueDatetime = dateStr,
+                dueDateMillis = cal.timeInMillis,
+                isFavorite = true,
+                encryptedMetadata = "{}",
+                actionStep = "SOUND_CLASSIC_BELL"
+            )
+            val insertedId = db.reminderDao().insertReminder(newRem)
+            AlarmHelper.scheduleAlarm(context, newRem.copy(id = insertedId.toInt()))
+            LocalStorageManager.saveLocalReminder(context, "💊 $drugTitle", dateStr, cal.timeInMillis, "MEDICINE")
+
+            return@withContext AiResponse(
+                replyText = "Efendim, '$drugTitle' ilacınız her gün saat ${String.format(Locale.ROOT, "%02d:%02d", hour, min)} için ilaç listenize ve sesli alarmlarınıza eklendi.",
+                actionSummary = "💊 İlaç Eklendi: $drugTitle"
+            )
+        }
+
+        // =========================================================================
+        // 4. CANLI HAVA DURUMU & GAZETE MANŞETLERİ
+        // =========================================================================
+        if (lowerMsg.contains("hava durumu") || lowerMsg.contains("hava nasıl")) {
+            val weatherText = WeatherHelper.getLiveWeather(context, realLat, realLng, userCity.ifBlank { "Bulunduğunuz Şehir" })
+            return@withContext AiResponse(
+                replyText = weatherText,
+                actionSummary = "🌤️ Hava Durumu: $userCity"
+            )
+        }
+
+        if (lowerMsg.contains("gazete manşet") || lowerMsg.contains("haberler") || lowerMsg.contains("günün haber")) {
+            val headlines = DailyNewsHelper.getHeadlinesOnly()
+            return@withContext AiResponse(
+                replyText = headlines,
+                actionSummary = "📰 Günlük Gazete Manşetleri"
+            )
+        }
+
+        // =========================================================================
+        // 5. YOUTUBE MÜZİK ÇALMA
+        // =========================================================================
+        if (lowerMsg.contains("çal") || lowerMsg.contains("müzik") || lowerMsg.contains("şarkı") || lowerMsg.contains("youtube")) {
+            val songQuery = cleanMsg.replace(Regex("(?i)youtube'dan|youtube'da|youtube|şarkısını|şarkıyı|müziğini|müzik|çal|aç|oynat|bul|bana"), "").trim().ifBlank { "Müzik" }
+            val (_, msg) = AppLauncherHelper.playYouTubeSong(context, songQuery)
+            return@withContext AiResponse(
+                replyText = msg,
+                actionSummary = "▶️ YouTube: $songQuery"
+            )
+        }
+
+        // =========================================================================
+        // 6. DURUM MAKİNESİ (İNTERAKTİF ALARM & HATIRLATICI ADIMLARI)
         // =========================================================================
 
         // A. Bekleyen Alarm Saati
@@ -157,7 +268,7 @@ object AiAssistantService {
                 UstaSessionState.isWaitingForAlarmLabel = true
                 val formattedTime = String.format(Locale.ROOT, "%02d:%02d", hour, min)
                 return@withContext AiResponse(
-                    replyText = "⏰ Alarm saatini " + formattedTime + " olarak belirledim. Peki bu alarmın başlığı veya etiketi ne olsun? (Örneğin: Uyanış, İlaç Saati, İşe Gidiş vb.)"
+                    replyText = "⏰ Alarm saatini $formattedTime olarak belirledim efendim. Peki bu alarmın başlığı ne olsun? (Örn: Uyanış, Toplantı, İlaç)"
                 )
             } else {
                 return@withContext AiResponse(
@@ -185,215 +296,70 @@ object AiAssistantService {
                     add(Calendar.DAY_OF_YEAR, 1)
                 }
             }
-            val dateStr = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale("tr", "TR")).format(cal.time)
-            db.reminderDao().insertReminder(
-                ReminderEntity(
+            val dateStr = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.forLanguageTag("tr-TR")).format(cal.time)
+            val rem = ReminderEntity(
+                category = "ALARM",
+                title = "⏰ Alarm: $label",
+                customNote = "Saat ${String.format(Locale.ROOT, "%02d:%02d", hour, min)} için kurulu alarm.",
+                dueDatetime = dateStr,
+                dueDateMillis = cal.timeInMillis,
+                isFavorite = true,
+                encryptedMetadata = "{}",
+                actionStep = "ALARM_SET"
+            )
+            db.reminderDao().insertReminder(rem)
+            LocalStorageManager.saveLocalReminder(context, "⏰ Alarm: $label", dateStr, cal.timeInMillis, "ALARM")
+
+            return@withContext AiResponse(
+                replyText = "⏰ Efendim, saat ${String.format(Locale.ROOT, "%02d:%02d", hour, min)} için '$label' alarmınız başarıyla kuruldu.",
+                actionSummary = "⏰ Alarm Kuruldu: $label (${String.format(Locale.ROOT, "%02d:%02d", hour, min)})"
+            )
+        }
+
+        // C. Doğrudan "Saat 07:30'a alarm kur" gibi tek seferlik alarm komutu
+        if (lowerMsg.contains("alarm kur") || lowerMsg.contains("alarm ekle") || lowerMsg.contains("alarmı kur")) {
+            val timeMatch = Regex("""(?i)(\d{1,2})[:.](\d{2})""").find(cleanMsg)
+            val hour = timeMatch?.groupValues?.get(1)?.toIntOrNull()
+            val min = timeMatch?.groupValues?.get(2)?.toIntOrNull() ?: 0
+
+            if (hour != null && hour in 0..23) {
+                val label = cleanMsg.replace(Regex("""(?i)\d{1,2}[:.]\d{2}|alarm kur|alarm ekle|alarmı kur|saat|için|bana"""), "").trim().ifBlank { "Alarm" }
+                setSystemAlarm(context, hour, min, label)
+
+                val cal = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, hour)
+                    set(Calendar.MINUTE, min)
+                    set(Calendar.SECOND, 0)
+                    if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
+                }
+                val dateStr = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.forLanguageTag("tr-TR")).format(cal.time)
+                val rem = ReminderEntity(
                     category = "ALARM",
-                    title = "⏰ Alarm: " + label,
-                    customNote = "Saat " + String.format(Locale.ROOT, "%02d:%02d", hour, min) + " için kurulu alarm.",
+                    title = "⏰ Alarm: $label",
+                    customNote = "Saat ${String.format(Locale.ROOT, "%02d:%02d", hour, min)} için kurulu alarm.",
                     dueDatetime = dateStr,
                     dueDateMillis = cal.timeInMillis,
                     isFavorite = true,
                     encryptedMetadata = "{}",
                     actionStep = "ALARM_SET"
                 )
-            )
+                db.reminderDao().insertReminder(rem)
+                LocalStorageManager.saveLocalReminder(context, "⏰ Alarm: $label", dateStr, cal.timeInMillis, "ALARM")
 
-            val formattedTime = String.format(Locale.ROOT, "%02d:%02d", hour, min)
-            return@withContext AiResponse(
-                replyText = "⏰ Saat " + formattedTime + " için '" + label + "' alarmınız hem telefonunuzun saat sistemine hem de HatırlaGit'e başarıyla kuruldu!",
-                actionSummary = "⏰ Alarm Kuruldu: " + formattedTime + " (" + label + ")"
-            )
-        }
-
-        // C. Bekleyen Hatırlatma Konusu/Başlığı
-        if (UstaSessionState.isWaitingForReminderTitle) {
-            UstaSessionState.isWaitingForReminderTitle = false
-            UstaSessionState.pendingReminderTitle = cleanMsg.take(60).trim()
-            UstaSessionState.isWaitingForReminderTime = true
-            return@withContext AiResponse(
-                replyText = "Hatırlatma konusunu '" + UstaSessionState.pendingReminderTitle + "' olarak not ettim. Hangi gün ve saatte hatırlatayım? (Örneğin: Yarın 14:00, Akşam 20:00 veya 15 Ekim 09:30)"
-            )
-        }
-
-        // D. Bekleyen Hatırlatma Zamanı
-        if (UstaSessionState.isWaitingForReminderTime) {
-            val cal = Calendar.getInstance()
-            val timeMatch = Regex("""(?i)(\d{1,2})[:.](\d{2})""").find(cleanMsg)
-            val hour = timeMatch?.groupValues?.get(1)?.toIntOrNull() ?: 9
-            val min = timeMatch?.groupValues?.get(2)?.toIntOrNull() ?: 0
-
-            cal.set(Calendar.HOUR_OF_DAY, hour)
-            cal.set(Calendar.MINUTE, min)
-            cal.set(Calendar.SECOND, 0)
-
-            if (lowerMsg.contains("yarın")) {
-                cal.add(Calendar.DAY_OF_YEAR, 1)
-            } else if (cal.timeInMillis <= System.currentTimeMillis()) {
-                cal.add(Calendar.DAY_OF_YEAR, 1)
-            }
-
-            val dateStr = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale("tr", "TR")).format(cal.time)
-            UstaSessionState.pendingReminderDateStr = dateStr
-            UstaSessionState.pendingReminderTimeMillis = cal.timeInMillis
-            UstaSessionState.isWaitingForReminderTime = false
-            UstaSessionState.isWaitingForReminderNote = true
-
-            return@withContext AiResponse(
-                replyText = "Zamanı " + dateStr + " olarak planladım. Hatırlatıcıya eklemek istediğiniz özel bir açıklama var mı? (Yoksa 'Hayır' veya 'Yok' diyebilirsiniz)"
-            )
-        }
-
-        // E. Bekleyen Hatırlatma Açıklaması
-        if (UstaSessionState.isWaitingForReminderNote) {
-            val title = UstaSessionState.pendingReminderTitle ?: "Hatırlatma"
-            val dateStr = UstaSessionState.pendingReminderDateStr ?: ""
-            val timeMillis = UstaSessionState.pendingReminderTimeMillis ?: System.currentTimeMillis()
-            val note = if (lowerMsg.startsWith("hayır") || lowerMsg.startsWith("yok") || lowerMsg.contains("gerek yok")) "" else cleanMsg
-
-            UstaSessionState.isWaitingForReminderNote = false
-            UstaSessionState.pendingReminderTitle = null
-            UstaSessionState.pendingReminderDateStr = null
-            UstaSessionState.pendingReminderTimeMillis = null
-
-            db.reminderDao().insertReminder(
-                ReminderEntity(
-                    category = "HATIRLATICI",
-                    title = "🔔 " + title,
-                    customNote = note.ifBlank { "HatırlaGit Usta Hatırlatması" },
-                    dueDatetime = dateStr,
-                    dueDateMillis = timeMillis,
-                    isFavorite = true,
-                    encryptedMetadata = "{}",
-                    actionStep = "REMINDER_SET"
-                )
-            )
-
-            return@withContext AiResponse(
-                replyText = "🔔 '" + title + "' hatırlatıcınız " + dateStr + " tarihine Anasayfa ve Hatırlatıcılar listenize başarıyla kaydedildi!",
-                actionSummary = "🔔 Hatırlatıcı Kuruldu: " + title + " (" + dateStr + ")"
-            )
-        }
-
-        // F. Bekleyen Park Yeri Notu
-        if (UstaSessionState.isWaitingForParkNote) {
-            val coords = UstaSessionState.pendingParkCoords ?: Pair(realLat, realLng)
-            val parkNote = if (lowerMsg.startsWith("hayır") || lowerMsg.startsWith("yok") || lowerMsg.contains("gerek yok")) "" else cleanMsg
-            UstaSessionState.isWaitingForParkNote = false
-            UstaSessionState.pendingParkCoords = null
-
-            dataStoreManager.saveParkedCarLocation(
-                lat = coords.first.toString(),
-                lng = coords.second.toString(),
-                time = System.currentTimeMillis()
-            )
-
-            val now = System.currentTimeMillis()
-            val dateStr = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale("tr", "TR")).format(Date(now))
-            db.reminderDao().insertReminder(
-                ReminderEntity(
-                    category = "PARK_YERI",
-                    title = "🚗 Park Yeri: " + userCity + " " + userDistrict,
-                    customNote = if (parkNote.isNotBlank()) "Park Notu: " + parkNote else "Araç park konumu kaydedildi.",
-                    dueDatetime = dateStr,
-                    dueDateMillis = now,
-                    isFavorite = true,
-                    encryptedMetadata = "{}",
-                    actionStep = "PARK_SAVED"
-                )
-            )
-
-            val noteMsg = if (parkNote.isNotBlank()) " (Ek Not: '" + parkNote + "')" else ""
-            return@withContext AiResponse(
-                replyText = "🚗 Park yeriniz telemetri sistemine ve Anasayfa Park Halinde kartına" + noteMsg + " işlendi! Aracınız " + userCity + " " + userDistrict + " noktasında güvende.",
-                actionSummary = "🚗 Park Yeri Kaydedildi: " + userCity + noteMsg
-            )
-        }
-
-        // 1. Bekleyen Lokasyon Adı ("Konumu Lokasyona kaydet" sonrası isim geldiğinde)
-        if (UstaSessionState.pendingLocationCoords != null) {
-            val coords = UstaSessionState.pendingLocationCoords!!
-            UstaSessionState.pendingLocationCoords = null
-            val locName = cleanMsg.take(50).trim()
-            db.savedLocationDao().insertLocation(
-                SavedLocationEntity(
-                    name = locName,
-                    lat = coords.first,
-                    lng = coords.second,
-                    timestamp = System.currentTimeMillis()
-                )
-            )
-            return@withContext AiResponse(
-                replyText = "📍 '" + locName + "' lokasyonu Anasayfadaki 'Kayıtlı Lokasyonlarım' listenize başarıyla işlenmiştir. İstediğiniz zaman rotanızı tek dokunuşla başlatabilirsiniz.",
-                actionSummary = "📍 Lokasyon Kaydedildi: " + locName
-            )
-        }
-
-        // 2. Bekleyen Not Başlığı ("Hızlı not al" veya "Sesli not al" sonrası sorulan başlık)
-        if (UstaSessionState.pendingNoteContent != null) {
-            val noteBody = UstaSessionState.pendingNoteContent!!
-            val isVoice = UstaSessionState.isVoiceNote
-            UstaSessionState.pendingNoteContent = null
-            UstaSessionState.isVoiceNote = false
-            val noteTitle = cleanMsg.take(60).trim()
-            val now = System.currentTimeMillis()
-            val dateStr = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale("tr", "TR")).format(Date(now))
-            val category = if (isVoice) "SESLİ NOT" else "HIZLI_NOT"
-            db.reminderDao().insertReminder(
-                ReminderEntity(
-                    category = category,
-                    title = noteTitle,
-                    customNote = noteBody,
-                    dueDateMillis = now,
-                    dueDatetime = dateStr,
-                    isFavorite = true,
-                    encryptedMetadata = "{}",
-                    actionStep = "NOTE_SAVED"
-                )
-            )
-            val destText = if (isVoice) "Anasayfadaki Sesli Notlar bölümünüze" else "Anasayfadaki Hızlı Notlar kartınıza ve listenize"
-            return@withContext AiResponse(
-                replyText = "📝 '" + noteTitle + "' başlıklı notunuz " + destText + " başarıyla kaydedildi!",
-                actionSummary = "📝 " + (if (isVoice) "Sesli Not" else "Hızlı Not") + " Kaydedildi: " + noteTitle
-            )
-        }
-
-        // 3. Bekleyen Not İçeriği
-        if (UstaSessionState.isWaitingForNoteBody) {
-            UstaSessionState.isWaitingForNoteBody = false
-            UstaSessionState.pendingNoteContent = cleanMsg
-            return@withContext AiResponse(
-                replyText = "Notunuzu aldım: \"" + cleanMsg + "\". Peki bu notun Anasayfa ve Sesli Notlar listesinde görünecek başlığı ne olsun?"
-            )
-        }
-
-        // 4. Bekleyen Mekan Onayı
-        if (UstaSessionState.pendingPlaceToSave != null) {
-            val place = UstaSessionState.pendingPlaceToSave!!
-            if (lowerMsg.startsWith("evet") || lowerMsg.contains("kaydet") || lowerMsg.contains("olur") || lowerMsg.contains("ekle") || lowerMsg.contains("onaylıyorum")) {
-                db.savedLocationDao().insertLocation(
-                    SavedLocationEntity(
-                        name = place.name,
-                        lat = place.lat,
-                        lng = place.lng,
-                        timestamp = System.currentTimeMillis()
-                    )
-                )
-                UstaSessionState.pendingPlaceToSave = null
                 return@withContext AiResponse(
-                    replyText = place.name + " koordinatları 'Kayıtlı Lokasyonlarım' veritabanına başarıyla işlenmiştir.",
-                    actionSummary = "📍 Lokasyon Kaydedildi: " + place.name
+                    replyText = "⏰ Efendim, saat ${String.format(Locale.ROOT, "%02d:%02d", hour, min)} için '$label' alarmınız kuruldu.",
+                    actionSummary = "⏰ Alarm Kuruldu: $label"
                 )
-            } else if (lowerMsg.startsWith("hayır") || lowerMsg.contains("gerek yok") || lowerMsg.contains("istemiyorum") || lowerMsg.contains("kaydetme") || lowerMsg.contains("iptal")) {
-                UstaSessionState.pendingPlaceToSave = null
+            } else {
+                UstaSessionState.isWaitingForAlarmTime = true
                 return@withContext AiResponse(
-                    replyText = "Emredersiniz efendim, lokasyon kaydı iptal edildi."
+                    replyText = "Alarm saat kaç için kurulsun efendim? (Örn: 07:30 veya 8:00)"
                 )
             }
         }
 
         // =========================================================================
-        // ATİLLA GARDIROP VE MODÜLER ÇEKMECELER MİMARİSİ (WARDROBE & DRAWERS)
+        // ATİLA GARDIROP VE MODÜLER ÇEKMECELER MİMARİSİ (WARDROBE & DRAWERS)
         // =========================================================================
         val customApiKey = try {
             val rawEncryptedKey: String? = dataStoreManager.encryptedAiApiKey.first()
@@ -421,10 +387,6 @@ object AiAssistantService {
             recommendedPlaces = drawerResult.recommendedPlaces,
             actionSummary = drawerResult.actionSummary
         )
-    }
-
-    private fun getTimeAwareGreeting(userNick: String): String {
-        return "Emredersiniz efendim."
     }
 
     private fun getDeviceLocation(context: Context): Pair<Double, Double> {

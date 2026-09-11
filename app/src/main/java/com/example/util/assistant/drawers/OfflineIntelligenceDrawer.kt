@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.first
 import java.util.Locale
 
 object OfflineIntelligenceDrawer : AssistantDrawer {
-    override val drawerName: String = "Jarvis Çevrimdışı Zeka ve Sadık Asistan Çekmecesi"
+    override val drawerName: String = "Atila Çevrimdışı Zeka ve Sadık Asistan Çekmecesi"
 
     override fun canHandle(query: String, lowerQuery: String): Boolean = true
 
@@ -25,26 +25,27 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
         // 1. Selamlaşma & Hal Hatır
         if (lowerQuery.contains("merhaba") || lowerQuery.contains("selam") || lowerQuery.contains("günaydın") ||
             lowerQuery.contains("tünaydın") || lowerQuery.contains("iyi günler") || lowerQuery.contains("iyi akşamlar") ||
-            lowerQuery.equals("hey", ignoreCase = true) || lowerQuery.equals("jarvis", ignoreCase = true) ||
-            lowerQuery.equals("atilla", ignoreCase = true) || lowerQuery.equals("usta", ignoreCase = true)) {
+            lowerQuery.equals("hey", ignoreCase = true) || lowerQuery.equals("atila", ignoreCase = true) ||
+            lowerQuery.equals("atilla", ignoreCase = true) || lowerQuery.equals("jarvis", ignoreCase = true) ||
+            lowerQuery.equals("usta", ignoreCase = true)) {
             return DrawerResult(
-                replyText = "Merhaba $greeting Sistemler aktif ve emrinizdeyim. Bir isteğiniz var mı?",
-                actionSummary = "⚡ Jarvis Çevrimiçi"
+                replyText = "Merhaba $greeting Ben Atila. Tüm sistemler devrede ve emrinizdeyim. Nasıl yardımcı olabilirim?",
+                actionSummary = "⚡ Atila Çevrimiçi"
             )
         }
 
         if (lowerQuery.contains("nasılsın") || lowerQuery.contains("ne haber") || lowerQuery.contains("naber") ||
             lowerQuery.contains("ne var ne yok") || lowerQuery.contains("nasıl gidiyor") || lowerQuery.contains("durum ne")) {
             return DrawerResult(
-                replyText = "Tüm alt sistemler ve bellek modülleri tam kapasite devrede $greeting Emrinizi yerine getirmeye hazırım.",
-                actionSummary = "⚡ Sistem Durumu: Mükemmel"
+                replyText = "Tüm alt sistemler ve bellek modülleri tam kapasite devrede $greeting Sizin için çalışmaya hazırım.",
+                actionSummary = "⚡ Durum: Mükemmel"
             )
         }
 
         if (lowerQuery.contains("moralim bozuk") || lowerQuery.contains("canım sıkkın") || lowerQuery.contains("çok yoruldum") ||
             lowerQuery.contains("stresliyim") || lowerQuery.contains("üzgünüm")) {
             return DrawerResult(
-                replyText = "Her zorluğun üstesinden gelecek iradeye sahipsiniz $greeting Ben buradayım, işlerinizi hafifletmek için bir komutunuz yeterli.",
+                replyText = "Her güçlüğün ardından bir ferahlık gelir $greeting Ben buradayım, işlerinizi kolaylaştırmak için emrinizi bekliyorum.",
                 actionSummary = "🛡️ Moral Desteği"
             )
         }
@@ -53,8 +54,8 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
         if (lowerQuery.contains("kimsin") || lowerQuery.contains("nesin") || lowerQuery.contains("adın ne") ||
             lowerQuery.contains("ne yapabilirsin") || lowerQuery.contains("kendini tanıt")) {
             return DrawerResult(
-                replyText = "Ben Jarvis $greeting HatırlaGit'in yüksek teknolojili kişisel asistanıyım. Alarm, takvim, arama, MEB mevzuatı ve navigasyon yönetiminiz için buradayım.",
-                actionSummary = "🤖 Jarvis Asistan"
+                replyText = "Ben Atila $greeting HatırlaGit'in kişisel asistanıyım. Sesle alarm ve takvim kurar, ilaç ve notlarınızı saklar, 657 ve ÖMK mevzuatını bilir, canlı hava durumu ve harita navigasyonu sağlarım.",
+                actionSummary = "🤖 Atila Asistan"
             )
         }
 
@@ -126,7 +127,7 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
             )
         }
 
-        // 8. Kütüphane Taraması (657, ÖMK, MEB vb.)
+        // 8. Özel Bilgi Kütüphanesi Taraması (657, ÖMK, Sendika, MEB vb.)
         val searchWords = lowerQuery.split(Regex("""[\s,?.!;:()'"\-_/]+""")).filter { it.length >= 3 }
         if (searchWords.isNotEmpty()) {
             val allKnowledge = db.aiKnowledgeDao().getAllKnowledgeList()
@@ -154,7 +155,7 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
         // 9. Sadık ve Net Sonuç
         return DrawerResult(
             replyText = "${greeting}emrinizi dinliyorum. Saat alarmı, takvim kaydı, harita konumu veya mevzuat hakkında yardımcı olabilirim.",
-            actionSummary = "⚡ Jarvis Dinlemede"
+            actionSummary = "⚡ Atila Dinlemede"
         )
     }
 }

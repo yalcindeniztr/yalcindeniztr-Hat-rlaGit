@@ -22,6 +22,13 @@ object WeatherHelper {
     private var lastFetchTimeMillis: Long = 0
     private const val CACHE_DURATION_MS = 15 * 60 * 1000L // 15 dakika önbellek
 
+    suspend fun getLiveWeather(
+        context: Context,
+        lat: Double,
+        lng: Double,
+        cityName: String = "Samsun"
+    ): String = getWeatherBriefing(context, lat, lng, cityName)
+
     suspend fun getWeatherBriefing(
         context: Context,
         lat: Double,

@@ -210,14 +210,14 @@ class ReminderReceiver : BroadcastReceiver() {
                 if (isVoiceEnabled) {
                     val speechPhrase = if (isPrayer) {
                         if (minutesBefore > 0) {
-                            "$prayerName ezan vaktine $minutesBefore dakika kaldı."
+                            "Efendim, $prayerName ezan vaktine $minutesBefore dakika kaldı."
                         } else {
-                            "$prayerName ezanı vakti girdi. Haydi namaza!"
+                            "Efendim, $prayerName ezanı vakti girdi. Haydi namaza!"
                         }
                     } else {
-                        val cleanTitle = if (category.isNotBlank()) "$category: $title" else title
+                        val cleanTitle = if (category.isNotBlank() && !title.startsWith("[$category]")) "$title" else title
                         val cleanNote = if (note.isNotBlank()) ". $note" else ""
-                        "Hatırlatma zamanı: $cleanTitle$cleanNote"
+                        "Efendim, $cleanTitle vaktiniz geldi.$cleanNote"
                     }
                     TtsHelper.speak(context, speechPhrase)
                 }

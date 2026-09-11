@@ -1,4 +1,4 @@
-﻿package com.example.data
+package com.example.data
 
 import androidx.room.Dao
 import androidx.room.Insert
@@ -19,6 +19,12 @@ interface AiKnowledgeDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertKnowledge(entity: AiKnowledgeEntity): Long
+
+    @androidx.room.Update
+    suspend fun updateKnowledge(entity: AiKnowledgeEntity)
+
+    @Query("SELECT * FROM ai_knowledge WHERE category = :category ORDER BY id DESC")
+    fun getKnowledgeByCategory(category: String): Flow<List<AiKnowledgeEntity>>
 
     @Query("DELETE FROM ai_knowledge WHERE id = :id")
     suspend fun deleteKnowledgeById(id: Int)

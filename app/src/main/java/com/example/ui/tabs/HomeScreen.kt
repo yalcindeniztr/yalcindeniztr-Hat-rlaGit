@@ -1,13 +1,13 @@
 package com.example.ui.tabs
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -43,11 +43,15 @@ import com.example.util.TtsHelper
 import com.example.util.rememberVoiceRecognizer
 import kotlinx.coroutines.launch
 
-private val CyberDarkBg = Color(0xFF070D1E)
-private val CyberCardBg = Color(0xFF0F1A36)
-private val NeonCyan = Color(0xFF00F2FE)
-private val NeonBlue = Color(0xFF4FACFE)
-private val NeonPurple = Color(0xFFA855F7)
+// İç Açıcı Açık Renk Paleti (Light 3D & Soft Neumorphism)
+private val LightBg = Color(0xFFF8FAFC)
+private val CardBg = Color(0xFFFFFFFF)
+private val CoralGradient = Brush.horizontalGradient(listOf(Color(0xFFFF6B6B), Color(0xFFFF8E53)))
+private val OceanGradient = Brush.horizontalGradient(listOf(Color(0xFF0284C7), Color(0xFF38BDF8)))
+private val PurpleGradient = Brush.horizontalGradient(listOf(Color(0xFF7C3AED), Color(0xFFA855F7)))
+private val MintGradient = Brush.horizontalGradient(listOf(Color(0xFF059669), Color(0xFF34D399)))
+private val AmberGradient = Brush.horizontalGradient(listOf(Color(0xFFEA580C), Color(0xFFF59E0B)))
+private val RoseGradient = Brush.horizontalGradient(listOf(Color(0xFFDB2777), Color(0xFFF472B6)))
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,31 +77,32 @@ fun HomeScreen(
     var showCalendarDialog by remember { mutableStateOf(false) }
     var showMebMenu by remember { mutableStateOf(false) }
     var showAgentsMenu by remember { mutableStateOf(false) }
+    var showKnowledgeLibrary by remember { mutableStateOf(false) }
     var showAiAssistant by remember { mutableStateOf(false) }
 
-    // Jarvis Terminal Durumları
+    // ATİLA Terminal Durumları
     var terminalInputText by remember { mutableStateOf("") }
     var lastUserPrompt by remember { mutableStateOf<String?>(null) }
-    var lastJarvisStatus by remember { mutableStateOf("Sistemler aktif. Emrinizi bekliyorum efendim.") }
-    var isJarvisProcessing by remember { mutableStateOf(false) }
+    var lastAtilaStatus by remember { mutableStateOf("Sistemler hazır. Emrinizi bekliyorum efendim.") }
+    var isAtilaProcessing by remember { mutableStateOf(false) }
 
-    fun executeJarvisCommand(prompt: String) {
+    fun executeAtilaCommand(prompt: String) {
         val clean = prompt.trim()
         if (clean.isBlank()) return
         lastUserPrompt = clean
         terminalInputText = ""
-        isJarvisProcessing = true
-        lastJarvisStatus = "İşleniyor..."
+        isAtilaProcessing = true
+        lastAtilaStatus = "İşleniyor..."
 
         scope.launch {
             try {
                 val response = AiAssistantService.processUserMessage(
                     context = context,
                     userMessage = clean,
-                    assistantName = "Jarvis"
+                    assistantName = "ATİLA"
                 )
-                isJarvisProcessing = false
-                lastJarvisStatus = response.actionSummary ?: if (response.replyText.length > 50) {
+                isAtilaProcessing = false
+                lastAtilaStatus = response.actionSummary ?: if (response.replyText.length > 50) {
                     "İşleminiz tamamlandı efendim."
                 } else {
                     response.replyText
@@ -106,16 +111,16 @@ fun HomeScreen(
                 if (response.isSpeechReady && response.replyText.isNotBlank()) {
                     TtsHelper.speak(context, response.replyText)
                 }
-            } catch (e: Exception) {
-                isJarvisProcessing = false
-                lastJarvisStatus = "Hata oluştu efendim. Lütfen tekrar deneyin."
+            } catch (_: Exception) {
+                isAtilaProcessing = false
+                lastAtilaStatus = "Hata oluştu efendim. Lütfen tekrar deneyin."
             }
         }
     }
 
     val startVoice = rememberVoiceRecognizer { spoken ->
         if (spoken.isNotBlank()) {
-            executeJarvisCommand(spoken)
+            executeAtilaCommand(spoken)
         }
     }
 
@@ -125,7 +130,19 @@ fun HomeScreen(
         }
     }
 
-    // Tam Ekran Jarvis Asistan Görünümü (İstenirse)
+    // 1. Özel Bilgi Kütüphanesi Tam Ekranı
+    if (showKnowledgeLibrary) {
+        androidx.activity.compose.BackHandler {
+            showKnowledgeLibrary = false
+        }
+        KnowledgeLibraryScreen(
+            viewModel = viewModel,
+            onNavigateBack = { showKnowledgeLibrary = false }
+        )
+        return
+    }
+
+    // 2. Tam Ekran ATİLA Asistan Görünümü
     if (showAiAssistant) {
         androidx.activity.compose.BackHandler {
             showAiAssistant = false
@@ -134,7 +151,7 @@ fun HomeScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF030712))
+                .background(LightBg)
         ) {
             AiAssistantScreen(
                 viewModel = viewModel,
@@ -149,7 +166,7 @@ fun HomeScreen(
         return
     }
 
-    // Takvim & Alarm Diyaloğu
+    // 3. Takvim & Alarm Diyaloğu
     if (showCalendarDialog) {
         CalendarManagementDialog(
             allReminders = allReminders,
@@ -179,7 +196,7 @@ fun HomeScreen(
         )
     }
 
-    // MEB & Planlama Açılır Menüsü
+    // 4. MEB & Planlama Açılır Menüsü
     if (showMebMenu) {
         AlertDialog(
             onDismissRequest = { showMebMenu = false },
@@ -187,46 +204,46 @@ fun HomeScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("📚", fontSize = 20.sp)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("MEB & Planlama Modülleri", fontWeight = FontWeight.Black, fontSize = 17.sp, color = Slate900)
+                    Text("MEB & Mevzuat Modülleri", fontWeight = FontWeight.Black, fontSize = 17.sp, color = Slate900)
                 }
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     MebMenuItem(
                         icon = Icons.Default.MenuBook,
-                        title = "657 DMK & ÖMK Mevzuatı",
-                        subtitle = "Öğretmen hakları, izinler ve kanunlar",
+                        title = "Özel Bilgi Kütüphanesi",
+                        subtitle = "Tüm kanun, yönetmelik ve müfredat kütüphanesi",
                         color = Color(0xFF2563EB)
                     ) {
                         showMebMenu = false
-                        executeJarvisCommand("657 Sayılı Kanun ve ÖMK öğretmen hakları nelerdir?")
+                        showKnowledgeLibrary = true
                     }
                     MebMenuItem(
                         icon = Icons.Default.Assignment,
-                        title = "ŞÖK Toplantı Tutanağı",
-                        subtitle = "Şube öğretmenler kurulu taslağı hazırla",
+                        title = "657 DMK & ÖMK Mevzuatı",
+                        subtitle = "Öğretmen hakları, izinler ve kanunlar",
                         color = Color(0xFF7C3AED)
                     ) {
                         showMebMenu = false
-                        executeJarvisCommand("Şube Öğretmenler Kurulu ŞÖK toplantı tutanağı hazırla")
+                        executeAtilaCommand("657 Sayılı Kanun ve ÖMK öğretmen hakları nelerdir?")
                     }
                     MebMenuItem(
                         icon = Icons.Default.FactCheck,
-                        title = "Sınav Kağıdı & Rubrik",
-                        subtitle = "Ortak sınav sorusu ve değerlendirme tablosu",
+                        title = "ŞÖK Toplantı Tutanağı",
+                        subtitle = "Şube öğretmenler kurulu taslağı hazırla",
                         color = Color(0xFF059669)
                     ) {
                         showMebMenu = false
-                        executeJarvisCommand("Ortak sınav kağıdı ve değerlendirme rubriği taslağı hazırla")
+                        executeAtilaCommand("Şube Öğretmenler Kurulu ŞÖK toplantı tutanağı hazırla")
                     }
                     MebMenuItem(
                         icon = Icons.Default.CalendarToday,
-                        title = "MEB Yıllık Plan & Takvim",
-                        subtitle = "Ara tatiller ve çalışma takvimi",
+                        title = "Sınav Kağıdı & Rubrik",
+                        subtitle = "Ortak sınav sorusu ve değerlendirme tablosu",
                         color = Color(0xFFEA580C)
                     ) {
                         showMebMenu = false
-                        executeJarvisCommand("MEB çalışma takvimi ve ara tatil tarihleri nelerdir?")
+                        executeAtilaCommand("Ortak sınav kağıdı ve değerlendirme rubriği taslağı hazırla")
                     }
                 }
             },
@@ -238,7 +255,7 @@ fun HomeScreen(
         )
     }
 
-    // Özel Yapay Zeka Ajanları Açılır Menüsü
+    // 5. Özel Yapay Zeka Ajanları Açılır Menüsü
     if (showAgentsMenu) {
         AlertDialog(
             onDismissRequest = { showAgentsMenu = false },
@@ -258,7 +275,7 @@ fun HomeScreen(
                         color = Color(0xFF4F46E5)
                     ) {
                         showAgentsMenu = false
-                        executeJarvisCommand("Öğretmen başdanışmanı ajanı devrede. Mevzuat veya sınav konusunda emrinizi dinliyorum.")
+                        executeAtilaCommand("Öğretmen başdanışmanı ajanı devrede. Mevzuat veya sınav konusunda emrinizi dinliyorum.")
                     }
                     MebMenuItem(
                         icon = Icons.Default.Gavel,
@@ -267,7 +284,7 @@ fun HomeScreen(
                         color = Color(0xFF0284C7)
                     ) {
                         showAgentsMenu = false
-                        executeJarvisCommand("Mevzuat ve hukuk ajanı devrede. İdari ve kanuni sorularınızı bekliyorum.")
+                        executeAtilaCommand("Mevzuat ve hukuk ajanı devrede. İdari ve kanuni sorularınızı bekliyorum.")
                     }
                     MebMenuItem(
                         icon = Icons.Default.Explore,
@@ -276,7 +293,7 @@ fun HomeScreen(
                         color = Color(0xFF0D9488)
                     ) {
                         showAgentsMenu = false
-                        executeJarvisCommand("Seyahat ve rota ajanı devrede. Gezilecek yerler ve konumlar için emrinizdeyim.")
+                        executeAtilaCommand("Seyahat ve rota ajanı devrede. Gezilecek yerler ve konumlar için emrinizdeyim.")
                     }
                     MebMenuItem(
                         icon = Icons.Default.Security,
@@ -285,7 +302,7 @@ fun HomeScreen(
                         color = Color(0xFFD97706)
                     ) {
                         showAgentsMenu = false
-                        executeJarvisCommand("Şifreli kasa ajanı devrede. Tüm verileriniz güvenle saklanmaktadır.")
+                        executeAtilaCommand("Şifreli kasa ajanı devrede. Tüm verileriniz güvenle saklanmaktadır.")
                     }
                 }
             },
@@ -359,9 +376,9 @@ fun HomeScreen(
                 EmbossedCard(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(44.dp),
-                    cornerRadius = 12.dp,
-                    elevation = 2.dp,
+                        .height(46.dp),
+                    cornerRadius = 14.dp,
+                    elevation = 3.dp,
                     contentPadding = 8.dp,
                     onClick = { onNavigateToCategory("PRAYER_TIMES") }
                 ) {
@@ -371,8 +388,8 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("🕌", fontSize = 14.sp)
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("🕌", fontSize = 15.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Sıradaki Ezan: $nextName ($nextTime)",
                                 fontSize = 12.sp,
@@ -382,9 +399,9 @@ fun HomeScreen(
                         }
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFF0284C7).copy(alpha = 0.12f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFE0F2FE))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
                         ) {
                             Text(
                                 text = "Kalan: $remainingFormatted",
@@ -399,14 +416,14 @@ fun HomeScreen(
         }
 
         // =========================================================================
-        // 1. [SİSTEM & PLANLAMA] (KOMPAKT MİNİ PANELLER)
+        // 1. [SİSTEM & PLANLAMA] (KOMPAKT 3D PANELLER)
         // =========================================================================
         item {
             Text(
                 text = "SİSTEM & PLANLAMA",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Black,
-                color = Slate700,
+                color = Slate800,
                 letterSpacing = 0.8.sp,
                 modifier = Modifier.padding(start = 2.dp, bottom = 2.dp)
             )
@@ -417,7 +434,7 @@ fun HomeScreen(
                 CompactPanelCard(
                     icon = Icons.Default.CalendarMonth,
                     title = "Takvim & Alarm",
-                    accentColor = Color(0xFFEA580C),
+                    gradient = AmberGradient,
                     modifier = Modifier.weight(1f)
                 ) {
                     showCalendarDialog = true
@@ -425,18 +442,18 @@ fun HomeScreen(
                 CompactPanelCard(
                     icon = Icons.Default.Place,
                     title = "Harita & Konum",
-                    accentColor = Color(0xFF0284C7),
+                    gradient = OceanGradient,
                     modifier = Modifier.weight(1f)
                 ) {
                     onNavigateToLocations()
                 }
                 CompactPanelCard(
                     icon = Icons.Default.MenuBook,
-                    title = "MEB & Planlama",
-                    accentColor = Color(0xFF7C3AED),
+                    title = "Özel Kütüphane",
+                    gradient = PurpleGradient,
                     modifier = Modifier.weight(1f)
                 ) {
-                    showMebMenu = true
+                    showKnowledgeLibrary = true
                 }
             }
         }
@@ -449,12 +466,11 @@ fun HomeScreen(
                 text = "KİŞİSEL TAKİP & BELLEK",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Black,
-                color = Slate700,
+                color = Slate800,
                 letterSpacing = 0.8.sp,
                 modifier = Modifier.padding(start = 2.dp, bottom = 2.dp)
             )
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Satır 1: İlaçlar, Faturalar, Alışveriş
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -487,7 +503,6 @@ fun HomeScreen(
                         onNavigateToCategory("SHOPPING")
                     }
                 }
-                // Satır 2: Araç & Park, Sesli Not, Agent'lar
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -524,16 +539,14 @@ fun HomeScreen(
         }
 
         // =========================================================================
-        // 3. [JARVIS TERMİNALİ] (FERAH, GENİŞLETİLMİŞ SOHBET VE SES ALANI)
+        // 3. [ATİLA TERMİNALİ] (AÇIK RENKLİ, 3D KABARTMALI, FERAH SOHBET VE SES ALANI)
         // =========================================================================
         item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(CyberDarkBg)
-                    .border(1.5.dp, Brush.horizontalGradient(listOf(NeonCyan.copy(alpha = 0.6f), NeonPurple.copy(alpha = 0.6f))), RoundedCornerShape(20.dp))
-                    .padding(14.dp)
+            EmbossedCard(
+                modifier = Modifier.fillMaxWidth(),
+                cornerRadius = 20.dp,
+                elevation = 4.dp,
+                contentPadding = 14.dp
             ) {
                 Column {
                     // Terminal Üst Barı
@@ -547,26 +560,25 @@ fun HomeScreen(
                                 modifier = Modifier
                                     .size(10.dp)
                                     .clip(CircleShape)
-                                    .background(NeonCyan)
-                                    .shadow(6.dp, CircleShape, spotColor = NeonCyan)
+                                    .background(Color(0xFF10B981))
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "JARVIS TERMINAL v2.0",
-                                fontSize = 12.sp,
+                                text = "ATİLA TERMİNALİ",
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.Black,
-                                color = NeonCyan,
-                                letterSpacing = 1.sp
+                                color = Slate900,
+                                letterSpacing = 0.5.sp
                             )
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = if (isJarvisProcessing) "İŞLENİYOR" else "ÇEVRİMİÇİ",
+                                text = if (isAtilaProcessing) "İŞLENİYOR" else "ÇEVRİMİÇİ",
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isJarvisProcessing) Color(0xFFF59E0B) else Color(0xFF10B981)
+                                color = if (isAtilaProcessing) Color(0xFFD97706) else Color(0xFF059669)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             IconButton(
                                 onClick = { showAiAssistant = true },
                                 modifier = Modifier.size(24.dp)
@@ -574,40 +586,66 @@ fun HomeScreen(
                                 Icon(
                                     Icons.Default.Fullscreen,
                                     contentDescription = "Genişlet",
-                                    tint = NeonCyan,
+                                    tint = Slate700,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    // Minimal Durum Göstergesi (Kullanıcı talebi: Uzun metin basılmaz, net durum gösterilir)
+                    // Hızlı Aksiyon Çipleri
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    ) {
+                        val quickActions = listOf(
+                            "🌤️ Hava Durumu" to "Bugün hava nasıl?",
+                            "📰 Manşetler" to "Günün gazete manşetleri neler?",
+                            "🎵 Müzik Çal" to "YouTube'da Barış Manço çal",
+                            "📍 Konum Kaydet" to "Konumumu burası olarak kaydet",
+                            "📚 MEB Mevzuat" to "657 Sayılı Kanun ve ÖMK hakları"
+                        )
+                        items(quickActions) { (label, cmd) ->
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFFF1F5F9))
+                                    .clickable { executeAtilaCommand(cmd) }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Slate800)
+                            }
+                        }
+                    }
+
+                    // Minimal Durum Göstergesi (Net ve okunaklı)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .background(CyberCardBg)
-                            .padding(12.dp)
+                            .background(Color(0xFFF8FAFC))
+                            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
+                            .padding(10.dp)
                     ) {
                         Column {
                             if (lastUserPrompt != null) {
                                 Text(
                                     text = "💬 Siz: $lastUserPrompt",
-                                    fontSize = 12.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = Color(0xFFE2E8F0),
+                                    color = Slate700,
                                     maxLines = 2
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (isJarvisProcessing) {
+                                if (isAtilaProcessing) {
                                     CircularProgressIndicator(
-                                        modifier = Modifier.size(14.dp),
+                                        modifier = Modifier.size(12.dp),
                                         strokeWidth = 2.dp,
-                                        color = NeonCyan
+                                        color = OrangePrimary
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                 } else {
@@ -615,17 +653,17 @@ fun HomeScreen(
                                     Spacer(modifier = Modifier.width(4.dp))
                                 }
                                 Text(
-                                    text = "Jarvis: $lastJarvisStatus",
+                                    text = "Atila: $lastAtilaStatus",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = NeonCyan,
+                                    color = Color(0xFF0369A1),
                                     maxLines = 2
                                 )
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // Metin Yazma & Gönder Barı ("Ben yazarsam yeterli")
                     Row(
@@ -637,46 +675,46 @@ fun HomeScreen(
                             value = terminalInputText,
                             onValueChange = { terminalInputText = it },
                             placeholder = {
-                                Text("Emrinizi yazın efendim...", fontSize = 12.sp, color = Color(0xFF64748B))
+                                Text("Emrinizi yazın efendim...", fontSize = 12.sp, color = Color(0xFF94A3B8))
                             },
                             modifier = Modifier.weight(1f),
                             singleLine = true,
                             shape = RoundedCornerShape(14.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = CyberCardBg,
-                                unfocusedContainerColor = CyberCardBg,
-                                focusedBorderColor = NeonCyan,
-                                unfocusedBorderColor = Color(0xFF1E293B),
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White,
+                                focusedBorderColor = OrangePrimary,
+                                unfocusedBorderColor = Color(0xFFE2E8F0),
+                                focusedTextColor = Slate900,
+                                unfocusedTextColor = Slate900
                             ),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                             keyboardActions = KeyboardActions(onSend = {
-                                executeJarvisCommand(terminalInputText)
+                                executeAtilaCommand(terminalInputText)
                             })
                         )
 
-                        // Gönder Butonu
+                        // 3D Gönder Butonu
                         IconButton(
-                            onClick = { executeJarvisCommand(terminalInputText) },
+                            onClick = { executeAtilaCommand(terminalInputText) },
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Brush.linearGradient(listOf(NeonCyan, NeonBlue)))
+                                .background(OceanGradient)
                         ) {
-                            Icon(Icons.Default.Send, contentDescription = "Gönder", tint = CyberDarkBg, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Send, contentDescription = "Gönder", tint = Color.White, modifier = Modifier.size(20.dp))
                         }
 
-                        // 3D Neon Kuantum Mikrofon Butonu
+                        // 3D Renk Geçişli Mikrofon Butonu
                         IconButton(
                             onClick = {
                                 TtsHelper.stop()
-                                startVoice("Jarvis sizi dinliyor efendim...")
+                                startVoice("Atila sizi dinliyor efendim...")
                             },
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Brush.linearGradient(listOf(NeonPurple, Color(0xFFEC4899))))
+                                .background(CoralGradient)
                         ) {
                             Icon(Icons.Default.Mic, contentDescription = "Sesle Konuş", tint = Color.White, modifier = Modifier.size(22.dp))
                         }
@@ -691,12 +729,12 @@ fun HomeScreen(
 private fun CompactPanelCard(
     icon: ImageVector,
     title: String,
-    accentColor: Color,
+    gradient: Brush,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     EmbossedCard(
-        modifier = modifier.height(72.dp),
+        modifier = modifier.height(76.dp),
         cornerRadius = 14.dp,
         elevation = 3.dp,
         contentPadding = 8.dp,
@@ -709,12 +747,12 @@ private fun CompactPanelCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(30.dp)
+                    .size(32.dp)
                     .clip(CircleShape)
-                    .background(accentColor.copy(alpha = 0.14f)),
+                    .background(gradient),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = title, tint = accentColor, modifier = Modifier.size(16.dp))
+                Icon(icon, contentDescription = title, tint = Color.White, modifier = Modifier.size(16.dp))
             }
             Spacer(modifier = Modifier.height(4.dp))
             Text(
