@@ -53,7 +53,8 @@ object AtillaWardrobeManager {
 
         // Genel yedek yanıt
         return DrawerResult(
-            replyText = "Buyrun dostum, sizi dinliyorum. Size nasıl yardımcı olabilirim?"
+            replyText = "Emredersiniz efendim, sizi dinliyorum.",
+            actionSummary = "⚡ Jarvis Dinlemede"
         )
     }
 }

@@ -8,67 +8,48 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.ReminderEntity
 import com.example.ui.LifeAssistantViewModel
-import androidx.compose.material.icons.filled.ReceiptLong
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.LockOpen
-import com.example.ui.components.CategoryUnlockDialog
-import com.example.ui.components.EditReminderDialog
 import com.example.ui.components.EmbossedCard
-import com.example.ui.components.QuickNoteDialog
-import com.example.ui.components.ReminderItem
-import com.example.ui.components.ReorderBlocksDialog
-import com.example.ui.components.getIconVectorByName
+import com.example.ui.components.CalendarManagementDialog
 import com.example.ui.theme.OrangePrimary
-import com.example.ui.theme.RedAccent
 import com.example.ui.theme.Slate700
 import com.example.ui.theme.Slate800
 import com.example.ui.theme.Slate900
 import com.example.ui.theme.TurquoiseSecondary
+import com.example.util.AiAssistantService
+import com.example.util.TtsHelper
+import com.example.util.rememberVoiceRecognizer
 import kotlinx.coroutines.launch
 
+private val CyberDarkBg = Color(0xFF070D1E)
+private val CyberCardBg = Color(0xFF0F1A36)
+private val NeonCyan = Color(0xFF00F2FE)
+private val NeonBlue = Color(0xFF4FACFE)
+private val NeonPurple = Color(0xFFA855F7)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: LifeAssistantViewModel,
@@ -81,146 +62,96 @@ fun HomeScreen(
     onNavigateToCategory: (String) -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
+
     val allReminders by viewModel.allReminders.collectAsStateWithLifecycle()
-    val customCategories by viewModel.customCategories.collectAsStateWithLifecycle()
-    val favoriteCategories by viewModel.favoriteCategories.collectAsStateWithLifecycle()
-    val lockedCategories by viewModel.lockedCategories.collectAsStateWithLifecycle()
-    val parkedCarLat by viewModel.parkedCarLat.collectAsStateWithLifecycle()
-    val homeBlockOrder by viewModel.homeBlockOrder.collectAsStateWithLifecycle()
     val prayerTimingData by viewModel.prayerTimingData.collectAsStateWithLifecycle()
     val directOpenAiAssistant by viewModel.directOpenAiAssistant.collectAsStateWithLifecycle()
     val autoStartListening by viewModel.autoStartListening.collectAsStateWithLifecycle()
     val initialAiPrompt by viewModel.initialAiPrompt.collectAsStateWithLifecycle()
 
-    var showReorderDialog by remember { mutableStateOf(false) }
-    var showAddBlockDialog by remember { mutableStateOf(false) }
-    var showQuickNoteDialog by remember { mutableStateOf(false) }
-    var showAiAssistant by remember { mutableStateOf(false) }
     var showCalendarDialog by remember { mutableStateOf(false) }
+    var showMebMenu by remember { mutableStateOf(false) }
+    var showAgentsMenu by remember { mutableStateOf(false) }
+    var showAiAssistant by remember { mutableStateOf(false) }
+
+    // Jarvis Terminal Durumları
+    var terminalInputText by remember { mutableStateOf("") }
+    var lastUserPrompt by remember { mutableStateOf<String?>(null) }
+    var lastJarvisStatus by remember { mutableStateOf("Sistemler aktif. Emrinizi bekliyorum efendim.") }
+    var isJarvisProcessing by remember { mutableStateOf(false) }
+
+    fun executeJarvisCommand(prompt: String) {
+        val clean = prompt.trim()
+        if (clean.isBlank()) return
+        lastUserPrompt = clean
+        terminalInputText = ""
+        isJarvisProcessing = true
+        lastJarvisStatus = "İşleniyor..."
+
+        scope.launch {
+            try {
+                val response = AiAssistantService.processUserMessage(
+                    context = context,
+                    userMessage = clean,
+                    assistantName = "Jarvis"
+                )
+                isJarvisProcessing = false
+                lastJarvisStatus = response.actionSummary ?: if (response.replyText.length > 50) {
+                    "İşleminiz tamamlandı efendim."
+                } else {
+                    response.replyText
+                }
+
+                if (response.isSpeechReady && response.replyText.isNotBlank()) {
+                    TtsHelper.speak(context, response.replyText)
+                }
+            } catch (e: Exception) {
+                isJarvisProcessing = false
+                lastJarvisStatus = "Hata oluştu efendim. Lütfen tekrar deneyin."
+            }
+        }
+    }
+
+    val startVoice = rememberVoiceRecognizer { spoken ->
+        if (spoken.isNotBlank()) {
+            executeJarvisCommand(spoken)
+        }
+    }
 
     LaunchedEffect(directOpenAiAssistant) {
         if (directOpenAiAssistant) {
             showAiAssistant = true
         }
     }
-    var editingReminder by remember { mutableStateOf<ReminderEntity?>(null) }
-    var reminderToDelete by remember { mutableStateOf<ReminderEntity?>(null) }
-    var selectedCategoryFilter by remember { mutableStateOf<String?>(null) }
 
-    var unlockTargetCategoryKey by remember { mutableStateOf<String?>(null) }
-    var unlockTargetCategoryName by remember { mutableStateOf("") }
-    var isUnlockError by remember { mutableStateOf(false) }
-    var showCreateDialog by remember { mutableStateOf(false) }
-    var lockConfigCategory by remember { mutableStateOf<UnifiedCategory?>(null) }
-
-    if (showCreateDialog) {
-        com.example.ui.components.CreateCustomCategoryDialog(
-            onDismiss = { showCreateDialog = false },
-            onCategoryCreated = { name, colorHex, iconName, fields ->
-                viewModel.addCustomCategory(name, colorHex, iconName, fields)
-            }
-        )
-    }
-
-    if (lockConfigCategory != null) {
-        val cat = lockConfigCategory!!
-        val isCurrentlyLocked = lockedCategories.contains(cat.key)
-        com.example.ui.components.CategoryLockDialog(
-            categoryName = cat.displayName,
-            isCurrentlyLocked = isCurrentlyLocked,
-            onDismiss = { lockConfigCategory = null },
-            onSaveLock = { pin, isLocked ->
-                viewModel.setCategoryLock(cat.key, pin, isLocked)
-                lockConfigCategory = null
-            }
-        )
-    }
-
-    if (unlockTargetCategoryKey != null) {
-        CategoryUnlockDialog(
-            categoryName = unlockTargetCategoryName,
-            isError = isUnlockError,
-            onDismiss = {
-                unlockTargetCategoryKey = null
-                isUnlockError = false
-            },
-            onVerifyPin = { enteredPin ->
-                scope.launch {
-                    val key = unlockTargetCategoryKey ?: return@launch
-                    val isValid = viewModel.verifyCategoryPin(key, enteredPin)
-                    if (isValid) {
-                        isUnlockError = false
-                        unlockTargetCategoryKey = null
-                        onNavigateToCategory(key)
-                    } else {
-                        isUnlockError = true
-                    }
-                }
-            }
-        )
-    }
-
-    // Build unified category list for status badges
-    val allCategories = remember(customCategories) {
-        val list = mutableListOf<UnifiedCategory>()
-        Category.values().forEach { cat ->
-            list.add(
-                UnifiedCategory(
-                    key = cat.name,
-                    displayName = cat.displayName,
-                    color = cat.color,
-                    icon = cat.icon
-                )
+    // Tam Ekran Jarvis Asistan Görünümü (İstenirse)
+    if (showAiAssistant) {
+        androidx.activity.compose.BackHandler {
+            showAiAssistant = false
+            viewModel.consumeAiTrigger()
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF030712))
+        ) {
+            AiAssistantScreen(
+                viewModel = viewModel,
+                onNavigateBack = {
+                    showAiAssistant = false
+                    viewModel.consumeAiTrigger()
+                },
+                autoStartListening = autoStartListening,
+                initialPrompt = initialAiPrompt
             )
         }
-        customCategories.forEach { custom ->
-            val color = try {
-                Color(android.graphics.Color.parseColor(custom.colorHex))
-            } catch (e: Exception) {
-                OrangePrimary
-            }
-            list.add(
-                UnifiedCategory(
-                    key = custom.name,
-                    displayName = custom.name,
-                    color = color,
-                    icon = getIconVectorByName(custom.iconName),
-                    isCustom = true
-                )
-            )
-        }
-        list
+        return
     }
 
-    // Counts per category
-    val categoryCounts = remember(allReminders) {
-        allReminders.groupingBy { it.category }.eachCount()
-    }
-
-    // Filtered or all user reminders grouped by category
-    val remindersGroupedByCategory = remember(allReminders, selectedCategoryFilter) {
-        val filtered = if (selectedCategoryFilter != null) {
-            allReminders.filter { it.category == selectedCategoryFilter }
-        } else {
-            allReminders
-        }
-        filtered.groupBy { it.category }
-    }
-
-    if (showQuickNoteDialog) {
-        QuickNoteDialog(
-            customCategories = customCategories,
-            onDismiss = { showQuickNoteDialog = false },
-            onSaveNote = { reminder ->
-                viewModel.addReminder(reminder)
-                showQuickNoteDialog = false
-            }
-        )
-    }
-
+    // Takvim & Alarm Diyaloğu
     if (showCalendarDialog) {
-        com.example.ui.components.CalendarManagementDialog(
+        CalendarManagementDialog(
             allReminders = allReminders,
             onDismiss = { showCalendarDialog = false },
             onAddEvent = { title, dateMillis, note ->
@@ -235,7 +166,6 @@ fun HomeScreen(
                     actionStep = "SOUND_CLASSIC_BELL"
                 )
                 viewModel.addReminder(newReminder)
-                // Cihaz takvimine de opsiyonel olarak işle
                 com.example.util.NearbyPlacesHelper.insertEventIntoCalendar(
                     context = context,
                     title = title,
@@ -249,133 +179,121 @@ fun HomeScreen(
         )
     }
 
-    if (showAddBlockDialog) {
-        val availableCategories = allCategories.filter { it.key !in homeBlockOrder }
+    // MEB & Planlama Açılır Menüsü
+    if (showMebMenu) {
         AlertDialog(
-            onDismissRequest = { showAddBlockDialog = false },
-            title = { Text("Kategori Ekle", fontWeight = FontWeight.Bold) },
-            text = {
-                LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                    items(availableCategories) { cat ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { 
-                                    val newList = homeBlockOrder.toMutableList()
-                                    val addIndex = newList.indexOf("ADD_NEW")
-                                    if (addIndex != -1) {
-                                        newList.add(addIndex, cat.key)
-                                    } else {
-                                        newList.add(cat.key)
-                                    }
-                                    viewModel.updateHomeBlockOrder(newList)
-                                    showAddBlockDialog = false
-                                }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(cat.icon, contentDescription = null, tint = cat.color, modifier = Modifier.size(24.dp))
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Text(cat.displayName, fontSize = 16.sp)
-                        }
-                    }
-                    if (availableCategories.isEmpty()) {
-                        item {
-                            Text("Eklenebilecek yeni kategori kalmadı.", color = Slate700)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showAddBlockDialog = false }) { Text("Kapat") }
-            }
-        )
-    }
-
-    if (showAiAssistant) {
-        androidx.activity.compose.BackHandler {
-            showAiAssistant = false
-            viewModel.consumeAiTrigger()
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFFF8FAFC))
-                .zIndex(99f)
-        ) {
-            AiAssistantScreen(
-                viewModel = viewModel,
-                autoStartListening = autoStartListening,
-                initialPrompt = initialAiPrompt,
-                onNavigateBack = {
-                    showAiAssistant = false
-                    viewModel.consumeAiTrigger()
-                }
-            )
-        }
-    }
-
-    if (showReorderDialog) {
-        ReorderBlocksDialog(
-            currentOrder = homeBlockOrder,
-            onDismiss = { showReorderDialog = false },
-            onSave = { newOrder ->
-                viewModel.updateHomeBlockOrder(newOrder)
-                showReorderDialog = false
-            }
-        )
-    }
-
-    if (editingReminder != null) {
-        EditReminderDialog(
-            reminder = editingReminder!!,
-            customCategories = customCategories,
-            onDismiss = { editingReminder = null },
-            onSave = { updated ->
-                viewModel.updateReminder(updated)
-                editingReminder = null
-            }
-        )
-    }
-
-    if (reminderToDelete != null) {
-        AlertDialog(
-            onDismissRequest = { reminderToDelete = null },
-            shape = RoundedCornerShape(20.dp),
+            onDismissRequest = { showMebMenu = false },
             title = {
-                Text(
-                    text = "Hatırlatıcıyı Sil",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = Slate900
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("📚", fontSize = 20.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("MEB & Planlama Modülleri", fontWeight = FontWeight.Black, fontSize = 17.sp, color = Slate900)
+                }
             },
             text = {
-                Text(
-                    text = "\"${reminderToDelete?.title}\" adlı hatırlatıcıyı silmek istediğinize emin misiniz?",
-                    fontSize = 14.sp,
-                    color = Slate700
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MebMenuItem(
+                        icon = Icons.Default.MenuBook,
+                        title = "657 DMK & ÖMK Mevzuatı",
+                        subtitle = "Öğretmen hakları, izinler ve kanunlar",
+                        color = Color(0xFF2563EB)
+                    ) {
+                        showMebMenu = false
+                        executeJarvisCommand("657 Sayılı Kanun ve ÖMK öğretmen hakları nelerdir?")
+                    }
+                    MebMenuItem(
+                        icon = Icons.Default.Assignment,
+                        title = "ŞÖK Toplantı Tutanağı",
+                        subtitle = "Şube öğretmenler kurulu taslağı hazırla",
+                        color = Color(0xFF7C3AED)
+                    ) {
+                        showMebMenu = false
+                        executeJarvisCommand("Şube Öğretmenler Kurulu ŞÖK toplantı tutanağı hazırla")
+                    }
+                    MebMenuItem(
+                        icon = Icons.Default.FactCheck,
+                        title = "Sınav Kağıdı & Rubrik",
+                        subtitle = "Ortak sınav sorusu ve değerlendirme tablosu",
+                        color = Color(0xFF059669)
+                    ) {
+                        showMebMenu = false
+                        executeJarvisCommand("Ortak sınav kağıdı ve değerlendirme rubriği taslağı hazırla")
+                    }
+                    MebMenuItem(
+                        icon = Icons.Default.CalendarToday,
+                        title = "MEB Yıllık Plan & Takvim",
+                        subtitle = "Ara tatiller ve çalışma takvimi",
+                        color = Color(0xFFEA580C)
+                    ) {
+                        showMebMenu = false
+                        executeJarvisCommand("MEB çalışma takvimi ve ara tatil tarihleri nelerdir?")
+                    }
+                }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        reminderToDelete?.let { viewModel.deleteReminder(it.id) }
-                        reminderToDelete = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Sil", fontWeight = FontWeight.Bold)
+                TextButton(onClick = { showMebMenu = false }) {
+                    Text("Kapat", fontWeight = FontWeight.Bold, color = Slate700)
+                }
+            }
+        )
+    }
+
+    // Özel Yapay Zeka Ajanları Açılır Menüsü
+    if (showAgentsMenu) {
+        AlertDialog(
+            onDismissRequest = { showAgentsMenu = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🤖", fontSize = 20.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Özel Yapay Zeka Ajanları", fontWeight = FontWeight.Black, fontSize = 17.sp, color = Slate900)
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { reminderToDelete = null }) {
-                    Text("Vazgeç", color = Slate700, fontWeight = FontWeight.SemiBold)
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MebMenuItem(
+                        icon = Icons.Default.School,
+                        title = "Öğretmen Başdanışmanı Ajanı",
+                        subtitle = "Mevzuat, plan ve sınav uzmanı",
+                        color = Color(0xFF4F46E5)
+                    ) {
+                        showAgentsMenu = false
+                        executeJarvisCommand("Öğretmen başdanışmanı ajanı devrede. Mevzuat veya sınav konusunda emrinizi dinliyorum.")
+                    }
+                    MebMenuItem(
+                        icon = Icons.Default.Gavel,
+                        title = "Mevzuat & Hukuk Ajanı",
+                        subtitle = "657, sendika ve idari haklar",
+                        color = Color(0xFF0284C7)
+                    ) {
+                        showAgentsMenu = false
+                        executeJarvisCommand("Mevzuat ve hukuk ajanı devrede. İdari ve kanuni sorularınızı bekliyorum.")
+                    }
+                    MebMenuItem(
+                        icon = Icons.Default.Explore,
+                        title = "Seyahat & Rota Ajanı",
+                        subtitle = "Tarihi eserler, kültür ve eczane",
+                        color = Color(0xFF0D9488)
+                    ) {
+                        showAgentsMenu = false
+                        executeJarvisCommand("Seyahat ve rota ajanı devrede. Gezilecek yerler ve konumlar için emrinizdeyim.")
+                    }
+                    MebMenuItem(
+                        icon = Icons.Default.Security,
+                        title = "Şifreli Kasa & Bellek Ajanı",
+                        subtitle = "Uçtan uca şifreli notlar ve veriler",
+                        color = Color(0xFFD97706)
+                    ) {
+                        showAgentsMenu = false
+                        executeJarvisCommand("Şifreli kasa ajanı devrede. Tüm verileriniz güvenle saklanmaktadır.")
+                    }
                 }
             },
+            confirmButton = {
+                TextButton(onClick = { showAgentsMenu = false }) {
+                    Text("Kapat", fontWeight = FontWeight.Bold, color = Slate700)
+                }
+            }
         )
     }
 
@@ -383,8 +301,12 @@ fun HomeScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp)
     ) {
-        // 🕌 YAKLAŞAN EZAN VAKTİ KARTI (KOMPAKT)
+        // =========================================================================
+        // 🕌 EZAN VAKTİ KARTI (AYNEN KORUNUYOR)
+        // =========================================================================
         if (prayerTimingData != null) {
             item {
                 val timing = prayerTimingData!!
@@ -396,7 +318,7 @@ fun HomeScreen(
                     "Akşam" to timing.aksam,
                     "Yatsı" to timing.yatsi
                 )
-                
+
                 val now = java.util.Calendar.getInstance()
                 val currentHour = now.get(java.util.Calendar.HOUR_OF_DAY)
                 val currentMinute = now.get(java.util.Calendar.MINUTE)
@@ -434,7 +356,6 @@ fun HomeScreen(
                 val minsLeft = minutesUntilNext % 60
                 val remainingFormatted = if (hoursLeft > 0) "${hoursLeft}sa ${minsLeft}dk" else "${minsLeft}dk"
 
-                Spacer(modifier = Modifier.height(10.dp))
                 EmbossedCard(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -477,524 +398,289 @@ fun HomeScreen(
             }
         }
 
-        // --- YAKLAŞAN RANDEVULARINIZ (KOMPAKT & ALAN KAZANDIRAN DİZAYN) ---
+        // =========================================================================
+        // 1. [SİSTEM & PLANLAMA] (KOMPAKT MİNİ PANELLER)
+        // =========================================================================
         item {
-            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "SİSTEM & PLANLAMA",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Black,
+                color = Slate700,
+                letterSpacing = 0.8.sp,
+                modifier = Modifier.padding(start = 2.dp, bottom = 2.dp)
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(Color(0xFFFF6D00), Color(0xFFFF9100)))),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.CalendarMonth,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(13.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Yaklaşan Randevularınız",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Black,
-                        color = Slate900
-                    )
-                }
-                TextButton(onClick = onNavigateToAllReminders, contentPadding = PaddingValues(0.dp)) {
-                    Text("Tümünü Gör", fontSize = 11.sp, color = Color(0xFF2563EB), fontWeight = FontWeight.Bold)
-                }
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-        }
-
-        val upcomingReminders = allReminders
-            .filter { it.dueDateMillis > System.currentTimeMillis() }
-            .sortedBy { it.dueDateMillis }
-            .take(3)
-
-        if (upcomingReminders.isEmpty()) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFFE2E8F0).copy(alpha = 0.6f))
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    contentAlignment = Alignment.CenterStart
+                CompactPanelCard(
+                    icon = Icons.Default.CalendarMonth,
+                    title = "Takvim & Alarm",
+                    accentColor = Color(0xFFEA580C),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        text = "📌 Yaklaşan randevunuz bulunmuyor.",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Slate700
-                    )
+                    showCalendarDialog = true
                 }
-            }
-        } else {
-            items(upcomingReminders, key = { it.id }) { reminder ->
-                EmbossedCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp),
-                    cornerRadius = 10.dp,
-                    elevation = 2.dp,
-                    contentPadding = 8.dp,
-                    onClick = { editingReminder = reminder }
+                CompactPanelCard(
+                    icon = Icons.Default.Place,
+                    title = "Harita & Konum",
+                    accentColor = Color(0xFF0284C7),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            modifier = Modifier.weight(1f),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("🗓️", fontSize = 13.sp)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = reminder.title,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Slate900,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                            )
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = reminder.dueDatetime,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF2563EB)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            IconButton(
-                                onClick = { reminderToDelete = reminder },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = "Sil", tint = Color(0xFFEF4444), modifier = Modifier.size(14.dp))
-                            }
-                        }
-                    }
+                    onNavigateToLocations()
                 }
-                Spacer(modifier = Modifier.height(4.dp))
+                CompactPanelCard(
+                    icon = Icons.Default.MenuBook,
+                    title = "MEB & Planlama",
+                    accentColor = Color(0xFF7C3AED),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    showMebMenu = true
+                }
             }
         }
 
-        // 🌟 3D KABARTMALI PARLAK ASİSTAN HERO BUTONU
+        // =========================================================================
+        // 2. [KİŞİSEL TAKİP & BELLEK] (DOĞRUDAN ODAKLI MİKRO ROZETLER)
+        // =========================================================================
         item {
-            Spacer(modifier = Modifier.height(10.dp))
-            val currentAssistantName by viewModel.aiAssistantName.collectAsStateWithLifecycle()
-            
-            EmbossedCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(76.dp),
-                cornerRadius = 20.dp,
-                elevation = 6.dp,
-                glowColor = Color(0xFF8B5CF6),
-                borderBrush = Brush.horizontalGradient(
-                    listOf(Color(0xFF8B5CF6), Color(0xFFEC4899), Color(0xFF3B82F6))
-                ),
-                onClick = { 
-                    viewModel.triggerAiFromWidget(autoListen = true)
-                    showAiAssistant = true 
-                },
-                contentPadding = 12.dp
-            ) {
+            Text(
+                text = "KİŞİSEL TAKİP & BELLEK",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Black,
+                color = Slate700,
+                letterSpacing = 0.8.sp,
+                modifier = Modifier.padding(start = 2.dp, bottom = 2.dp)
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Satır 1: İlaçlar, Faturalar, Alışveriş
                 Row(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(Color(0xFF8B5CF6), Color(0xFF6D28D9), Color(0xFF4C1D95))
-                                    )
-                                )
-                                .border(1.5.dp, Color.White.copy(alpha = 0.6f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.AutoAwesome,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = currentAssistantName.uppercase(),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = Slate900,
-                                    letterSpacing = 0.5.sp
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(Color(0xFF8B5CF6).copy(alpha = 0.15f))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text("Yapay Zeka", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF6D28D9))
-                                }
-                            }
-                            Text(
-                                text = "Konuşun • Nöbetçi Eczane, Hastane, Sesli Alarm",
-                                fontSize = 11.sp,
-                                color = Slate700,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF8B5CF6).copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center
+                    MicroBadgeCard(
+                        icon = Icons.Default.MedicalServices,
+                        label = "İlaçlar",
+                        badgeDesc = "Doz / Kullanım",
+                        color = Color(0xFFEF4444),
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Icon(
-                            Icons.Default.Mic,
-                            contentDescription = null,
-                            tint = Color(0xFF8B5CF6),
-                            modifier = Modifier.size(20.dp)
-                        )
+                        onNavigateToCategory("MEDICINE")
+                    }
+                    MicroBadgeCard(
+                        icon = Icons.Default.ReceiptLong,
+                        label = "Faturalar",
+                        badgeDesc = "Tutar / Ödeme",
+                        color = Color(0xFF10B981),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        onNavigateToCategory("BILLS_CARDS")
+                    }
+                    MicroBadgeCard(
+                        icon = Icons.Default.ShoppingCart,
+                        label = "Alışveriş",
+                        badgeDesc = "Kontrol Listesi",
+                        color = Color(0xFFF59E0B),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        onNavigateToCategory("SHOPPING")
+                    }
+                }
+                // Satır 2: Araç & Park, Sesli Not, Agent'lar
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    MicroBadgeCard(
+                        icon = Icons.Default.DirectionsCar,
+                        label = "Araç & Park",
+                        badgeDesc = "GPS / Muayene",
+                        color = Color(0xFF06B6D4),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        onNavigateToParkScreen()
+                    }
+                    MicroBadgeCard(
+                        icon = Icons.Default.Mic,
+                        label = "Sesli Not",
+                        badgeDesc = "Şifreli Notlar",
+                        color = Color(0xFF8B5CF6),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        onNavigateToVoiceNotes()
+                    }
+                    MicroBadgeCard(
+                        icon = Icons.Default.SmartToy,
+                        label = "Agent'lar",
+                        badgeDesc = "Özel AI Ajanı",
+                        color = Color(0xFFEC4899),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        showAgentsMenu = true
                     }
                 }
             }
         }
 
+        // =========================================================================
+        // 3. [JARVIS TERMİNALİ] (FERAH, GENİŞLETİLMİŞ SOHBET VE SES ALANI)
+        // =========================================================================
         item {
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // KATEGORİLER & İŞLEMLER MENÜSÜ BAŞLIĞI
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(CyberDarkBg)
+                    .border(1.5.dp, Brush.horizontalGradient(listOf(NeonCyan.copy(alpha = 0.6f), NeonPurple.copy(alpha = 0.6f))), RoundedCornerShape(20.dp))
+                    .padding(14.dp)
             ) {
-                Text(
-                    text = "Kategoriler & İşlemler",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Slate900
-                )
-                TextButton(onClick = { showReorderDialog = true }) {
-                    Text("Düzenle", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
-            }
-
-            // GÖSTERİŞLİ, 3 SÜTUNLU KABARTMALI İŞLEM KUTULARI
-            val filteredBlocks = homeBlockOrder.filter { it != "ALL" && it != "REMINDERS" }
-            val triples = filteredBlocks.chunked(3)
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                triples.forEach { triple ->
+                Column {
+                    // Terminal Üst Barı
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        triple.forEach { blockKey ->
-                            RenderBlock(
-                                blockKey = blockKey,
-                                modifier = Modifier.weight(1f),
-                                parkedCarLat = parkedCarLat,
-                                allRemindersSize = allReminders.size,
-                                favoriteCategoriesSize = favoriteCategories.size,
-                                lockedCategories = lockedCategories,
-                                allCategories = allCategories,
-                                onAction = { action ->
-                                    when (action) {
-                                        "BILLS_CARDS" -> {
-                                            if (lockedCategories.contains("BILLS_CARDS")) {
-                                                unlockTargetCategoryKey = "BILLS_CARDS"
-                                                unlockTargetCategoryName = "Faturalar & Kartlar"
-                                                isUnlockError = false
-                                            } else {
-                                                onNavigateToCategory("BILLS_CARDS")
-                                            }
-                                        }
-                                        "MY_CAR" -> {
-                                            if (lockedCategories.contains("MY_CAR")) {
-                                                unlockTargetCategoryKey = "MY_CAR"
-                                                unlockTargetCategoryName = "Arabam"
-                                                isUnlockError = false
-                                            } else {
-                                                onNavigateToCategory("MY_CAR")
-                                            }
-                                        }
-                                        "CALENDAR", "REMINDERS" -> showCalendarDialog = true
-                                        "QUICK_NOTE" -> showQuickNoteDialog = true
-                                        "VOICE_NOTE" -> onNavigateToVoiceNotes()
-                                        "PARK" -> onNavigateToParkScreen()
-                                        "LOCATIONS" -> onNavigateToLocations()
-                                        "FAVORITES" -> onNavigateToFavoriteCategories()
-                                        "ADD_NEW" -> showAddBlockDialog = true
-                                        else -> {
-                                            val cat = allCategories.find { it.key == action }
-                                            if (cat != null) {
-                                                if (lockedCategories.contains(action)) {
-                                                    unlockTargetCategoryKey = action
-                                                    unlockTargetCategoryName = cat.displayName
-                                                    isUnlockError = false
-                                                } else {
-                                                    onNavigateToCategory(action)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            )
-                        }
-                        // Fill empty slots in the row if less than 3 items
-                        val remainder = 3 - triple.size
-                        repeat(remainder) {
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
-                    }
-                }
-            }
-        }
-
-
-            // --- KATEGORİLER VE YENİ ÖZEL KATEGORİ OLUŞTUR ---
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
-                Text(
-                    text = "Randevu & Hatırlatıcı Kategorileri",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Slate900,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-            }
-
-            item {
-                EmbossedCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(64.dp)
-                        .padding(bottom = 12.dp),
-                    cornerRadius = 14.dp,
-                    elevation = 5.dp,
-                    glowColor = OrangePrimary,
-                    borderBrush = Brush.horizontalGradient(listOf(OrangePrimary, TurquoiseSecondary)),
-                    onClick = { showCreateDialog = true },
-                    contentPadding = 12.dp
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(
                                 modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(
-                                        Brush.linearGradient(listOf(OrangePrimary, Color(0xFFFF4500)))
-                                    ),
-                                contentAlignment = Alignment.Center
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(NeonCyan)
+                                    .shadow(6.dp, CircleShape, spotColor = NeonCyan)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "JARVIS TERMINAL v2.0",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Black,
+                                color = NeonCyan,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (isJarvisProcessing) "İŞLENİYOR" else "ÇEVRİMİÇİ",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isJarvisProcessing) Color(0xFFF59E0B) else Color(0xFF10B981)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            IconButton(
+                                onClick = { showAiAssistant = true },
+                                modifier = Modifier.size(24.dp)
                             ) {
                                 Icon(
-                                    Icons.Default.Add,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text(
-                                    text = "Yeni Özel Kategori Oluştur",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Slate900
-                                )
-                                Text(
-                                    text = "İhtiyacınıza göre özelleştirin",
-                                    fontSize = 12.sp,
-                                    color = Slate700
+                                    Icons.Default.Fullscreen,
+                                    contentDescription = "Genişlet",
+                                    tint = NeonCyan,
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
                     }
-                }
-            }
 
-            // Kategori gridi (3 sütunlu kompakt dizilim)
-            val chunkedCategories = allCategories.chunked(3)
-            chunkedCategories.forEach { triple ->
-                item {
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Minimal Durum Göstergesi (Kullanıcı talebi: Uzun metin basılmaz, net durum gösterilir)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(CyberCardBg)
+                            .padding(12.dp)
+                    ) {
+                        Column {
+                            if (lastUserPrompt != null) {
+                                Text(
+                                    text = "💬 Siz: $lastUserPrompt",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFFE2E8F0),
+                                    maxLines = 2
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (isJarvisProcessing) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(14.dp),
+                                        strokeWidth = 2.dp,
+                                        color = NeonCyan
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                } else {
+                                    Text("⚡", fontSize = 12.sp)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
+                                Text(
+                                    text = "Jarvis: $lastJarvisStatus",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = NeonCyan,
+                                    maxLines = 2
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Metin Yazma & Gönder Barı ("Ben yazarsam yeterli")
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        triple.forEach { cat ->
-                            EmbossedCard(
-                                modifier = Modifier.weight(1f).height(56.dp),
-                                cornerRadius = 12.dp,
-                                elevation = 3.dp,
-                                glowColor = cat.color,
-                                onClick = {
-                                    if (lockedCategories.contains(cat.key)) {
-                                        unlockTargetCategoryKey = cat.key
-                                        unlockTargetCategoryName = cat.displayName
-                                        isUnlockError = false
-                                    } else {
-                                        onNavigateToCategory(cat.key)
-                                    }
-                                },
-                                contentPadding = 6.dp
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxSize(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(32.dp)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(
-                                                Brush.linearGradient(
-                                                    listOf(cat.color, cat.color.copy(alpha = 0.8f))
-                                                )
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = cat.icon,
-                                            contentDescription = null,
-                                            tint = Color.White,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = cat.displayName,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Slate900,
-                                        maxLines = 1,
-                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    if (lockedCategories.contains(cat.key)) {
-                                        Icon(
-                                            Icons.Default.Lock,
-                                            contentDescription = "Kilitli",
-                                            tint = Color(0xFFEF4444),
-                                            modifier = Modifier.size(13.dp).padding(end = 2.dp)
-                                        )
-                                    }
-                                }
-                            }
+                        OutlinedTextField(
+                            value = terminalInputText,
+                            onValueChange = { terminalInputText = it },
+                            placeholder = {
+                                Text("Emrinizi yazın efendim...", fontSize = 12.sp, color = Color(0xFF64748B))
+                            },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            shape = RoundedCornerShape(14.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = CyberCardBg,
+                                unfocusedContainerColor = CyberCardBg,
+                                focusedBorderColor = NeonCyan,
+                                unfocusedBorderColor = Color(0xFF1E293B),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            ),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                            keyboardActions = KeyboardActions(onSend = {
+                                executeJarvisCommand(terminalInputText)
+                            })
+                        )
+
+                        // Gönder Butonu
+                        IconButton(
+                            onClick = { executeJarvisCommand(terminalInputText) },
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Brush.linearGradient(listOf(NeonCyan, NeonBlue)))
+                        ) {
+                            Icon(Icons.Default.Send, contentDescription = "Gönder", tint = CyberDarkBg, modifier = Modifier.size(20.dp))
                         }
-                        val remainder = 3 - triple.size
-                        repeat(remainder) {
-                            Spacer(modifier = Modifier.weight(1f))
+
+                        // 3D Neon Kuantum Mikrofon Butonu
+                        IconButton(
+                            onClick = {
+                                TtsHelper.stop()
+                                startVoice("Jarvis sizi dinliyor efendim...")
+                            },
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Brush.linearGradient(listOf(NeonPurple, Color(0xFFEC4899))))
+                        ) {
+                            Icon(Icons.Default.Mic, contentDescription = "Sesle Konuş", tint = Color.White, modifier = Modifier.size(22.dp))
                         }
                     }
-                }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(100.dp))
-            }
-    }
-}
-
-/**
- * Üstte yer alan kompakt, kabartmalı ve parlayan kategori durum yuvarlağı
- */
-
-@Composable
-fun CategoryEmbossedCircleBadge(
-    category: UnifiedCategory,
-    count: Int,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    val shape = RoundedCornerShape(16.dp)
-
-    Box(
-        modifier = Modifier
-            .shadow(
-                elevation = if (isSelected) 8.dp else 4.dp,
-                shape = shape,
-                spotColor = category.color.copy(alpha = 0.5f)
-            )
-            .clip(shape)
-            .background(
-                brush = if (isSelected) {
-                    Brush.verticalGradient(
-                        listOf(category.color, category.color.copy(alpha = 0.85f))
-                    )
-                } else {
-                    Brush.verticalGradient(
-                        listOf(Color(0xFFFFFFFF), Color(0xFFF8F9FA))
-                    )
-                }
-            )
-            .border(
-                width = if (isSelected) 0.dp else 1.dp,
-                color = if (isSelected) Color.Transparent else Color(0xFFE2E8F0),
-                shape = shape
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = category.icon,
-                contentDescription = category.displayName,
-                tint = if (isSelected) Color.White else category.color,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = category.displayName,
-                fontSize = 13.sp,
-                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
-                color = if (isSelected) Color.White else Slate700
-            )
-            if (count > 0) {
-                Spacer(modifier = Modifier.width(6.dp))
-                Box(
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(if (isSelected) Color.White.copy(alpha = 0.25f) else category.color.copy(alpha = 0.1f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "$count",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Black,
-                        color = if (isSelected) Color.White else category.color
-                    )
                 }
             }
         }
@@ -1002,232 +688,120 @@ fun CategoryEmbossedCircleBadge(
 }
 
 @Composable
-fun CategoryBlock(
-    title: String,
+private fun CompactPanelCard(
     icon: ImageVector,
+    title: String,
+    accentColor: Color,
     modifier: Modifier = Modifier,
-    subtitle: String? = null,
-    gradientColors: List<Color> = listOf(Color(0xFF333333), Color(0xFF111111)),
-    textColor: Color = Color.White,
-    isLocked: Boolean = false,
     onClick: () -> Unit
 ) {
-    val ovalShape = RoundedCornerShape(18.dp)
-    
-    Box(
-        modifier = modifier
-            .height(96.dp)
-            .shadow(
-                elevation = 7.dp,
-                shape = ovalShape,
-                ambientColor = Color.Black.copy(alpha = 0.25f),
-                spotColor = gradientColors.first().copy(alpha = 0.65f)
-            )
-            .clip(ovalShape)
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = gradientColors
-                )
-            )
-            .drawBehind {
-                val highlightHeight = size.height * 0.4f
-                drawRect(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.35f),
-                            Color.White.copy(alpha = 0.05f),
-                            Color.Transparent
-                        ),
-                        startY = 0f,
-                        endY = highlightHeight
-                    )
-                )
-            }
-            .border(
-                width = 1.2.dp,
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        Color.White.copy(alpha = 0.6f),
-                        Color.White.copy(alpha = 0.15f),
-                        Color.Black.copy(alpha = 0.1f)
-                    )
-                ),
-                shape = ovalShape
-            )
-            .clickable(onClick = onClick)
-            .padding(8.dp),
-        contentAlignment = Alignment.Center
+    EmbossedCard(
+        modifier = modifier.height(72.dp),
+        cornerRadius = 14.dp,
+        elevation = 3.dp,
+        contentPadding = 8.dp,
+        onClick = onClick
     ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 modifier = Modifier
-                    .size(34.dp)
+                    .size(30.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.22f))
-                    .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape),
+                    .background(accentColor.copy(alpha = 0.14f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = title,
-                    tint = textColor,
-                    modifier = Modifier.size(18.dp)
-                )
+                Icon(icon, contentDescription = title, tint = accentColor, modifier = Modifier.size(16.dp))
             }
-
-            Spacer(modifier = Modifier.height(6.dp))
-            
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                if (isLocked) {
-                    Icon(
-                        androidx.compose.material.icons.Icons.Default.Lock,
-                        contentDescription = "Kilitli",
-                        tint = textColor,
-                        modifier = Modifier.size(12.dp).padding(end = 2.dp)
-                    )
-                }
-                Text(
-                    text = title,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = textColor,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            if (subtitle != null) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color.Black.copy(alpha = 0.18f))
-                        .padding(horizontal = 5.dp, vertical = 1.dp)
-                ) {
-                    Text(
-                        text = subtitle,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = textColor.copy(alpha = 0.98f)
-                    )
-                }
-            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = title,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Black,
+                color = Slate900,
+                maxLines = 1
+            )
         }
     }
 }
 
 @Composable
-fun RenderBlock(
-    lockedCategories: Set<String>,
-    allCategories: List<UnifiedCategory>,
-    blockKey: String,
+private fun MicroBadgeCard(
+    icon: ImageVector,
+    label: String,
+    badgeDesc: String,
+    color: Color,
     modifier: Modifier = Modifier,
-    parkedCarLat: String?,
-    allRemindersSize: Int,
-    favoriteCategoriesSize: Int,
-    onAction: (String) -> Unit
+    onClick: () -> Unit
 ) {
-    when (blockKey) {
-        "CALENDAR" -> CategoryBlock(
-            title = "Takvim",
-            subtitle = "Etkinlik & Randevu",
-            icon = Icons.Default.CalendarMonth,
-            gradientColors = listOf(Color(0xFF8B5CF6), Color(0xFF6D28D9)),
-            textColor = Color.White,
-            modifier = modifier,
-            onClick = { onAction("CALENDAR") }
-        )
-        "BILLS_CARDS" -> CategoryBlock(
-            title = "Faturalar & Kartlar",
-            icon = Icons.Default.ReceiptLong,
-            gradientColors = listOf(Color(0xFF0284C7), Color(0xFF0369A1)),
-            textColor = Color.White,
-            modifier = modifier,
-            isLocked = lockedCategories.contains("BILLS_CARDS"),
-            onClick = { onAction("BILLS_CARDS") }
-        )
-        "MY_CAR" -> CategoryBlock(
-            title = "Arabam",
-            icon = Icons.Default.DirectionsCar,
-            gradientColors = listOf(Color(0xFFF59E0B), Color(0xFFD97706)),
-            textColor = Color.White,
-            modifier = modifier,
-            isLocked = lockedCategories.contains("MY_CAR"),
-            onClick = { onAction("MY_CAR") }
-        )
-        "QUICK_NOTE" -> CategoryBlock(
-            title = "Hızlı Not",
-            icon = Icons.Default.Edit,
-            gradientColors = listOf(Color(0xFFFF5252), Color(0xFFD50000)),
-            modifier = modifier,
-            onClick = { onAction("QUICK_NOTE") }
-        )
-        "VOICE_NOTE" -> CategoryBlock(
-            title = "Sesli Not",
-            icon = Icons.Default.Mic,
-            gradientColors = listOf(Color(0xFF00E5FF), Color(0xFF0091EA)),
-            textColor = Color.White,
-            modifier = modifier,
-            onClick = { onAction("VOICE_NOTE") }
-        )
-        "PARK" -> CategoryBlock(
-            title = if (parkedCarLat != null) "Park Halinde" else "Park Yeri Kaydet",
-            icon = Icons.Default.DirectionsCar,
-            gradientColors = listOf(Color(0xFFFFD600), Color(0xFFFF9100)),
-            textColor = Color(0xFF3E2723),
-            modifier = modifier,
-            onClick = { onAction("PARK") }
-        )
-        "LOCATIONS" -> CategoryBlock(
-            title = "Lokasyonlar",
-            icon = Icons.Default.Place,
-            gradientColors = listOf(Color(0xFF00E676), Color(0xFF00B248)),
-            textColor = Color.White,
-            modifier = modifier,
-            onClick = { onAction("LOCATIONS") }
-        )
-        "REMINDERS" -> CategoryBlock(
-            title = "Randevular",
-            subtitle = "$allRemindersSize Adet",
-            icon = Icons.Default.CalendarMonth,
-            gradientColors = listOf(Color(0xFFFF6D00), Color(0xFFE65100)),
-            modifier = modifier,
-            onClick = { onAction("REMINDERS") }
-        )
-        "FAVORITES" -> CategoryBlock(
-            title = "Favoriler",
-            icon = Icons.Default.Favorite,
-            gradientColors = listOf(Color(0xFFFF4081), Color(0xFFC2185B)),
-            modifier = modifier,
-            onClick = { onAction("FAVORITES") }
-        )
-        "ADD_NEW" -> CategoryBlock(
-            title = "Yeni Ekle",
-            icon = Icons.Default.Add,
-            gradientColors = listOf(Color(0xFFE040FB), Color(0xFFAA00FF)),
-            modifier = modifier,
-            onClick = { onAction("ADD_NEW") }
-        )
-        else -> {
-            val cat = allCategories.find { it.key == blockKey }
-            if (cat != null) {
-                CategoryBlock(
-                    title = cat.displayName,
-                    icon = cat.icon,
-                    gradientColors = listOf(cat.color, cat.color.copy(alpha = 0.7f)),
-                    textColor = Color.White,
-                    modifier = modifier,
-                    isLocked = lockedCategories.contains(blockKey),
-                    onClick = { onAction(blockKey) }
+    EmbossedCard(
+        modifier = modifier.height(68.dp),
+        cornerRadius = 14.dp,
+        elevation = 2.5.dp,
+        contentPadding = 8.dp,
+        onClick = onClick
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = label,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Slate900,
+                    maxLines = 1
                 )
             }
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = badgeDesc,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Medium,
+                color = Slate700,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+private fun MebMenuItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    color: Color,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFFF8FAFC))
+            .clickable(onClick = onClick)
+            .padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .background(color.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Column {
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Slate900)
+            Text(subtitle, fontSize = 10.sp, color = Slate700)
         }
     }
 }

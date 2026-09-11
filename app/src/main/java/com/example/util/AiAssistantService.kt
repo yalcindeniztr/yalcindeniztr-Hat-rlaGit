@@ -131,7 +131,7 @@ object AiAssistantService {
         val hadTriggerWord = triggerRegex.find(cleanMsg) != null || cleanMsg.equals("atilla", ignoreCase = true) || cleanMsg.equals("atila", ignoreCase = true)
         cleanMsg = cleanMsg.replace(triggerRegex, "").trim()
         if (cleanMsg.isBlank() || (hadTriggerWord && cleanMsg.isBlank())) {
-            return@withContext AiResponse(replyText = "Buyrun, size nasıl yardımcı olabilirim?")
+            return@withContext AiResponse(replyText = "Buyrun efendim, sizi dinliyorum.")
         }
 
         val lowerMsg = cleanMsg.lowercase(Locale.forLanguageTag("tr-TR"))
@@ -161,7 +161,7 @@ object AiAssistantService {
                 )
             } else {
                 return@withContext AiResponse(
-                    replyText = "Saati tam anlayamadım dostum. Lütfen alarm saatini '07:30' veya '8:00' şeklinde söyler misin?"
+                    replyText = "Saati tam anlayamadım efendim. Lütfen alarm saatini '07:30' veya '8:00' şeklinde söyler misiniz?"
                 )
             }
         }
@@ -387,7 +387,7 @@ object AiAssistantService {
             } else if (lowerMsg.startsWith("hayır") || lowerMsg.contains("gerek yok") || lowerMsg.contains("istemiyorum") || lowerMsg.contains("kaydetme") || lowerMsg.contains("iptal")) {
                 UstaSessionState.pendingPlaceToSave = null
                 return@withContext AiResponse(
-                    replyText = "Anlaşıldı dostum, lokasyon kaydı iptal edildi."
+                    replyText = "Emredersiniz efendim, lokasyon kaydı iptal edildi."
                 )
             }
         }
@@ -424,7 +424,7 @@ object AiAssistantService {
     }
 
     private fun getTimeAwareGreeting(userNick: String): String {
-        return "Buyrun dostum!"
+        return "Emredersiniz efendim."
     }
 
     private fun getDeviceLocation(context: Context): Pair<Double, Double> {
