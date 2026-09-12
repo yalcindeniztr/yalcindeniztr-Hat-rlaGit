@@ -43,15 +43,20 @@ object KnowledgeSearchDrawer : AssistantDrawer {
             .take(3)
             .joinToString("\n")
 
+        val sourceText = if (!topMatch.source.isNullOrBlank()) topMatch.source else "mevzuat.gov.tr & meb.gov.tr"
         val reply = if (cleanSummary.isNotBlank()) {
-            "Efendim, ${topMatch.title} maddesi uyarınca:\n$cleanSummary"
+            "📚 **Resmi Kaynak (${topMatch.category}): ${topMatch.title}**\n\n$cleanSummary\n\n_Kaynak: ${sourceText}_"
         } else {
-            "Efendim, ${topMatch.title}:\n${topMatch.content.take(300)}..."
+            "📚 **Resmi Kaynak (${topMatch.category}): ${topMatch.title}**\n\n${topMatch.content.take(350)}...\n\n_Kaynak: ${sourceText}_"
         }
+
+        val firstCleanLine = cleanSummary.lines().firstOrNull { it.isNotBlank() } ?: topMatch.content.take(150)
+        val voiceText = "Efendim, ${topMatch.title} hakkında resmi mevzuat bilgisi: $firstCleanLine"
 
         return DrawerResult(
             replyText = reply,
-            actionSummary = "📚 Kütüphane: ${topMatch.title}"
+            actionSummary = "📚 Kütüphane: ${topMatch.title}",
+            speechText = voiceText
         )
     }
 }

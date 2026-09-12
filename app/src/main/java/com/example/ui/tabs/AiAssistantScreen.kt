@@ -212,7 +212,8 @@ fun AiAssistantScreen(
             // Doğrudan Türkçe Sesli Yanıt ve Tamamlanınca 5 Saniye Dinleme Modu
             if (isVoiceResponsesEnabled && response.isSpeechReady) {
                 isSpeaking = true
-                val trimmedReply = response.replyText.trim()
+                val textToSpeak = response.speechText ?: response.replyText
+                val trimmedReply = textToSpeak.trim()
                 val needsFollowUp = !trimmedReply.endsWith("?") &&
                     !UstaSessionState.isWaitingForAlarmTime &&
                     !UstaSessionState.isWaitingForAlarmLabel &&

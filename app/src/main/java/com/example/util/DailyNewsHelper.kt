@@ -44,6 +44,13 @@ Savunma Sanayiinde İhracat Rekoru: Yerli İHA, SİHA ve zırhlı araç sistemle
     }
 
     /**
+     * TTS için 15-20 saniyelik derli toplu sesli gazete anonsu
+     */
+    fun getVoiceHeadlinesSummary(): String {
+        return "Efendim, bugünün öne çıkan gazete manşetleri: Hürriyet'te yeni ekonomi reform adımları, Sabah'ta yerli teknoloji ve enerji koridorları, Sözcü'de meclis vergi düzenlemeleri, Milliyet'te kentsel dönüşüm seferberliği ve Yeni Şafak'ta savunma sanayii ihracat rekoru yer alıyor. Ayrıntıları ekranınızda listeledim."
+    }
+
+    /**
      * Teknoloji ve Yapay Zeka Haberleri
      */
     fun getTechNews(): String {

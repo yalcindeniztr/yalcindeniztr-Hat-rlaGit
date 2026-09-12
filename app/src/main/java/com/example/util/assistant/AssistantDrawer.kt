@@ -10,7 +10,8 @@ data class DrawerResult(
     val replyText: String,
     val recommendedPlaces: List<NearbyPlace> = emptyList(),
     val actionSummary: String? = null,
-    val isSpeechReady: Boolean = true
+    val isSpeechReady: Boolean = true,
+    val speechText: String? = null
 )
 
 data class WardrobeSessionData(

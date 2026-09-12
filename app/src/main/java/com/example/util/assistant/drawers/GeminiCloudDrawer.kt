@@ -19,8 +19,8 @@ object GeminiCloudDrawer : AssistantDrawer {
 
     private val httpClient by lazy {
         OkHttpClient.Builder()
-            .connectTimeout(4, TimeUnit.SECONDS)
-            .readTimeout(6, TimeUnit.SECONDS)
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
             .build()
     }
 
@@ -32,7 +32,7 @@ object GeminiCloudDrawer : AssistantDrawer {
         lowerQuery: String,
         sessionData: WardrobeSessionData
     ): DrawerResult? {
-        if (sessionData.apiKey.isBlank() || !sessionData.apiKey.startsWith("AIzaSy")) return null
+        if (sessionData.apiKey.isBlank() || sessionData.apiKey.length < 15) return null
 
         val allKnowledge = sessionData.db.aiKnowledgeDao().getAllKnowledgeList()
         val searchWords = lowerQuery.split(Regex("""[\s,?.!;:()'"\-_/]+""")).filter { it.length >= 3 }
@@ -50,18 +50,18 @@ object GeminiCloudDrawer : AssistantDrawer {
         } else null
 
         val targetedKnowledgeSnippet = if (topKnowledge != null) {
-            "\n\nİLGİLİ MEVZUAT/BİLGİ KAYDI (${topKnowledge.title}):\n${topKnowledge.content.take(1500)}\n(Bu bilgiyi kullanarak kullanıcının sorusuna net ve doğrudan cevap ver.)"
+            "\n\nRESMİ DEVLET MEVZUATI / BİLGİ KAYDI (${topKnowledge.title}):\n${topKnowledge.content.take(1500)}\n(Bu resmi bilgiyi referans alarak kullanıcıya net ve doyurucu cevap ver.)"
         } else ""
 
         val systemInstruction = "ROL VE KİMLİK:\n" +
-            "Sen Atila'sın. Üstün zekaya sahip, sadık, saygılı ve hızlı bir kişisel asistansın.\n" +
+            "Sen ATİLA'sın. Tony Stark'ın Jarvis'i gibi son derece zeki, saygılı, esprili, pratik ve her konuya hakim üstün bir kişisel asistansın.\n" +
             "Kullanıcıya daima 'Efendim' veya 'Emredersiniz efendim' diye hitap et.\n" +
-            "Öğretmenlik Meslek Kanunu (ÖMK), 657 DMK, MEB mevzuatı, sendikal haklar, Türkiye coğrafyası ve UNESCO kültür miraslarına tam hakimsin.\n\n" +
-            "TEMEL KURALLAR:\n" +
-            "1. KISA VE NET: Çok konuşma! Asla gereksiz açıklama, ön konuşma, rapor formatı yapma. Sorulan soruya veya emre doğrudan 'Efendim, ...' şeklinde 1-2 cümleyle doğrudan yanıt ver.\n" +
-            "2. KÜTÜPHANE FİHRİSTİ SAYMAK KESİNLİKLE YASAKTIR: Kullanıcı sormadıkça asla kütüphane başlıklarını sayma.\n" +
-            "3. KOD VEYA ETİKET YASAK: Yanıtlarında asla gereksiz teknik terim yer alamaz.\n" +
-            "4. EYLEM: Bir işlem (arama, alarm, whatsapp, harita vb.) yapacaksan yanıtın sonuna ```action\n{\"action_type\": \"...\", \"payload\": {...}}\n``` bloğu ekle ve öncesinde 1 kısa cümleyle teyit ver.\n\n" +
+            "Öğretmenlik Meslek Kanunu (ÖMK), 657 DMK, MEB mevzuatı, sendikal haklar, Türkiye coğrafyası, devletin resmi kaynakları (mevzuat.gov.tr, meb.gov.tr, resmigazete.gov.tr, titck.gov.tr, mgm.gov.tr) konusunda tam bir uzmansın.\n\n" +
+            "YETENEKLER VE DAVRANIŞ:\n" +
+            "1. FİKİR VE TAVSİYE: Kullanıcı bir konuda fikrini sorduğunda (örn: bir karar, telefon, araba, mesleki adım) doğrudan akılcı, artı ve eksileri özetleyen net bir değerlendirme sun.\n" +
+            "2. GÜNDELİK VE ANSİKLOPEDİK SORULAR: Bilim, sanat, teknoloji, tarih veya gündelik hayat sorularında doğrudan, akıcı ve doyurucu cevap ver.\n" +
+            "3. DOĞAL VE AKICI DİL: Asla robotik veya sıkıcı olma. Gereksiz rapor formatı ve fihrist sayma yapma.\n" +
+            "4. SİSTEM AKSİYONLARI: Bir işlem (arama, whatsapp, sms, alarm, harita, uygulama açma vb.) yapacaksan yanıtın sonuna ```action\n{\"action_type\": \"...\", \"payload\": {...}}\n``` bloğu ekle.\n\n" +
             "Konum: ${sessionData.userCity}, ${sessionData.userDistrict}.$targetedKnowledgeSnippet"
 
         val jsonBody = JSONObject().apply {
@@ -91,16 +91,13 @@ object GeminiCloudDrawer : AssistantDrawer {
             put("contents", contentsArray)
 
             put("generationConfig", JSONObject().apply {
-                put("temperature", 0.6)
-                put("maxOutputTokens", 600)
-                put("thinkingConfig", JSONObject().apply {
-                    put("thinkingBudget", 0)
-                })
+                put("temperature", 0.7)
+                put("maxOutputTokens", 800)
             })
         }
 
         val requestBody = jsonBody.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
-        val models = listOf("gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash")
+        val models = listOf("gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro")
 
         for (model in models) {
             val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=${sessionData.apiKey}"
@@ -126,7 +123,8 @@ object GeminiCloudDrawer : AssistantDrawer {
                                 }
                                 return DrawerResult(
                                     replyText = parsed.speechText,
-                                    actionSummary = summary
+                                    actionSummary = summary,
+                                    speechText = parsed.speechText
                                 )
                             }
                         }

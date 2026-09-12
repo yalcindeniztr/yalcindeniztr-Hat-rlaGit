@@ -41,13 +41,22 @@ import com.example.ui.theme.TurquoiseSecondary
 import com.example.util.AiAssistantService
 import com.example.util.TtsHelper
 import com.example.util.rememberVoiceRecognizer
+import com.example.util.InAppSpeechRecognizerManager
+import com.example.util.InAppListeningDialog
+import com.example.util.UstaSessionState
+import java.util.Locale
 import kotlinx.coroutines.launch
 
-// İç Açıcı Açık Renk Paleti (Light 3D & Soft Neumorphism)
+// Canlı ve Enerjik Renk Paleti (Vibrant 3D Neumorphism)
 private val LightBg = Color(0xFFF8FAFC)
 private val CardBg = Color(0xFFFFFFFF)
 private val CoralGradient = Brush.horizontalGradient(listOf(Color(0xFFFF6B6B), Color(0xFFFF8E53)))
 private val OceanGradient = Brush.horizontalGradient(listOf(Color(0xFF0284C7), Color(0xFF38BDF8)))
+private val EmeraldGradient = Brush.horizontalGradient(listOf(Color(0xFF059669), Color(0xFF10B981), Color(0xFF34D399)))
+private val RoyalPurpleGradient = Brush.horizontalGradient(listOf(Color(0xFF7C3AED), Color(0xFF8B5CF6), Color(0xFFA78BFA)))
+private val GoldenAmberGradient = Brush.horizontalGradient(listOf(Color(0xFFD97706), Color(0xFFF59E0B), Color(0xFFFBBF24)))
+private val NeonCyanGradient = Brush.horizontalGradient(listOf(Color(0xFF0891B2), Color(0xFF06B6D4), Color(0xFF22D3EE)))
+private val RosePinkGradient = Brush.horizontalGradient(listOf(Color(0xFFDB2777), Color(0xFFEC4899), Color(0xFFF472B6)))
 private val PurpleGradient = Brush.horizontalGradient(listOf(Color(0xFF7C3AED), Color(0xFFA855F7)))
 private val MintGradient = Brush.horizontalGradient(listOf(Color(0xFF059669), Color(0xFF34D399)))
 private val AmberGradient = Brush.horizontalGradient(listOf(Color(0xFFEA580C), Color(0xFFF59E0B)))
@@ -86,6 +95,22 @@ fun HomeScreen(
     var lastAtilaStatus by remember { mutableStateOf("Sistemler hazır. Emrinizi bekliyorum efendim.") }
     var isAtilaProcessing by remember { mutableStateOf(false) }
 
+    // 10 Saniyelik Kesintisiz Dinleyen Hands-Free Speech Recognizer
+    var executeAtilaCommandRef by remember { mutableStateOf<(String) -> Unit>({}) }
+
+    val inAppSpeechManager = remember {
+        InAppSpeechRecognizerManager(context) { recognizedText ->
+            if (recognizedText.isNotBlank()) {
+                val lower = recognizedText.lowercase(Locale.forLanguageTag("tr-TR")).trim()
+                if (lower == "kapat" || lower == "tamam" || lower == "teşekkürler" || lower == "sağol" || lower == "iptal" || lower == "dur") {
+                    TtsHelper.speak(context, "Emredersiniz efendim, ben buradayım.")
+                } else {
+                    executeAtilaCommandRef(recognizedText)
+                }
+            }
+        }
+    }
+
     fun executeAtilaCommand(prompt: String) {
         val clean = prompt.trim()
         if (clean.isBlank()) return
@@ -102,14 +127,33 @@ fun HomeScreen(
                     assistantName = "ATİLA"
                 )
                 isAtilaProcessing = false
-                lastAtilaStatus = response.actionSummary ?: if (response.replyText.length > 50) {
+                lastAtilaStatus = response.actionSummary ?: if (response.replyText.length > 60) {
                     "İşleminiz tamamlandı efendim."
                 } else {
                     response.replyText
                 }
 
                 if (response.isSpeechReady && response.replyText.isNotBlank()) {
-                    TtsHelper.speak(context, response.replyText)
+                    val speechToSpeak = response.speechText ?: response.replyText
+                    val trimmedSpeech = speechToSpeak.trim()
+
+                    val needsFollowUp = !trimmedSpeech.endsWith("?") &&
+                        !UstaSessionState.isWaitingForAlarmTime &&
+                        !UstaSessionState.isWaitingForAlarmLabel
+
+                    val fullSpeech = if (needsFollowUp) {
+                        "$trimmedSpeech Başka bir emriniz var mı?"
+                    } else {
+                        trimmedSpeech
+                    }
+
+                    TtsHelper.speak(context, fullSpeech) {
+                        // Seslendirme tamamlandıktan sonra kullanıcı butona basmadan otomatik 7 saniye dinlemeye geçer!
+                        scope.launch {
+                            kotlinx.coroutines.delay(500L)
+                            inAppSpeechManager.startListening(scope, initialSeconds = 7)
+                        }
+                    }
                 }
             } catch (_: Exception) {
                 isAtilaProcessing = false
@@ -117,6 +161,7 @@ fun HomeScreen(
             }
         }
     }
+    executeAtilaCommandRef = { prompt -> executeAtilaCommand(prompt) }
 
     val startVoice = rememberVoiceRecognizer { spoken ->
         if (spoken.isNotBlank()) {
@@ -313,6 +358,8 @@ fun HomeScreen(
             }
         )
     }
+
+    InAppListeningDialog(manager = inAppSpeechManager, assistantName = "ATİLA")
 
     LazyColumn(
         modifier = Modifier
@@ -601,9 +648,12 @@ fun HomeScreen(
                         modifier = Modifier.padding(bottom = 8.dp)
                     ) {
                         val quickActions = listOf(
-                            "🌤️ Hava Durumu" to "Bugün hava nasıl?",
-                            "📰 Manşetler" to "Günün gazete manşetleri neler?",
+                            "🏥 Nöbetçi Eczane" to "En yakın nöbetçi eczane nerede?",
+                            "📋 Günü Planla" to "Bugün için dengeli bir günlük rutin planla",
+                            "🌤️ Canlı Hava" to "Bugün hava nasıl?",
+                            "📰 Manşetler" to "Günün gazete manşetlerini özetle",
                             "🎵 Müzik Çal" to "YouTube'da Barış Manço çal",
+                            "💡 Karar / Fikir Sor" to "Sence bir konuda ne yapmalıyım?",
                             "📍 Konum Kaydet" to "Konumumu burası olarak kaydet",
                             "📚 MEB Mevzuat" to "657 Sayılı Kanun ve ÖMK hakları"
                         )
@@ -705,18 +755,19 @@ fun HomeScreen(
                             Icon(Icons.Default.Send, contentDescription = "Gönder", tint = Color.White, modifier = Modifier.size(20.dp))
                         }
 
-                        // 3D Renk Geçişli Mikrofon Butonu
+                        // 3D Renk Geçişli Mikrofon Butonu (Hands-Free Akıcı Dinleme)
                         IconButton(
                             onClick = {
                                 TtsHelper.stop()
-                                startVoice("Atila sizi dinliyor efendim...")
+                                inAppSpeechManager.startListening(scope, initialSeconds = 12)
                             },
                             modifier = Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(12.dp))
+                                .size(46.dp)
+                                .clip(RoundedCornerShape(14.dp))
                                 .background(CoralGradient)
+                                .shadow(4.dp, RoundedCornerShape(14.dp))
                         ) {
-                            Icon(Icons.Default.Mic, contentDescription = "Sesle Konuş", tint = Color.White, modifier = Modifier.size(22.dp))
+                            Icon(Icons.Default.Mic, contentDescription = "Sesle Konuş (Hands-Free)", tint = Color.White, modifier = Modifier.size(24.dp))
                         }
                     }
                 }

@@ -25,7 +25,10 @@ object TtsHelper {
     fun speak(context: Context, text: String, onDone: (() -> Unit)? = null) {
         val appContext = context.applicationContext
         val cleanText = sanitizeForSpeech(text)
-        if (cleanText.isBlank()) return
+        if (cleanText.isBlank()) {
+            onDone?.invoke()
+            return
+        }
 
         Handler(Looper.getMainLooper()).post {
             try {
@@ -36,13 +39,16 @@ object TtsHelper {
                             tts?.let { engine ->
                                 configureMaleVoice(engine)
                                 isInitialized = true
-                                pendingText?.let { t ->
-                                    executeSpeak(engine, t, onDone)
-                                    pendingText = null
-                                }
+                                val textToSpeak = pendingText ?: cleanText
+                                pendingText = null
+                                executeSpeak(engine, textToSpeak, onDone)
                             }
                         } else {
                             Log.w(TAG, "TextToSpeech initialization failed with code $status")
+                            isInitialized = false
+                            tts = null
+                            pendingText = null
+                            onDone?.invoke()
                         }
                     }
                 } else if (isInitialized) {
@@ -54,6 +60,7 @@ object TtsHelper {
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error initiating speech synthesis", e)
+                onDone?.invoke()
             }
         }
     }
@@ -61,7 +68,11 @@ object TtsHelper {
     private fun configureMaleVoice(engine: TextToSpeech) {
         try {
             val turkishLocale = Locale("tr", "TR")
-            engine.setLanguage(turkishLocale)
+            val langResult = engine.setLanguage(turkishLocale)
+            if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+                Log.w(TAG, "Turkish voice not installed or supported, fallback to system default.")
+                engine.language = Locale.getDefault()
+            }
 
             val allVoices = engine.voices
             if (!allVoices.isNullOrEmpty()) {
@@ -94,8 +105,8 @@ object TtsHelper {
         }
 
         // Derin, tok ve karizmatik erkek tonu
-        engine.setPitch(0.80f)
-        engine.setSpeechRate(0.98f)
+        engine.setPitch(0.82f)
+        engine.setSpeechRate(1.02f)
     }
 
     fun sanitizeForSpeech(rawText: String): String {
@@ -176,9 +187,24 @@ object TtsHelper {
     }
 
     private fun executeSpeak(engine: TextToSpeech, text: String, onDone: (() -> Unit)? = null) {
-        engine.setPitch(0.80f)
-        engine.setSpeechRate(0.98f)
+        engine.setPitch(0.82f)
+        engine.setSpeechRate(1.02f)
         
+        // Çok uzun metinlerde (örn. 350+ karakter) cümlenin ortasında kesilmeden ilk 1-2 cümleyi akıcı seslendir
+        val trimmedText = if (text.length > 350) {
+            val periodIdx = text.indexOf('.', 120)
+            val exclamationIdx = text.indexOf('!', 120)
+            val questionIdx = text.indexOf('?', 120)
+            val validIndices = listOf(periodIdx, exclamationIdx, questionIdx).filter { it in 120..380 }
+            if (validIndices.isNotEmpty()) {
+                text.substring(0, validIndices.minOrNull()!! + 1)
+            } else {
+                text.take(350).trim() + "..."
+            }
+        } else {
+            text
+        }
+
         val utteranceId = "HatirlaGitMaleVoiceUtterance_" + System.currentTimeMillis()
         if (onDone != null) {
             engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
@@ -199,7 +225,7 @@ object TtsHelper {
                 }
             })
         }
-        engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
+        engine.speak(trimmedText, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
     }
 
     fun stop() {

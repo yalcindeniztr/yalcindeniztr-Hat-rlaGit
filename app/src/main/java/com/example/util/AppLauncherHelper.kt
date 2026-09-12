@@ -247,12 +247,12 @@ object AppLauncherHelper {
                             launchIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
                             context.startActivity(launchIntent)
                             val resolvedName = pm.getApplicationLabel(matchedApp).toString()
-                            Pair(true, "🚀 $resolvedName uygulaması açıldı dostum!")
+                            Pair(true, "🚀 $resolvedName uygulaması açıldı efendim.")
                         } else {
-                            Pair(false, "Uygulama açılamadı dostum.")
+                            Pair(false, "Uygulama açılamadı efendim.")
                         }
                     } else {
-                        Pair(false, "Cihazınızda '$cleanTarget' isimli bir uygulama bulunamadı dostum.")
+                        Pair(false, "Cihazınızda '$cleanTarget' isimli bir uygulama bulunamadı efendim.")
                     }
                 }
             }
@@ -266,9 +266,9 @@ object AppLauncherHelper {
         return if (launchIntent != null) {
             launchIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
             context.startActivity(launchIntent)
-            Pair(true, "🚀 $appLabel uygulaması açıldı dostum!")
+            Pair(true, "🚀 $appLabel uygulaması açıldı efendim.")
         } else {
-            Pair(false, "📱 $appLabel uygulaması cihazınızda yüklü görünmüyor.")
+            Pair(false, "📱 $appLabel uygulaması cihazınızda yüklü görünmüyor efendim.")
         }
     }
 }

@@ -24,7 +24,8 @@ data class AiResponse(
     val replyText: String,
     val recommendedPlaces: List<NearbyPlace> = emptyList(),
     val actionSummary: String? = null,
-    val isSpeechReady: Boolean = true
+    val isSpeechReady: Boolean = true,
+    val speechText: String? = null
 )
 
 object UstaSessionState {
@@ -123,7 +124,8 @@ object AiAssistantService {
         val hadTriggerWord = triggerRegex.find(cleanMsg) != null || cleanMsg.equals("atilla", ignoreCase = true) || cleanMsg.equals("atila", ignoreCase = true)
         cleanMsg = cleanMsg.replace(triggerRegex, "").trim()
         if (cleanMsg.isBlank() || (hadTriggerWord && cleanMsg.isBlank())) {
-            return@withContext AiResponse(replyText = "Buyrun efendim, sizi dinliyorum.")
+            val speech = "Buyrun efendim, sizi dinliyorum."
+            return@withContext AiResponse(replyText = speech, speechText = speech)
         }
 
         val lowerMsg = cleanMsg.lowercase(Locale.forLanguageTag("tr-TR"))
@@ -132,7 +134,47 @@ object AiAssistantService {
         val (userCity, userDistrict) = NearbyPlacesHelper.getUserCityAndDistrict(context, realLat, realLng)
 
         // =========================================================================
-        // 1. DOĞRUDAN SESLİ / HIZLI NOT KAYDETME (GARANTİLİ ROOM + LOCALSTORAGE)
+        // 1. NÖBETÇİ ECZANE SORGULAMA (TİTCK & GOOGLE MAPS SAĞLIK ENTEGRASYONU)
+        // =========================================================================
+        if (lowerMsg.contains("eczane") || lowerMsg.contains("nöbetçi") || lowerMsg.contains("nobetci") || lowerMsg.contains("ilaç nereden")) {
+            val district = userDistrict.ifBlank { "Merkez" }
+            val city = userCity.ifBlank { "Bulunduğunuz Şehir" }
+            val searchQuery = "Nöbetçi Eczane $city $district"
+            NearbyPlacesHelper.openGoogleMapsNavigation(context, searchQuery, realLat, realLng, searchQuery)
+            val speech = "Efendim, $district bölgesindeki nöbetçi eczaneleri haritada sizin için listeledim ve yol tarifini açtım."
+            return@withContext AiResponse(
+                replyText = "🏥 Efendim, Sağlık Bakanlığı ve TİTCK nöbet çizelgelerine uygun olarak $city $district bölgesindeki açık nöbetçi eczaneleri haritada sizin için listeledim ve yol tarifini başlattım.",
+                actionSummary = "🏥 Nöbetçi Eczaneler: $city $district",
+                speechText = speech
+            )
+        }
+
+        // =========================================================================
+        // 2. GÜNLÜK RUTİN VE PROGRAMLAMA MOTORU
+        // =========================================================================
+        if (lowerMsg.contains("günü planla") || lowerMsg.contains("günlük plan") || lowerMsg.contains("rutin") ||
+            lowerMsg.contains("bugün ne yap") || lowerMsg.contains("programım") || lowerMsg.contains("günlük program")) {
+            if (lowerMsg.contains("işle") || lowerMsg.contains("kaydet") || lowerMsg.contains("kur")) {
+                val scheduleSummary = DailyRoutinePlanner.scheduleFullRoutine(context)
+                val speech = "Efendim, günlük rutinlerinizin tamamını takviminize ve sesli alarmlarınıza başarıyla işledim."
+                return@withContext AiResponse(
+                    replyText = "🗓️ Efendim, günlük dengeli yaşam ve çalışma rutinleriniz alarmlarınıza ve yerel takviminize işlendi.\n\n$scheduleSummary",
+                    actionSummary = scheduleSummary,
+                    speechText = speech
+                )
+            } else {
+                val fullPlan = DailyRoutinePlanner.getDailyPlanBriefing(currentNick)
+                val voiceSummary = DailyRoutinePlanner.getVoiceRoutineSummary(currentNick)
+                return@withContext AiResponse(
+                    replyText = fullPlan,
+                    actionSummary = "📋 Günlük Rutin Programı",
+                    speechText = voiceSummary
+                )
+            }
+        }
+
+        // =========================================================================
+        // 3. DOĞRUDAN SESLİ / HIZLI NOT KAYDETME (GARANTİLİ ROOM + LOCALSTORAGE)
         // =========================================================================
         if (lowerMsg.startsWith("sesli not al") || lowerMsg.startsWith("not al") || lowerMsg.startsWith("not ekle") || lowerMsg.startsWith("hızlı not al")) {
             val noteContent = cleanMsg.replace(Regex("(?i)^(sesli not al|not al|not ekle|hızlı not al)[: ]*"), "").trim()
@@ -154,14 +196,16 @@ object AiAssistantService {
                 )
             )
             LocalStorageManager.saveLocalNote(context, noteTitle, noteBody, "SESLİ NOT")
+            val speech = "Efendim, notunuz yerel belleğe başarıyla kaydedildi."
             return@withContext AiResponse(
                 replyText = "Efendim, notunuz 'Sesli Notlar' listenize ve yerel belleğe başarıyla kaydedildi.",
-                actionSummary = "📝 Not Kaydedildi: $noteTitle"
+                actionSummary = "📝 Not Kaydedildi: $noteTitle",
+                speechText = speech
             )
         }
 
         // =========================================================================
-        // 2. DOĞRUDAN KONUM KAYDETME (GARANTİLİ GPS + ROOM + LOCALSTORAGE)
+        // 4. DOĞRUDAN KONUM KAYDETME (GARANTİLİ GPS + ROOM + LOCALSTORAGE)
         // =========================================================================
         if (lowerMsg.contains("konumumu kaydet") || lowerMsg.contains("burayı kaydet") || lowerMsg.contains("konum kaydet") || lowerMsg.contains("haritaya kaydet") || lowerMsg.contains("lokasyona kaydet")) {
             val locName = cleanMsg.replace(Regex("(?i)konumumu kaydet|burayı kaydet|konum kaydet|haritaya kaydet|lokasyona kaydet|olarak|adıyla|adı|bana"), "").trim()
@@ -176,14 +220,16 @@ object AiAssistantService {
                 )
             )
             LocalStorageManager.saveLocalLocation(context, locName, realLat, realLng)
+            val speech = "Efendim, $locName konumunuz belleğe kaydedildi."
             return@withContext AiResponse(
                 replyText = "Efendim, '$locName' konumunuz ($userCity $userDistrict) 'Kayıtlı Lokasyonlarım' listenize ve yerel belleğe başarıyla kaydedildi.",
-                actionSummary = "📍 Konum Kaydedildi: $locName"
+                actionSummary = "📍 Konum Kaydedildi: $locName",
+                speechText = speech
             )
         }
 
         // =========================================================================
-        // 3. DOĞRUDAN İLAÇ HATIRLATICISI EKLEME
+        // 5. DOĞRUDAN İLAÇ HATIRLATICISI EKLEME
         // =========================================================================
         if (lowerMsg.startsWith("ilaç ekle") || lowerMsg.startsWith("ilaç hatırlat") || lowerMsg.contains("ilacımı ekle")) {
             val medName = cleanMsg.replace(Regex("(?i)^(ilaç ekle|ilaç hatırlat|ilacımı ekle)[: ]*"), "").trim()
@@ -213,48 +259,74 @@ object AiAssistantService {
             AlarmHelper.scheduleAlarm(context, newRem.copy(id = insertedId.toInt()))
             LocalStorageManager.saveLocalReminder(context, "💊 $drugTitle", dateStr, cal.timeInMillis, "MEDICINE")
 
+            val timeFormatted = String.format(Locale.ROOT, "%02d:%02d", hour, min)
+            val speech = "Efendim, $drugTitle ilacınız her gün saat $timeFormatted için alarmlarınıza eklendi."
             return@withContext AiResponse(
-                replyText = "Efendim, '$drugTitle' ilacınız her gün saat ${String.format(Locale.ROOT, "%02d:%02d", hour, min)} için ilaç listenize ve sesli alarmlarınıza eklendi.",
-                actionSummary = "💊 İlaç Eklendi: $drugTitle"
+                replyText = "Efendim, '$drugTitle' ilacınız her gün saat $timeFormatted için ilaç listenize ve sesli alarmlarınıza eklendi.",
+                actionSummary = "💊 İlaç Eklendi: $drugTitle",
+                speechText = speech
             )
         }
 
         // =========================================================================
-        // 4. CANLI HAVA DURUMU & GAZETE MANŞETLERİ
+        // 6. CANLI HAVA DURUMU & GAZETE MANŞETLERİ
         // =========================================================================
-        if (lowerMsg.contains("hava durumu") || lowerMsg.contains("hava nasıl")) {
+        if (lowerMsg.contains("hava durumu") || lowerMsg.contains("hava nasıl") || lowerMsg.contains("hava kaç derece") || lowerMsg.contains("yağmur var mı") || lowerMsg.contains("hava")) {
             val weatherText = WeatherHelper.getLiveWeather(context, realLat, realLng, userCity.ifBlank { "Bulunduğunuz Şehir" })
+            val voiceWeather = WeatherHelper.getVoiceWeatherBriefing(context, realLat, realLng, userCity.ifBlank { "Bulunduğunuz Şehir" })
             return@withContext AiResponse(
                 replyText = weatherText,
-                actionSummary = "🌤️ Hava Durumu: $userCity"
+                actionSummary = "🌤️ Hava Durumu: $userCity",
+                speechText = voiceWeather
             )
         }
 
-        if (lowerMsg.contains("gazete manşet") || lowerMsg.contains("haberler") || lowerMsg.contains("günün haber")) {
+        if (lowerMsg.contains("gazete manşet") || lowerMsg.contains("haberler") || lowerMsg.contains("günün haber") || lowerMsg.contains("gazeteleri özetle") || lowerMsg.contains("gündem") || lowerMsg.contains("son dakika")) {
             val headlines = DailyNewsHelper.getHeadlinesOnly()
+            val voiceHeadlines = DailyNewsHelper.getVoiceHeadlinesSummary()
             return@withContext AiResponse(
                 replyText = headlines,
-                actionSummary = "📰 Günlük Gazete Manşetleri"
+                actionSummary = "📰 Günlük Gazete Manşetleri",
+                speechText = voiceHeadlines
             )
         }
 
         // =========================================================================
-        // 5. YOUTUBE MÜZİK ÇALMA
+        // 7. YOUTUBE MÜZİK ÇALMA
         // =========================================================================
         if (lowerMsg.contains("çal") || lowerMsg.contains("müzik") || lowerMsg.contains("şarkı") || lowerMsg.contains("youtube")) {
             val songQuery = cleanMsg.replace(Regex("(?i)youtube'dan|youtube'da|youtube|şarkısını|şarkıyı|müziğini|müzik|çal|aç|oynat|bul|bana"), "").trim().ifBlank { "Müzik" }
             val (_, msg) = AppLauncherHelper.playYouTubeSong(context, songQuery)
+            val speech = "Efendim, YouTube'da $songQuery çalınıyor."
             return@withContext AiResponse(
                 replyText = msg,
-                actionSummary = "▶️ YouTube: $songQuery"
+                actionSummary = "▶️ YouTube: $songQuery",
+                speechText = speech
             )
         }
 
         // =========================================================================
-        // 6. DURUM MAKİNESİ (İNTERAKTİF ALARM & HATIRLATICI ADIMLARI)
+        // 8. UYGULAMA AÇMA (SESLE DİNAMİK BAŞLATMA)
         // =========================================================================
+        if (lowerMsg.endsWith("aç") || lowerMsg.contains("uygulamayı aç") || lowerMsg.contains("uygulamasını aç") ||
+            lowerMsg.contains("hesap makinesi") || lowerMsg.contains("galeri") || lowerMsg.contains("kamera") ||
+            lowerMsg.contains("spotify") || lowerMsg.contains("instagram")) {
+            val target = cleanMsg.replace(Regex("(?i)lütfen|bana|hemen|aç|uygulamasını|uygulamayı|uygulama"), "").trim()
+            if (target.isNotBlank()) {
+                val (success, msg) = AppLauncherHelper.openApplicationByVoice(context, target)
+                if (success) {
+                    return@withContext AiResponse(
+                        replyText = msg,
+                        actionSummary = msg,
+                        speechText = msg
+                    )
+                }
+            }
+        }
 
-        // A. Bekleyen Alarm Saati
+        // =========================================================================
+        // 9. DURUM MAKİNESİ (İNTERAKTİF ALARM & HATIRLATICI ADIMLARI)
+        // =========================================================================
         if (UstaSessionState.isWaitingForAlarmTime) {
             val timeMatch = Regex("""(?i)(\d{1,2})[:.](\d{2})""").find(cleanMsg)
             val singleHourMatch = Regex("""(?i)\b(\d{1,2})\b""").find(cleanMsg)
@@ -267,17 +339,17 @@ object AiAssistantService {
                 UstaSessionState.isWaitingForAlarmTime = false
                 UstaSessionState.isWaitingForAlarmLabel = true
                 val formattedTime = String.format(Locale.ROOT, "%02d:%02d", hour, min)
+                val speech = "Alarm saatini $formattedTime olarak belirledim efendim. Peki bu alarmın başlığı ne olsun?"
                 return@withContext AiResponse(
-                    replyText = "⏰ Alarm saatini $formattedTime olarak belirledim efendim. Peki bu alarmın başlığı ne olsun? (Örn: Uyanış, Toplantı, İlaç)"
+                    replyText = "⏰ Alarm saatini $formattedTime olarak belirledim efendim. Peki bu alarmın başlığı ne olsun? (Örn: Uyanış, Toplantı, İlaç)",
+                    speechText = speech
                 )
             } else {
-                return@withContext AiResponse(
-                    replyText = "Saati tam anlayamadım efendim. Lütfen alarm saatini '07:30' veya '8:00' şeklinde söyler misiniz?"
-                )
+                val speech = "Saati tam anlayamadım efendim. Lütfen '07:30' veya '8:00' şeklinde söyler misiniz?"
+                return@withContext AiResponse(replyText = speech, speechText = speech)
             }
         }
 
-        // B. Bekleyen Alarm Etiketi
         if (UstaSessionState.isWaitingForAlarmLabel) {
             val label = cleanMsg.take(40).trim().ifBlank { "Alarm" }
             val hour = UstaSessionState.pendingAlarmHour ?: 8
@@ -310,13 +382,15 @@ object AiAssistantService {
             db.reminderDao().insertReminder(rem)
             LocalStorageManager.saveLocalReminder(context, "⏰ Alarm: $label", dateStr, cal.timeInMillis, "ALARM")
 
+            val timeFormatted = String.format(Locale.ROOT, "%02d:%02d", hour, min)
+            val speech = "Efendim, saat $timeFormatted için $label alarmınız kuruldu."
             return@withContext AiResponse(
-                replyText = "⏰ Efendim, saat ${String.format(Locale.ROOT, "%02d:%02d", hour, min)} için '$label' alarmınız başarıyla kuruldu.",
-                actionSummary = "⏰ Alarm Kuruldu: $label (${String.format(Locale.ROOT, "%02d:%02d", hour, min)})"
+                replyText = "⏰ Efendim, saat $timeFormatted için '$label' alarmınız başarıyla kuruldu.",
+                actionSummary = "⏰ Alarm Kuruldu: $label ($timeFormatted)",
+                speechText = speech
             )
         }
 
-        // C. Doğrudan "Saat 07:30'a alarm kur" gibi tek seferlik alarm komutu
         if (lowerMsg.contains("alarm kur") || lowerMsg.contains("alarm ekle") || lowerMsg.contains("alarmı kur")) {
             val timeMatch = Regex("""(?i)(\d{1,2})[:.](\d{2})""").find(cleanMsg)
             val hour = timeMatch?.groupValues?.get(1)?.toIntOrNull()
@@ -346,20 +420,25 @@ object AiAssistantService {
                 db.reminderDao().insertReminder(rem)
                 LocalStorageManager.saveLocalReminder(context, "⏰ Alarm: $label", dateStr, cal.timeInMillis, "ALARM")
 
+                val timeFormatted = String.format(Locale.ROOT, "%02d:%02d", hour, min)
+                val speech = "Efendim, saat $timeFormatted için $label alarmınız kuruldu."
                 return@withContext AiResponse(
-                    replyText = "⏰ Efendim, saat ${String.format(Locale.ROOT, "%02d:%02d", hour, min)} için '$label' alarmınız kuruldu.",
-                    actionSummary = "⏰ Alarm Kuruldu: $label"
+                    replyText = "⏰ Efendim, saat $timeFormatted için '$label' alarmınız kuruldu.",
+                    actionSummary = "⏰ Alarm Kuruldu: $label",
+                    speechText = speech
                 )
             } else {
                 UstaSessionState.isWaitingForAlarmTime = true
+                val speech = "Alarm saat kaç için kurulsun efendim?"
                 return@withContext AiResponse(
-                    replyText = "Alarm saat kaç için kurulsun efendim? (Örn: 07:30 veya 8:00)"
+                    replyText = "Alarm saat kaç için kurulsun efendim? (Örn: 07:30 veya 8:00)",
+                    speechText = speech
                 )
             }
         }
 
         // =========================================================================
-        // ATİLA GARDIROP VE MODÜLER ÇEKMECELER MİMARİSİ (WARDROBE & DRAWERS)
+        // 10. ATİLA GARDIROP VE MODÜLER ÇEKMECELER MİMARİSİ (WARDROBE & DRAWERS)
         // =========================================================================
         val customApiKey = try {
             val rawEncryptedKey: String? = dataStoreManager.encryptedAiApiKey.first()
@@ -385,7 +464,8 @@ object AiAssistantService {
         return@withContext AiResponse(
             replyText = drawerResult.replyText,
             recommendedPlaces = drawerResult.recommendedPlaces,
-            actionSummary = drawerResult.actionSummary
+            actionSummary = drawerResult.actionSummary,
+            speechText = drawerResult.speechText ?: drawerResult.replyText
         )
     }
 
