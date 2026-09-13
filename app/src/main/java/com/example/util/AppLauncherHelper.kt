@@ -11,27 +11,59 @@ import java.util.Locale
 
 object AppLauncherHelper {
 
-    fun playYouTubeSong(context: Context, songQuery: String): Pair<Boolean, String> {
+    fun searchAndPlayYouTube(context: Context, query: String): Pair<Boolean, String> {
         return try {
-            val encodedQuery = Uri.encode(songQuery)
+            val cleanQuery = query.trim().ifBlank { "Türkçe Müzik" }
+            val encodedQuery = Uri.encode(cleanQuery)
             val appIntent = Intent(Intent.ACTION_SEARCH).apply {
                 setPackage("com.google.android.youtube")
-                putExtra("query", songQuery)
+                putExtra("query", cleanQuery)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
             if (appIntent.resolveActivity(context.packageManager) != null) {
                 context.startActivity(appIntent)
-                Pair(true, "▶️ YouTube'da '$songQuery' aranıyor ve oynatılıyor...")
+                Pair(true, "▶️ YouTube'da '$cleanQuery' aranıyor ve açılıyor...")
             } else {
                 val webUri = Uri.parse("https://www.youtube.com/results?search_query=$encodedQuery")
                 val webIntent = Intent(Intent.ACTION_VIEW, webUri).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 }
                 context.startActivity(webIntent)
-                Pair(true, "▶️ Tarayıcı üzerinden YouTube'da '$songQuery' açılıyor...")
+                Pair(true, "▶️ Tarayıcı üzerinden YouTube'da '$cleanQuery' açılıyor...")
             }
         } catch (e: Exception) {
             Pair(false, "YouTube açılamadı: ${e.localizedMessage}")
+        }
+    }
+
+    fun playYouTubeSong(context: Context, songQuery: String): Pair<Boolean, String> {
+        return searchAndPlayYouTube(context, songQuery)
+    }
+
+    fun setDeviceAlarm(context: Context, hour: Int, minutes: Int, message: String): Pair<Boolean, String> {
+        return try {
+            val alarmIntent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
+                putExtra(AlarmClock.EXTRA_HOUR, hour)
+                putExtra(AlarmClock.EXTRA_MINUTES, minutes)
+                putExtra(AlarmClock.EXTRA_MESSAGE, message)
+                putExtra(AlarmClock.EXTRA_SKIP_UI, true)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            if (alarmIntent.resolveActivity(context.packageManager) != null) {
+                context.startActivity(alarmIntent)
+                Pair(true, "⏰ Telefonun yerel saatine $hour:${String.format(Locale.ROOT, "%02d", minutes)} için '$message' alarmı kuruldu.")
+            } else {
+                val fallbackIntent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
+                    putExtra(AlarmClock.EXTRA_HOUR, hour)
+                    putExtra(AlarmClock.EXTRA_MINUTES, minutes)
+                    putExtra(AlarmClock.EXTRA_MESSAGE, message)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(fallbackIntent)
+                Pair(true, "⏰ Saat uygulaması açılarak $hour:${String.format(Locale.ROOT, "%02d", minutes)} alarmı ayarlandı.")
+            }
+        } catch (e: Exception) {
+            Pair(false, "Sistem alarmı kurulamadı: ${e.localizedMessage}")
         }
     }
 

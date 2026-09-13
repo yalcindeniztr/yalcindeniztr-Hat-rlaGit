@@ -210,21 +210,37 @@ class ReminderReceiver : BroadcastReceiver() {
                 if (isVoiceEnabled) {
                     val speechPhrase = if (isPrayer) {
                         if (minutesBefore > 0) {
-                            "Efendim, $prayerName ezan vaktine $minutesBefore dakika kaldı."
+                            "Sayın Patronum, $prayerName ezan vaktine $minutesBefore dakika kaldı."
                         } else {
-                            "Efendim, $prayerName ezanı vakti girdi. Haydi namaza!"
+                            "Sayın Patronum, $prayerName ezanı vakti girdi. Haydi namaza!"
                         }
                     } else {
                         val cleanTitle = if (category.isNotBlank() && !title.startsWith("[$category]")) "$title" else title
                         val cleanNote = if (note.isNotBlank()) ". $note" else ""
-                        "Efendim, $cleanTitle vaktiniz geldi.$cleanNote"
+                        "Sayın Patronum, $cleanTitle vaktiniz geldi.$cleanNote"
                     }
-                    TtsHelper.speak(context, speechPhrase)
+
+                    var isFinished = false
+                    val finishOnce = {
+                        if (!isFinished) {
+                            isFinished = true
+                            try { pendingResult.finish() } catch (_: Exception) {}
+                        }
+                    }
+
+                    TtsHelper.speak(context, speechPhrase) {
+                        finishOnce()
+                    }
+
+                    // En fazla 8 saniye bekle (güvenlik zaman aşımı)
+                    kotlinx.coroutines.delay(8000L)
+                    finishOnce()
+                } else {
+                    pendingResult.finish()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error speaking reminder with TTS", e)
-            } finally {
-                pendingResult.finish()
+                try { pendingResult.finish() } catch (_: Exception) {}
             }
         }
     }

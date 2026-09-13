@@ -648,11 +648,12 @@ fun HomeScreen(
                         modifier = Modifier.padding(bottom = 8.dp)
                     ) {
                         val quickActions = listOf(
-                            "🏥 Nöbetçi Eczane" to "En yakın nöbetçi eczane nerede?",
+                            "🏥 Nöbetçi Eczane" to "En yakın nöbetçi eczaneleri ve konumları göster",
+                            "🍲 Yemek Tarifi" to "Akşam için pratik ve lezzetli bir yemek tarifi ver",
                             "📋 Günü Planla" to "Bugün için dengeli bir günlük rutin planla",
                             "🌤️ Canlı Hava" to "Bugün hava nasıl?",
                             "📰 Manşetler" to "Günün gazete manşetlerini özetle",
-                            "🎵 Müzik Çal" to "YouTube'da Barış Manço çal",
+                            "🎵 YouTube / Müzik" to "YouTube'da istediğim müzik veya videoyu aç",
                             "💡 Karar / Fikir Sor" to "Sence bir konuda ne yapmalıyım?",
                             "📍 Konum Kaydet" to "Konumumu burası olarak kaydet",
                             "📚 MEB Mevzuat" to "657 Sayılı Kanun ve ÖMK hakları"

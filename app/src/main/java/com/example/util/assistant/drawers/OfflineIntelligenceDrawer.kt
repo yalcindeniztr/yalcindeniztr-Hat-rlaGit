@@ -20,33 +20,43 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
         lowerQuery: String,
         sessionData: WardrobeSessionData
     ): DrawerResult {
-        val greeting = if (sessionData.userNick.isNotBlank()) "Efendim Sayın ${sessionData.userNick}, " else "Efendim, "
+        val isChatMode = com.example.util.UstaSessionState.isChatMode
+        val greeting = if (isChatMode) "Dostum, " else if (sessionData.userNick.isNotBlank()) "Sayın Patronum ${sessionData.userNick}, " else "Sayın Patronum, "
         val db = sessionData.db
 
         // -------------------------------------------------------------------------
-        // 1. NÖBETÇİ ECZANE & SAĞLIK DESTEĞİ (TİTCK & Resmi Sağlık Veritabanı Entegrasyonu)
+        // 1. NÖBETÇİ ECZANE & SAĞLIK DESTEĞİ (EN YAKIN 3 ECZANE & NAVİGASYON)
         // -------------------------------------------------------------------------
         if (lowerQuery.contains("eczane") || lowerQuery.contains("nobetci") || lowerQuery.contains("nöbetçi") || lowerQuery.contains("ilaç nereden")) {
-            val district = sessionData.userDistrict.ifBlank { "En Yakın" }
+            val district = sessionData.userDistrict.ifBlank { "Merkez" }
             val city = sessionData.userCity.ifBlank { "Bulunduğunuz İl" }
-            val searchQuery = "Nöbetçi Eczane $city $district"
-            
-            NearbyPlacesHelper.openGoogleMapsNavigation(context, searchQuery, sessionData.userLat, sessionData.userLng, searchQuery)
-            
-            val reply = "🏥 ${greeting}T.C. Sağlık Bakanlığı ve TİTCK nöbet çizelgelerine uygun olarak, $city $district bölgesindeki açık nöbetçi eczaneleri haritada sizin için listeledim ve yol tarifini başlattım."
-            val speech = "${greeting}$district bölgesindeki nöbetçi eczaneleri haritada listeledim ve yol tarifini açtım."
+            val top3 = NearbyPlacesHelper.getTop3NearbyPlaces(context, sessionData.userLat, sessionData.userLng, query)
+
+            val reply = buildString {
+                append("🏥 **${greeting}T.C. Sağlık Bakanlığı ve TİTCK nöbet çizelgelerine uygun olarak $city $district bölgesindeki en yakın 3 nöbetçi eczane:**\n\n")
+                top3.forEachIndexed { idx, p ->
+                    append("${idx + 1}. **${p.name}**\n")
+                    append("   • ${p.typeLabel} (${p.distanceMeters} metre mesafede)\n")
+                    append("   • Adres: ${p.address}\n\n")
+                }
+                append("💡 İstediğiniz eczaneye anında gitmek için alttaki **'Yol Tarifi Al'** veya doğrudan aramak için **'Telefon'** butonunu kullanabilirsiniz.")
+            }
+
+            val speech = "${greeting}$district bölgesinde açık nöbetçi eczaneleri mesafelerine göre listeledim. İlk sırada ${top3.firstOrNull()?.distanceMeters ?: 240} metre mesafedeki ${top3.firstOrNull()?.name} yer alıyor."
             return DrawerResult(
                 replyText = reply,
+                recommendedPlaces = top3,
                 actionSummary = "🏥 Nöbetçi Eczaneler: $city $district",
                 speechText = speech
             )
         }
 
         // -------------------------------------------------------------------------
-        // 2. GÜNLÜK RUTİN & PROGRAMLAMA MOTORU
+        // 2. GÜNLÜK RUTİN & PROGRAMLAMA MOTORU (Patron - Asistan İş Akışı)
         // -------------------------------------------------------------------------
         if (lowerQuery.contains("günü planla") || lowerQuery.contains("günlük plan") || lowerQuery.contains("rutin") ||
-            lowerQuery.contains("bugün ne yap") || lowerQuery.contains("programım") || lowerQuery.contains("günlük program")) {
+            lowerQuery.contains("bugün ne yap") || lowerQuery.contains("programım") || lowerQuery.contains("günlük program") ||
+            lowerQuery.contains("günümü planla")) {
             
             if (lowerQuery.contains("işle") || lowerQuery.contains("kaydet") || lowerQuery.contains("kur")) {
                 val scheduleSummary = DailyRoutinePlanner.scheduleFullRoutine(context)
@@ -104,7 +114,7 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
             lowerQuery.equals("hey", ignoreCase = true) || lowerQuery.equals("atila", ignoreCase = true) ||
             lowerQuery.equals("atilla", ignoreCase = true) || lowerQuery.equals("jarvis", ignoreCase = true) ||
             lowerQuery.equals("usta", ignoreCase = true)) {
-            val speech = "Merhaba $greeting Ben ATİLA. Tüm sistemler devrede ve emrinizdeyim. Nasıl yardımcı olabilirim?"
+            val speech = if (isChatMode) "Selam dostum! Ben ATİLA. Sohbet modundayız, nasılsın, nasıl gidiyor?" else "Merhaba $greeting Ben ATİLA. Tüm sistemler devrede ve emrinizdeyim. Nasıl yardımcı olabilirim?"
             return DrawerResult(
                 replyText = "⚡ **Sistemler Aktif**\n\n$speech",
                 actionSummary = "⚡ ATİLA Çevrimiçi",
@@ -114,7 +124,7 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
 
         if (lowerQuery.contains("nasılsın") || lowerQuery.contains("ne haber") || lowerQuery.contains("naber") ||
             lowerQuery.contains("ne var ne yok") || lowerQuery.contains("nasıl gidiyor") || lowerQuery.contains("durum ne")) {
-            val speech = "Tüm işlem çekirdeklerim ve bellek modüllerim tam kapasite devrede $greeting Sizin için çalışmaya hazırım."
+            val speech = if (isChatMode) "Bomba gibiyim dostum! İşlemcilerim tam gaz çalışıyor. Sen nasılsın, keyifler yerinde mi?" else "Tüm işlem çekirdeklerim ve bellek modüllerim tam kapasite devrede $greeting Sizin için çalışmaya hazırım."
             return DrawerResult(
                 replyText = "🟢 **Çalışma Durumu: Mükemmel**\n\n$speech",
                 actionSummary = "⚡ Durum: Mükemmel",
@@ -124,7 +134,7 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
 
         if (lowerQuery.contains("moralim bozuk") || lowerQuery.contains("canım sıkkın") || lowerQuery.contains("çok yoruldum") ||
             lowerQuery.contains("stresliyim") || lowerQuery.contains("üzgünüm")) {
-            val speech = "Her güçlüğün ardından bir ferahlık gelir $greeting Ben buradayım, zihninizi rahatlatmak ve işlerinizi kolaylaştırmak için emrinizi bekliyorum."
+            val speech = if (isChatMode) "Canını sıkma dostum, her zorluğun arkasından güzel günler gelir. Ben buradayım, anlat dinleyeyim!" else "Her güçlüğün ardından bir ferahlık gelir $greeting Ben buradayım, zihninizi rahatlatmak ve işlerinizi kolaylaştırmak için emrinizi bekliyorum."
             return DrawerResult(
                 replyText = "🛡️ **Moral & Destek**\n\n$speech",
                 actionSummary = "🛡️ Moral Desteği",
@@ -143,21 +153,30 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
         }
 
         // -------------------------------------------------------------------------
-        // 5. YEMEK & SAĞLIKLI BESLENME TAVSİYELERİ
+        // 5. YEMEK TARİFLERİ & VİDEOLU REHBER (RECIPE HELPER & YOUTUBE)
         // -------------------------------------------------------------------------
         if (lowerQuery.contains("yemek") || lowerQuery.contains("tarif") || lowerQuery.contains("ne pişir") ||
             lowerQuery.contains("akşam ne") || lowerQuery.contains("ne yesek") || lowerQuery.contains("çorba") ||
-            lowerQuery.contains("kebap") || lowerQuery.contains("köfte") || lowerQuery.contains("tatlı")) {
-            val (title, detail, voice) = when {
-                lowerQuery.contains("çorba") -> Triple("Geleneksel Yayla Çorbası", "Pirinç, süzme yoğurt, yumurta sarısı ve naneli tereyağı sosuyla sindirimi kolay, bağışıklığı güçlendirici harika bir başlangıçtır.", "Sıcak ve hafif bir Yayla Çorbası tavsiye ederim efendim. Naneli tereyağı sosuyla mükemmel bir seçimdir.")
-                lowerQuery.contains("köfte") -> Triple("Fırında Anne Köftesi & Sebze", "Az yağlı kıyma, rendelenmiş soğan, kimyon ve baharatlarla yoğrulup patates ve biber dilimleriyle fırınlanan dengeli bir akşam yemeği.", "Fırında patatesli Anne Köftesi öneririm efendim. Hem hafif hem oldukça besleyicidir.")
-                lowerQuery.contains("tatlı") -> Triple("Hafif Sütlaç", "Fırınlanmış geleneksel sütlaç; az şekerli ve tarçın ilavesiyle hafif bir tatlı alternatifi sunar.", "Fırın sütlaç tavsiye ederim efendim; az şekerli ve tarçınlı yapıldığında oldukça hafiftir.")
-                else -> Triple("Sebzeli Güveç", "Mevsim sebzeleri, zeytinyağı ve isteğe göre et parçalarıyla kısık ateşte pişen, besin değeri yüksek mükemmel bir Türk mutfağı klasiği.", "Günün önerisi fırında güveç efendim. Yanına pirinç pilavı ve cacık ile harika bir uyum yakalar.")
+            lowerQuery.contains("fasulye") || lowerQuery.contains("karnıyarık") || lowerQuery.contains("menemen") ||
+            lowerQuery.contains("kebap") || lowerQuery.contains("köfte") || lowerQuery.contains("tatlı") || lowerQuery.contains("sütlaç")) {
+            
+            val recipe = com.example.util.RecipeHelper.findRecipeOrRecommend(query)
+            com.example.util.UstaSessionState.lastSuggestedRecipe = recipe
+
+            if (lowerQuery.contains("video") || lowerQuery.contains("izle") || lowerQuery.contains("nasıl yapılır video")) {
+                val (_, msg) = com.example.util.AppLauncherHelper.searchAndPlayYouTube(context, recipe.youtubeQuery)
+                return DrawerResult(
+                    replyText = "🎬 **${recipe.title} Videolu Tarifi Açılıyor:**\n\n$msg",
+                    actionSummary = "🎬 Video Tarif: ${recipe.title}",
+                    speechText = "$greeting${recipe.title} videolu yapılış tarifini YouTube'da açıyorum."
+                )
             }
+
+            val (replyText, speechText) = com.example.util.RecipeHelper.getRecipeBriefing(recipe, greeting)
             return DrawerResult(
-                replyText = "🍲 **Mutfak Tavsiyesi: $title**\n\n$detail",
-                actionSummary = "🍲 Mutfak Tavsiyesi",
-                speechText = "$greeting$voice"
+                replyText = replyText,
+                actionSummary = "🍲 Tarif: ${recipe.title}",
+                speechText = speechText
             )
         }
 

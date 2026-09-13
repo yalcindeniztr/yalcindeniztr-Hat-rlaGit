@@ -53,6 +53,10 @@ object UstaSessionState {
     // Park Yeri Notu İnteraktif Durumu
     var isWaitingForParkNote: Boolean = false
     var pendingParkCoords: Pair<Double, Double>? = null
+
+    // Patron - Asistan vs Sohbet Modu
+    var isChatMode: Boolean = false
+    var lastSuggestedRecipe: RecipeItem? = null
 }
 
 object AiAssistantService {
@@ -119,31 +123,65 @@ object AiAssistantService {
         val resolvedAssistantName = "ATİLA"
         val currentNick = dataStoreManager.userNick.first()?.trim() ?: ""
 
+        val isChatMode = UstaSessionState.isChatMode
+        val patronPrefix = if (isChatMode) "Dostum" else if (currentNick.isNotBlank()) "Sayın Patronum $currentNick" else "Sayın Patronum"
+
         var cleanMsg = userMessage.trim()
         val triggerRegex = Regex("""(?i)^(hey\s+)?(atilla|atila|jarvis|usta|asistan|atilla\s+dinle|atila\s+dinle|usta\s+dinle)[,\s!.:]*""")
         val hadTriggerWord = triggerRegex.find(cleanMsg) != null || cleanMsg.equals("atilla", ignoreCase = true) || cleanMsg.equals("atila", ignoreCase = true)
         cleanMsg = cleanMsg.replace(triggerRegex, "").trim()
         if (cleanMsg.isBlank() || (hadTriggerWord && cleanMsg.isBlank())) {
-            val speech = "Buyrun efendim, sizi dinliyorum."
+            val speech = if (isChatMode) "Efendim dostum, seni dinliyorum." else "Buyrun $patronPrefix, emrinizdeyim."
             return@withContext AiResponse(replyText = speech, speechText = speech)
         }
 
         val lowerMsg = cleanMsg.lowercase(Locale.forLanguageTag("tr-TR"))
 
+        // Sohbet Modu Açma / Kapatma Kontrolü
+        if (lowerMsg.contains("sohbet modu") || lowerMsg.contains("arkadaş gibi konuş") || lowerMsg.contains("dost gibi konuş")) {
+            UstaSessionState.isChatMode = true
+            val speech = "Harika fikir dostum! Resmi protokolleri bir kenara bırakıyorum, arkadaş gibi sohbet ediyoruz. Neler yapıyorsun, günün nasıl geçiyor?"
+            return@withContext AiResponse(
+                replyText = "🤝 **Sohbet Modu Devrede!**\n\n$speech",
+                actionSummary = "🤝 Sohbet Modu Aktif",
+                speechText = speech
+            )
+        }
+        if (lowerMsg.contains("patron modu") || lowerMsg.contains("normal mod") || lowerMsg.contains("resmi mod")) {
+            UstaSessionState.isChatMode = false
+            val speech = "Emredersiniz $patronPrefix. Tüm asistan protokolleri ve komut sistemleri hizmetinizdedir."
+            return@withContext AiResponse(
+                replyText = "👑 **Patron Modu Devrede!**\n\n$speech",
+                actionSummary = "👑 Patron Modu Aktif",
+                speechText = speech
+            )
+        }
+
         val (realLat, realLng) = if (userLat != 0.0 && userLng != 0.0) Pair(userLat, userLng) else getDeviceLocation(context)
         val (userCity, userDistrict) = NearbyPlacesHelper.getUserCityAndDistrict(context, realLat, realLng)
 
         // =========================================================================
-        // 1. NÖBETÇİ ECZANE SORGULAMA (TİTCK & GOOGLE MAPS SAĞLIK ENTEGRASYONU)
+        // 1. NÖBETÇİ ECZANE SORGULAMA (EN YAKIN 3 ECZANE KARTI & NAVİGASYON)
         // =========================================================================
         if (lowerMsg.contains("eczane") || lowerMsg.contains("nöbetçi") || lowerMsg.contains("nobetci") || lowerMsg.contains("ilaç nereden")) {
             val district = userDistrict.ifBlank { "Merkez" }
             val city = userCity.ifBlank { "Bulunduğunuz Şehir" }
-            val searchQuery = "Nöbetçi Eczane $city $district"
-            NearbyPlacesHelper.openGoogleMapsNavigation(context, searchQuery, realLat, realLng, searchQuery)
-            val speech = "Efendim, $district bölgesindeki nöbetçi eczaneleri haritada sizin için listeledim ve yol tarifini açtım."
+            val top3 = NearbyPlacesHelper.getTop3NearbyPlaces(context, realLat, realLng, cleanMsg)
+            val speech = "$patronPrefix, $district bölgesindeki açık nöbetçi eczaneleri mesafelerine göre listeledim. İlk sırada ${top3.firstOrNull()?.distanceMeters ?: 240} metre mesafedeki ${top3.firstOrNull()?.name} bulunuyor."
+
+            val reply = buildString {
+                append("🏥 **$patronPrefix, $city $district Bölgesindeki En Yakın 3 Nöbetçi Eczane:**\n\n")
+                top3.forEachIndexed { idx, p ->
+                    append("${idx + 1}. **${p.name}**\n")
+                    append("   • ${p.typeLabel} (${p.distanceMeters} metre)\n")
+                    append("   • Adres: ${p.address}\n\n")
+                }
+                append("💡 Haritada görmek veya aramak için aşağıdaki butonlara dokunabilirsiniz.")
+            }
+
             return@withContext AiResponse(
-                replyText = "🏥 Efendim, Sağlık Bakanlığı ve TİTCK nöbet çizelgelerine uygun olarak $city $district bölgesindeki açık nöbetçi eczaneleri haritada sizin için listeledim ve yol tarifini başlattım.",
+                replyText = reply,
+                recommendedPlaces = top3,
                 actionSummary = "🏥 Nöbetçi Eczaneler: $city $district",
                 speechText = speech
             )
@@ -292,15 +330,18 @@ object AiAssistantService {
         }
 
         // =========================================================================
-        // 7. YOUTUBE MÜZİK ÇALMA
+        // 7. YOUTUBE EVRENSEL ARAMA VE OYNATMA (MÜZİK, VİDEO, YEMEK, DERS VB.)
         // =========================================================================
-        if (lowerMsg.contains("çal") || lowerMsg.contains("müzik") || lowerMsg.contains("şarkı") || lowerMsg.contains("youtube")) {
-            val songQuery = cleanMsg.replace(Regex("(?i)youtube'dan|youtube'da|youtube|şarkısını|şarkıyı|müziğini|müzik|çal|aç|oynat|bul|bana"), "").trim().ifBlank { "Müzik" }
-            val (_, msg) = AppLauncherHelper.playYouTubeSong(context, songQuery)
-            val speech = "Efendim, YouTube'da $songQuery çalınıyor."
+        if (lowerMsg.contains("youtube") || lowerMsg.contains("çal") || lowerMsg.contains("müzik") || lowerMsg.contains("şarkı") ||
+            lowerMsg.contains("videosu") || lowerMsg.contains("video aç") || lowerMsg.contains("video izle") || lowerMsg.contains("videolu tarif")) {
+            val targetQuery = cleanMsg.replace(Regex("(?i)^(youtube'dan|youtube'da|youtube|youtubeden|youtubede|yt)[: ]*"), "")
+                .replace(Regex("(?i)(şarkısını|şarkıyı|müziğini|müzik|videosunu|videoyu|video|aç|çal|oynat|bul|izle|bana)$"), "")
+                .trim().ifBlank { "Türkçe Müzik" }
+            val (_, msg) = AppLauncherHelper.searchAndPlayYouTube(context, targetQuery)
+            val speech = "$patronPrefix, YouTube'da $targetQuery açılıyor."
             return@withContext AiResponse(
                 replyText = msg,
-                actionSummary = "▶️ YouTube: $songQuery",
+                actionSummary = "▶️ YouTube: $targetQuery",
                 speechText = speech
             )
         }

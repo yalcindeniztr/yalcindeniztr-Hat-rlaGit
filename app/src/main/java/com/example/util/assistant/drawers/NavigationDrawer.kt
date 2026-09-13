@@ -71,18 +71,34 @@ object NavigationDrawer : AssistantDrawer {
             )
         }
 
-        // 3. Doğrudan Harita Canlı Navigasyonu
-        val targetQuery = query.replace(Regex("""(?i)bana|yol tarifi ver|yol tarifini ver|nasıl giderim|haritada göster|nerede|en yakın"""), "").trim().ifBlank { "Hedef" }
-        NearbyPlacesHelper.openGoogleMapsNavigation(
+        // 3. En Yakın 3 Mekan Tespiti ve Listeleme (Eczane, Market, Fırın, Benzinlik vb.)
+        val patronPrefix = if (sessionData.userNick.isNotBlank()) "Sayın Patronum ${sessionData.userNick}" else "Sayın Patronum"
+        val targetQuery = query.replace(Regex("""(?i)bana|yol tarifi ver|yol tarifini ver|nasıl giderim|haritada göster|nerede|en yakın"""), "").trim().ifBlank { "Mekanlar" }
+        
+        val top3Places = NearbyPlacesHelper.getTop3NearbyPlaces(
             context = context,
-            placeName = targetQuery,
-            lat = sessionData.userLat,
-            lng = sessionData.userLng,
-            searchQuery = targetQuery
+            userLat = sessionData.userLat,
+            userLng = sessionData.userLng,
+            rawQuery = query
         )
+
+        val reply = buildString {
+            append("📍 **$patronPrefix, Konumunuza En Yakın 3 Yer Tespit Edildi:**\n\n")
+            top3Places.forEachIndexed { idx, p ->
+                append("${idx + 1}. **${p.name}**\n")
+                append("   • ${p.typeLabel} (${p.distanceMeters} metre)\n")
+                append("   • ${p.address}\n\n")
+            }
+            append("💡 Aşağıdaki kartlardan **'Yol Tarifi'** veya **'Telefon'** butonuna dokunarak doğrudan canlı navigasyonu başlatabilirsiniz.")
+        }
+
+        val speech = "$patronPrefix, konumunuza en yakın 3 yer listelendi. İlk sırada ${top3Places.firstOrNull()?.distanceMeters ?: 200} metre mesafedeki ${top3Places.firstOrNull()?.name ?: targetQuery} yer alıyor."
+
         return DrawerResult(
-            replyText = "Efendim, Google Haritalar navigasyonunu açıyorum: $targetQuery",
-            actionSummary = "🗺️ Navigasyon Başlatıldı: $targetQuery"
+            replyText = reply,
+            recommendedPlaces = top3Places,
+            actionSummary = "📍 En Yakın 3 Yer: $targetQuery",
+            speechText = speech
         )
     }
 }

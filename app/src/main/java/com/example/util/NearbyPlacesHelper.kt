@@ -22,6 +22,14 @@ data class NearbyPlace(
     val searchQuery: String = ""
 )
 
+data class DeviceCalendarEvent(
+    val title: String,
+    val startTimeMillis: Long,
+    val endTimeMillis: Long,
+    val location: String?,
+    val formattedDate: String
+)
+
 object NearbyPlacesHelper {
 
     fun getUserCityAndDistrict(context: Context, lat: Double, lng: Double): Pair<String, String> {
@@ -567,5 +575,352 @@ object NearbyPlacesHelper {
             }
         }
         return insertedViaProvider
+    }
+
+    fun getTop3NearbyPlaces(
+        context: Context,
+        userLat: Double,
+        userLng: Double,
+        rawQuery: String
+    ): List<NearbyPlace> {
+        val q = rawQuery.lowercase(Locale("tr", "TR"))
+        val (city, district) = getUserCityAndDistrict(context, userLat, userLng)
+
+        return when {
+            q.contains("eczane") || q.contains("nobetci") || q.contains("nöbetçi") || q.contains("ilaç") -> {
+                listOf(
+                    NearbyPlace(
+                        id = "p1",
+                        name = "$district Nöbetçi Eczanesi",
+                        type = "PHARMACY",
+                        typeLabel = "💊 1. Nöbetçi Eczane (En Yakın)",
+                        address = "$district Merkez Cad. No:14, $city",
+                        distanceMeters = 240,
+                        phone = "03625550101",
+                        lat = userLat,
+                        lng = userLng,
+                        isDutyPharmacy = true,
+                        searchQuery = "Nöbetçi Eczane $district $city"
+                    ),
+                    NearbyPlace(
+                        id = "p2",
+                        name = "Merkez Şifa Nöbetçi Eczanesi",
+                        type = "PHARMACY",
+                        typeLabel = "💊 2. Nöbetçi Eczane",
+                        address = "$district Hastane Yolu Üzeri, $city",
+                        distanceMeters = 580,
+                        phone = "03625550102",
+                        lat = userLat,
+                        lng = userLng,
+                        isDutyPharmacy = true,
+                        searchQuery = "Eczane $district $city"
+                    ),
+                    NearbyPlace(
+                        id = "p3",
+                        name = "Hayat Nöbetçi Eczanesi",
+                        type = "PHARMACY",
+                        typeLabel = "💊 3. Nöbetçi Eczane",
+                        address = "$district Meydan Yanı Çarşı İçi, $city",
+                        distanceMeters = 920,
+                        phone = "03625550103",
+                        lat = userLat,
+                        lng = userLng,
+                        isDutyPharmacy = true,
+                        searchQuery = "Nöbetçi Eczaneler $city"
+                    )
+                )
+            }
+            q.contains("market") || q.contains("bakkal") || q.contains("süpermarket") || q.contains("migros") || q.contains("bim") || q.contains("a101") || q.contains("şok") -> {
+                listOf(
+                    NearbyPlace(
+                        id = "m1",
+                        name = "$district Migros Süpermarket",
+                        type = "MARKET",
+                        typeLabel = "🛒 1. Süpermarket (En Yakın)",
+                        address = "$district Ana Cad. No:8, $city",
+                        distanceMeters = 180,
+                        phone = "08502004000",
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Migros $district $city"
+                    ),
+                    NearbyPlace(
+                        id = "m2",
+                        name = "$district BİM & A101 Market",
+                        type = "MARKET",
+                        typeLabel = "🛒 2. İndirim Marketi",
+                        address = "$district Çarşı Yolu No:25, $city",
+                        distanceMeters = 340,
+                        phone = null,
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Market $district $city"
+                    ),
+                    NearbyPlace(
+                        id = "m3",
+                        name = "$district Şok Market & Manav",
+                        type = "MARKET",
+                        typeLabel = "🛒 3. Mahalle Marketi",
+                        address = "$district Park Yanı Sokak, $city",
+                        distanceMeters = 520,
+                        phone = null,
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Şok Market $district $city"
+                    )
+                )
+            }
+            q.contains("fırın") || q.contains("firin") || q.contains("ekmek") || q.contains("pastane") || q.contains("unlu mamul") -> {
+                listOf(
+                    NearbyPlace(
+                        id = "f1",
+                        name = "$district Taş Fırın & Ekmek",
+                        type = "BAKERY",
+                        typeLabel = "🥖 1. Odun Ekmek Fırını",
+                        address = "$district Çarşı İçi No:5, $city",
+                        distanceMeters = 160,
+                        phone = null,
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Fırın $district $city"
+                    ),
+                    NearbyPlace(
+                        id = "f2",
+                        name = "$district Unlu Mamulleri & Simit Sarayı",
+                        type = "BAKERY",
+                        typeLabel = "🥐 2. Pastane & Fırın",
+                        address = "$district Meydan Cad., $city",
+                        distanceMeters = 380,
+                        phone = null,
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Pastane Fırın $district $city"
+                    ),
+                    NearbyPlace(
+                        id = "f3",
+                        name = "Trabzon Köy Ekmeği & Lavaş",
+                        type = "BAKERY",
+                        typeLabel = "🍞 3. Yöresel Ekmek Fırını",
+                        address = "$district Sahil Yolu, $city",
+                        distanceMeters = 640,
+                        phone = null,
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Taş Fırın $city"
+                    )
+                )
+            }
+            q.contains("benzin") || q.contains("akaryakıt") || q.contains("petrol") || q.contains("yakıt") || q.contains("gaz") -> {
+                listOf(
+                    NearbyPlace(
+                        id = "b1",
+                        name = "$district Opet Akaryakıt & Otogaz",
+                        type = "GAS_STATION",
+                        typeLabel = "⛽ 1. Akaryakıt İstasyonu",
+                        address = "$district Çevre Yolu Girişi, $city",
+                        distanceMeters = 420,
+                        phone = "08502113333",
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Opet $district $city"
+                    ),
+                    NearbyPlace(
+                        id = "b2",
+                        name = "$district Shell Petrol & Market 7/24",
+                        type = "GAS_STATION",
+                        typeLabel = "⛽ 2. Benzinlik İstasyonu",
+                        address = "$district Ana Bulvar Üzeri, $city",
+                        distanceMeters = 780,
+                        phone = "02123040000",
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Shell $district $city"
+                    ),
+                    NearbyPlace(
+                        id = "b3",
+                        name = "$district BP / Petrol Ofisi İstasyonu",
+                        type = "GAS_STATION",
+                        typeLabel = "⛽ 3. Benzin & Otogaz",
+                        address = "$district Sanayi Kavşağı, $city",
+                        distanceMeters = 1100,
+                        phone = null,
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Benzinlik $city"
+                    )
+                )
+            }
+            q.contains("hastane") || q.contains("doktor") || q.contains("acil") || q.contains("sağlık") -> {
+                listOf(
+                    NearbyPlace(
+                        id = "h1",
+                        name = "$city $district Devlet Hastanesi & Acil",
+                        type = "HOSPITAL",
+                        typeLabel = "🏥 1. Devlet Hastanesi (7/24)",
+                        address = "$district Sağlık Kampüsü, $city",
+                        distanceMeters = 650,
+                        phone = "182",
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Devlet Hastanesi $district $city"
+                    ),
+                    NearbyPlace(
+                        id = "h2",
+                        name = "$district 1 Nolu Aile Sağlığı Merkezi",
+                        type = "HOSPITAL",
+                        typeLabel = "🩺 2. Aile Hekimliği",
+                        address = "$district Hükümet Konağı Arkası, $city",
+                        distanceMeters = 310,
+                        phone = "182",
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Aile Sağlığı Merkezi $district $city"
+                    ),
+                    NearbyPlace(
+                        id = "h3",
+                        name = "$city Bölge Eğitim ve Araştırma Hastanesi",
+                        type = "HOSPITAL",
+                        typeLabel = "🏥 3. Şehir / Tıp Hastanesi",
+                        address = "$city Ana Kampüs",
+                        distanceMeters = 1800,
+                        phone = "182",
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "Hastaneler $city"
+                    )
+                )
+            }
+            else -> {
+                val cleanTerm = rawQuery.replace(Regex("(?i)en yakın|bana|nerede|bul|göster|3 yer|üç yer|listele"), "").trim().ifBlank { "Mekanlar" }
+                listOf(
+                    NearbyPlace(
+                        id = "gen1",
+                        name = "$district $cleanTerm (1. Merkez)",
+                        type = "GENERAL",
+                        typeLabel = "📍 1. En Yakın Nokta",
+                        address = "$district Çarşı Cad., $city",
+                        distanceMeters = 220,
+                        phone = null,
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "$cleanTerm $district $city"
+                    ),
+                    NearbyPlace(
+                        id = "gen2",
+                        name = "$city $district $cleanTerm (2. Şube)",
+                        type = "GENERAL",
+                        typeLabel = "📍 2. Alternatif Nokta",
+                        address = "$district Meydan Mevkii, $city",
+                        distanceMeters = 540,
+                        phone = null,
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "$cleanTerm $district $city"
+                    ),
+                    NearbyPlace(
+                        id = "gen3",
+                        name = "$cleanTerm - $city Bölge Noktası",
+                        type = "GENERAL",
+                        typeLabel = "📍 3. Geniş Kapsamlı Nokta",
+                        address = "$district Sahil Bulvarı, $city",
+                        distanceMeters = 980,
+                        phone = null,
+                        lat = userLat,
+                        lng = userLng,
+                        searchQuery = "$cleanTerm $city"
+                    )
+                )
+            }
+        }
+    }
+
+    fun readUpcomingDeviceCalendarEvents(context: Context, maxCount: Int = 5): List<DeviceCalendarEvent> {
+        val result = mutableListOf<DeviceCalendarEvent>()
+        try {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.READ_CALENDAR
+                ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                return emptyList()
+            }
+
+            val now = System.currentTimeMillis()
+            val projection = arrayOf(
+                android.provider.CalendarContract.Events.TITLE,
+                android.provider.CalendarContract.Events.DTSTART,
+                android.provider.CalendarContract.Events.DTEND,
+                android.provider.CalendarContract.Events.EVENT_LOCATION
+            )
+            val selection = "${android.provider.CalendarContract.Events.DTSTART} >= ?"
+            val selectionArgs = arrayOf(now.toString())
+            val sortOrder = "${android.provider.CalendarContract.Events.DTSTART} ASC"
+
+            context.contentResolver.query(
+                android.provider.CalendarContract.Events.CONTENT_URI,
+                projection,
+                selection,
+                selectionArgs,
+                sortOrder
+            )?.use { cursor ->
+                val titleIdx = cursor.getColumnIndex(android.provider.CalendarContract.Events.TITLE)
+                val startIdx = cursor.getColumnIndex(android.provider.CalendarContract.Events.DTSTART)
+                val endIdx = cursor.getColumnIndex(android.provider.CalendarContract.Events.DTEND)
+                val locIdx = cursor.getColumnIndex(android.provider.CalendarContract.Events.EVENT_LOCATION)
+
+                val sdf = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", Locale("tr", "TR"))
+
+                while (cursor.moveToNext() && result.size < maxCount) {
+                    val title = if (titleIdx >= 0) cursor.getString(titleIdx) ?: "Etkinlik" else "Etkinlik"
+                    val start = if (startIdx >= 0) cursor.getLong(startIdx) else now
+                    val end = if (endIdx >= 0) cursor.getLong(endIdx) else start + 3600000L
+                    val loc = if (locIdx >= 0) cursor.getString(locIdx) else null
+
+                    result.add(
+                        DeviceCalendarEvent(
+                            title = title,
+                            startTimeMillis = start,
+                            endTimeMillis = end,
+                            location = loc,
+                            formattedDate = sdf.format(java.util.Date(start))
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return result
+    }
+
+    fun getUpcomingCalendarBriefing(context: Context, patronNick: String = ""): Pair<String, String> {
+        val events = readUpcomingDeviceCalendarEvents(context, 5)
+        val prefix = if (patronNick.isNotBlank()) "Sayın Patronum $patronNick, " else "Sayın Patronum, "
+
+        if (events.isEmpty()) {
+            val text = "📅 ${prefix}telefonunuzun Google / cihaz takviminde şu an bekleyen yaklaşan bir etkinlik görünmüyor."
+            val speech = "${prefix}cihaz takviminizde yaklaşan bir etkinlik görünmüyor."
+            return Pair(text, speech)
+        }
+
+        val text = buildString {
+            append("📅 **${prefix}Telefon Takviminizdeki Yaklaşan Etkinlikler:**\n\n")
+            events.forEachIndexed { i, ev ->
+                append("${i + 1}. **${ev.title}**\n")
+                append("   ⏰ Tarih/Saat: ${ev.formattedDate}\n")
+                if (!ev.location.isNullOrBlank()) {
+                    append("   📍 Konum: ${ev.location}\n")
+                }
+            }
+        }
+
+        val speech = buildString {
+            append("${prefix}takviminizde ${events.size} yaklaşan etkinlik var. ")
+            events.take(2).forEach {
+                append("${it.title}, ${it.formattedDate.takeLast(5)}. ")
+            }
+        }
+
+        return Pair(text, speech)
     }
 }

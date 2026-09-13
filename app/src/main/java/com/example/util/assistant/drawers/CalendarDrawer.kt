@@ -15,9 +15,10 @@ object CalendarDrawer : AssistantDrawer {
 
     override fun canHandle(query: String, lowerQuery: String): Boolean {
         return lowerQuery.contains("takvim") ||
-               lowerQuery.contains("etkinlik ekle") ||
-               lowerQuery.contains("randevu ekle") ||
-               lowerQuery.contains("toplantı ekle")
+               lowerQuery.contains("etkinlik") ||
+               lowerQuery.contains("randevu") ||
+               lowerQuery.contains("toplantı") ||
+               lowerQuery.contains("ajanda")
     }
 
     override suspend fun handle(
@@ -26,6 +27,23 @@ object CalendarDrawer : AssistantDrawer {
         lowerQuery: String,
         sessionData: WardrobeSessionData
     ): DrawerResult? {
+        val patronPrefix = if (sessionData.userNick.isNotBlank()) "Sayın Patronum ${sessionData.userNick}" else "Sayın Patronum"
+
+        // 1. Cihaz Takvimini Çift Yönlü Okuma & Senkronizasyon
+        if (lowerQuery.contains("ne var") || lowerQuery.contains("oku") || lowerQuery.contains("neler var") ||
+            lowerQuery.contains("listele") || lowerQuery.contains("göster") || lowerQuery.contains("programım") ||
+            lowerQuery.contains("etkinliklerim") || lowerQuery.contains("randevularım") || lowerQuery.contains("planlarım") ||
+            !lowerQuery.contains("ekle") && !lowerQuery.contains("kur") && !lowerQuery.contains("kaydet")) {
+            
+            val (briefingText, speech) = com.example.util.NearbyPlacesHelper.getUpcomingCalendarBriefing(context, sessionData.userNick)
+            return DrawerResult(
+                replyText = briefingText,
+                actionSummary = "📅 Takvim Senkronizasyonu",
+                speechText = speech
+            )
+        }
+
+        // 2. Takvime Yeni Etkinlik Ekleme
         val cal = Calendar.getInstance()
         if (lowerQuery.contains("yarın")) {
             cal.add(Calendar.DAY_OF_YEAR, 1)
@@ -45,15 +63,16 @@ object CalendarDrawer : AssistantDrawer {
         val eventTitle = query.replace(Regex("""(?i)takvime ekle|takvimime ekle|etkinlik ekle|randevu ekle|toplantı ekle|yarın|bugün|saat\s*\d{1,2}(?:[:.]\d{2})?|'ye|'ya|'e|'a|'de|'da"""), "").trim().ifBlank { "Toplantı / Randevu" }
         val payload = JSONObject().apply {
             put("title", eventTitle)
-            put("description", "Atilla tarafından oluşturuldu.")
+            put("description", "ATİLA tarafından oluşturuldu.")
             put("startTimeMillis", cal.timeInMillis)
             put("endTimeMillis", cal.timeInMillis + 3600000L)
         }
         ActionDispatcherHelper.executeAction(context, "CREATE_EVENT", payload)
         val dateStr = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault()).format(cal.time)
         return DrawerResult(
-            replyText = "Emredersiniz, '$eventTitle' etkinliği $dateStr için telefon takviminize ve akıllı saatinize işlendi.",
-            actionSummary = "📅 Takvim: $eventTitle ($dateStr)"
+            replyText = "Emredersiniz $patronPrefix, '$eventTitle' etkinliği $dateStr için telefon takviminize ve akıllı saatinize işlendi.",
+            actionSummary = "📅 Takvim: $eventTitle ($dateStr)",
+            speechText = "Emredersiniz $patronPrefix, $eventTitle etkinliği $dateStr için takviminize kaydedildi."
         )
     }
 }

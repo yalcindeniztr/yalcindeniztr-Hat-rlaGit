@@ -58,13 +58,16 @@ object AppBridgeDrawer : AssistantDrawer {
             )
         }
 
-        // 3. YouTube Müzik Çalma
-        if (lowerQuery.contains("çal") || lowerQuery.contains("müzik") || lowerQuery.contains("şarkı") || lowerQuery.contains("youtube")) {
-            val songQuery = query.replace(Regex("(?i)youtube'dan|youtube'da|youtube|şarkısını|şarkıyı|müziğini|müzik|çal|aç|oynat|bul"), "").trim().ifBlank { "Müzik" }
-            val (_, message) = AppLauncherHelper.playYouTubeSong(context, songQuery)
+        // 3. YouTube Evrensel Arama ve Oynatma (Müzik, Video, Yemek, Ders vb.)
+        if (lowerQuery.contains("youtube") || lowerQuery.contains("çal") || lowerQuery.contains("müzik") || lowerQuery.contains("şarkı") ||
+            lowerQuery.contains("videosu") || lowerQuery.contains("video aç") || lowerQuery.contains("video izle") || lowerQuery.contains("videolu tarif")) {
+            val targetQuery = query.replace(Regex("(?i)^(youtube'dan|youtube'da|youtube|youtubeden|youtubede|yt)[: ]*"), "")
+                .replace(Regex("(?i)(şarkısını|şarkıyı|müziğini|müzik|videosunu|videoyu|video|aç|çal|oynat|bul|izle)$"), "")
+                .trim().ifBlank { "Türkçe Müzik" }
+            val (_, message) = AppLauncherHelper.searchAndPlayYouTube(context, targetQuery)
             return DrawerResult(
                 replyText = message,
-                actionSummary = "▶️ YouTube: $songQuery"
+                actionSummary = "▶️ YouTube: $targetQuery"
             )
         }
 
