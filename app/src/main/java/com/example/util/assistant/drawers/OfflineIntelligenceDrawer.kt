@@ -1,12 +1,16 @@
 package com.example.util.assistant.drawers
 
 import android.content.Context
+import com.example.util.DailyNewsHelper
 import com.example.util.DailyRoutinePlanner
 import com.example.util.NearbyPlacesHelper
+import com.example.util.WeatherHelper
 import com.example.util.assistant.AssistantDrawer
 import com.example.util.assistant.DrawerResult
 import com.example.util.assistant.WardrobeSessionData
 import kotlinx.coroutines.flow.first
+import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Locale
 
 object OfflineIntelligenceDrawer : AssistantDrawer {
@@ -52,8 +56,52 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
         }
 
         // -------------------------------------------------------------------------
-        // 2. GÜNLÜK RUTİN & PROGRAMLAMA MOTORU (Patron - Asistan İş Akışı)
+        // 2. GÜNLÜK BRİFİNG & PROGRAMLAMA MOTORU (Jarvis Operasyonel Raporu)
         // -------------------------------------------------------------------------
+        if (lowerQuery.contains("brifing") || lowerQuery.contains("günün özeti") || lowerQuery.contains("sabah raporu")) {
+            val now = Calendar.getInstance(Locale.forLanguageTag("tr-TR"))
+            val dayOfMonth = now.get(Calendar.DAY_OF_MONTH)
+            val monthName = SimpleDateFormat("MMMM", Locale.forLanguageTag("tr-TR")).format(now.time)
+            val year = now.get(Calendar.YEAR)
+            val dayOfWeek = SimpleDateFormat("EEEE", Locale.forLanguageTag("tr-TR")).format(now.time)
+            val timeStr = SimpleDateFormat("HH:mm", Locale.forLanguageTag("tr-TR")).format(now.time)
+            val timeHeader = "📅 [Sistem Bilgisi: Bugün $dayOfMonth $monthName $year $dayOfWeek, Saat: $timeStr]"
+
+            // Ajanda Maddeleri
+            val calendarEvents = NearbyPlacesHelper.readUpcomingDeviceCalendarEvents(context, 3)
+            val agendaSummary = if (calendarEvents.isNotEmpty()) {
+                calendarEvents.joinToString("\n") { "   • **${it.title}** (${it.formattedDate})" }
+            } else {
+                "   • Planlı acil randevu veya toplantı bulunmuyor."
+            }
+
+            // Canlı Hava Durumu
+            val weatherBrief = WeatherHelper.getLiveWeather(context, sessionData.userLat, sessionData.userLng, sessionData.userCity)
+
+            // Kritik 3 Haber Başlığı
+            val headlines = DailyNewsHelper.getHeadlinesOnly().lines().filter { it.isNotBlank() }.take(3).joinToString("\n") { "   $it" }
+
+            val briefingText = buildString {
+                append("🎖️ **GÜNLÜK OPERASYONEL BRİFİNG**\n")
+                append("$timeHeader\n\n")
+                append("📌 **Günün Kritik Ajanda Maddeleri:**\n")
+                append("$agendaSummary\n\n")
+                append("🌤️ **Hava Durumu:**\n")
+                append("   ${weatherBrief.lines().firstOrNull() ?: weatherBrief}\n\n")
+                append("📰 **Günün Önemli Manşetleri:**\n")
+                append("$headlines\n\n")
+                append("💡 ${greeting}gününüzü en yüksek verimle yönetmeniz için tüm sistemler devrededir.")
+            }
+
+            val voiceBriefing = "${greeting}günün operasyonel brifingi hazır. Bugün $dayOfMonth $monthName $dayOfWeek, saat $timeStr. ${if (calendarEvents.isNotEmpty()) "Ajandanızda ${calendarEvents.size} yaklaşan randevunuz var." else "Bugün için takviminiz açık."} Hava durumu ve haber özetlerini ekranınızda listeledim."
+
+            return DrawerResult(
+                replyText = briefingText,
+                actionSummary = "🎖️ Günlük Operasyonel Brifing",
+                speechText = voiceBriefing
+            )
+        }
+
         if (lowerQuery.contains("günü planla") || lowerQuery.contains("günlük plan") || lowerQuery.contains("rutin") ||
             lowerQuery.contains("bugün ne yap") || lowerQuery.contains("programım") || lowerQuery.contains("günlük program") ||
             lowerQuery.contains("günümü planla")) {
@@ -177,6 +225,20 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
                 replyText = replyText,
                 actionSummary = "🍲 Tarif: ${recipe.title}",
                 speechText = speechText
+            )
+        }
+
+        // -------------------------------------------------------------------------
+        // 5.5. SİRKADİYEN DÖNGÜ & BİYOLOJİK RİTİM VE SAĞLIK
+        // -------------------------------------------------------------------------
+        if (lowerQuery.contains("su iç") || lowerQuery.contains("duruş") || lowerQuery.contains("postür") ||
+            lowerQuery.contains("mola") || lowerQuery.contains("dinlen") || lowerQuery.contains("göz dinlendir") ||
+            lowerQuery.contains("biyolojik") || lowerQuery.contains("ritim") || lowerQuery.contains("sirkadiyen")) {
+            val circadianMsg = "${greeting}biyolojik ritminiz ve çalışma veriminiz için: Bir bardak su içmeyi, omuz ve omurga duruşunuzu dikleştirmeyi ve 20 saniye uzağa odaklanarak gözlerinizi dinlendirmeyi unutmayın efendim."
+            return DrawerResult(
+                replyText = "🧘 **Biyolojik Ritim & Sirkadiyen Sağlık:**\n\n$circadianMsg\n\n• 💧 **Hidrasyon:** 1 Bardak Su\n• 🧘‍♂️ **Postür:** Omuzlar geride, omurga dik\n• 👀 **20-20-20 Kuralı:** Göz dinlendirme molası",
+                actionSummary = "🧘 Biyolojik Ritim Desteği",
+                speechText = circadianMsg
             )
         }
 

@@ -70,7 +70,7 @@ object VisionImageDrawer : AssistantDrawer {
                 })
             })
             put("generationConfig", JSONObject().apply {
-                put("temperature", 0.4)
+                put("temperature", 0.2)
                 put("maxOutputTokens", 500)
                 put("thinkingConfig", JSONObject().apply {
                     put("thinkingBudget", 0)
