@@ -317,13 +317,27 @@ object ActionDispatcherHelper {
                     )
                 }
 
+                "create_daily_plan_pdf", "daily_plan_pdf", "generate_daily_plan" -> {
+                    val (pdfFile, summary) = DailyRoutinePdfHelper.createDailyPlanPdf(context)
+                    return@withContext ActionFeedbackResult(
+                        status = if (pdfFile != null) "success" else "error",
+                        action = "create_daily_plan_pdf",
+                        message = summary
+                    )
+                }
+
                 "generate_document" -> {
                     val title = payload.optString("title", "Maarif Modeli Belgesi")
                     val fileFormat = payload.optString("file_format", "pdf")
                     val templateType = payload.optString("template_type", "maarif_plan")
+                    val titleLower = title.lowercase(Locale.ROOT)
                     
-                    val (_, summary) = when (templateType) {
-                        "zumre_tutanak", "zümre" -> {
+                    val (_, summary) = when {
+                        templateType in listOf("daily_plan", "gunluk_plan", "daily_routine", "rutin") ||
+                        titleLower.contains("günlük") || titleLower.contains("gunluk") || titleLower.contains("rutin") -> {
+                            DailyRoutinePdfHelper.createDailyPlanPdf(context)
+                        }
+                        templateType in listOf("zumre_tutanak", "zümre") -> {
                             MebDocumentHelper.createSokMeetingPdf(
                                 context = context,
                                 params = SokMeetingParams(
@@ -334,7 +348,7 @@ object ActionDispatcherHelper {
                                 )
                             )
                         }
-                        "sinav_analiz", "sınav" -> {
+                        templateType in listOf("sinav_analiz", "sınav") -> {
                             MebDocumentHelper.createExamPaperPdf(
                                 context = context,
                                 schoolName = "Anadolu Lisesi",

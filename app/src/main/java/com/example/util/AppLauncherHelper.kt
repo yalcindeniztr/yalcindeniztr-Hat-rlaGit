@@ -11,21 +11,40 @@ import java.util.Locale
 
 object AppLauncherHelper {
 
+    fun cleanSongQuery(rawQuery: String): String {
+        var clean = rawQuery.trim()
+        clean = clean.replace(Regex("(?i)^(youtube'dan|youtube'da|youtube|youtubeden|youtubede|yt|bana|lütfen)[: ]*"), "")
+        clean = clean.replace(Regex("(?i)\\s+(şarkısını|şarkısı|şarkıyı|parçasını|parçası|müziğini|müziği|müzik|videosunu|videosu|videoyu|video|aç|çal|oynat|bul|dinle|izle|dinlet)$"), "")
+        clean = clean.replace(Regex("(?i)\\s+(şarkısını|şarkısı|şarkıyı|parçasını|parçası|müziğini|müziği|müzik|videosunu|videosu|videoyu|video|aç|çal|oynat|bul|dinle|izle|dinlet)$"), "")
+        clean = clean.trim()
+        return clean.ifBlank { "Türkçe Müzik" }
+    }
+
     fun searchAndPlayYouTube(context: Context, query: String): Pair<Boolean, String> {
         return try {
-            val cleanQuery = query.trim().ifBlank { "Türkçe Müzik" }
+            val cleanQuery = cleanSongQuery(query)
             val encodedQuery = Uri.encode(cleanQuery)
-            val appIntent = Intent(Intent.ACTION_SEARCH).apply {
+            val youtubeUri = Uri.parse("https://www.youtube.com/results?search_query=$encodedQuery")
+
+            // 1. YouTube Uygulamasına Doğrudan ACTION_VIEW ile hedefli arama
+            val appIntent = Intent(Intent.ACTION_VIEW, youtubeUri).apply {
                 setPackage("com.google.android.youtube")
-                putExtra("query", cleanQuery)
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
-            if (appIntent.resolveActivity(context.packageManager) != null) {
+
+            var launched = false
+            try {
                 context.startActivity(appIntent)
-                Pair(true, "▶️ YouTube'da '$cleanQuery' aranıyor ve açılıyor...")
+                launched = true
+            } catch (_: Exception) {
+                launched = false
+            }
+
+            if (launched) {
+                Pair(true, "▶️ YouTube'da '$cleanQuery' parçası açılıyor...")
             } else {
-                val webUri = Uri.parse("https://www.youtube.com/results?search_query=$encodedQuery")
-                val webIntent = Intent(Intent.ACTION_VIEW, webUri).apply {
+                // 2. Fallback Web Tarayıcı
+                val webIntent = Intent(Intent.ACTION_VIEW, youtubeUri).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 }
                 context.startActivity(webIntent)

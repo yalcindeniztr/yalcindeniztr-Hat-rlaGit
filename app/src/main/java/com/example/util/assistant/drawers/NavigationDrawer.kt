@@ -92,12 +92,23 @@ object NavigationDrawer : AssistantDrawer {
             append("💡 Aşağıdaki kartlardan **'Yol Tarifi'** veya **'Telefon'** butonuna dokunarak doğrudan canlı navigasyonu başlatabilirsiniz.")
         }
 
-        val speech = "$patronPrefix, konumunuza en yakın 3 yer listelendi. İlk sırada ${top3Places.firstOrNull()?.distanceMeters ?: 200} metre mesafedeki ${top3Places.firstOrNull()?.name ?: targetQuery} yer alıyor."
+        val top1 = top3Places.firstOrNull()
+        var navLaunched = false
+        if (top1 != null && (lowerQuery.contains("yol") || lowerQuery.contains("tarif") || lowerQuery.contains("navigasyon") || lowerQuery.contains("nasıl giderim") || lowerQuery.contains("git") || lowerQuery.contains("rota"))) {
+            NearbyPlacesHelper.openGoogleMapsNavigation(context, top1.name, top1.lat, top1.lng, top1.address)
+            navLaunched = true
+        }
+
+        val speech = if (navLaunched && top1 != null) {
+            "$patronPrefix, ${top1.name} için Google Haritalar canlı yol tarifini başlattım efendim."
+        } else {
+            "$patronPrefix, konumunuza en yakın 3 yer listelendi. İlk sırada ${top1?.distanceMeters ?: 200} metre mesafedeki ${top1?.name ?: targetQuery} yer alıyor."
+        }
 
         return DrawerResult(
             replyText = reply,
             recommendedPlaces = top3Places,
-            actionSummary = "📍 En Yakın 3 Yer: $targetQuery",
+            actionSummary = if (navLaunched && top1 != null) "🗺️ Yol Tarifi: ${top1.name}" else "📍 En Yakın 3 Yer: $targetQuery",
             speechText = speech
         )
     }

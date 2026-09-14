@@ -2,7 +2,9 @@ package com.example.util.assistant.drawers
 
 import android.content.Context
 import com.example.util.DailyNewsHelper
+import com.example.util.DailyRoutinePdfHelper
 import com.example.util.DailyRoutinePlanner
+import com.example.util.GeneralKnowledgeHelper
 import com.example.util.NearbyPlacesHelper
 import com.example.util.WeatherHelper
 import com.example.util.assistant.AssistantDrawer
@@ -35,6 +37,12 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
             val district = sessionData.userDistrict.ifBlank { "Merkez" }
             val city = sessionData.userCity.ifBlank { "Bulunduğunuz İl" }
             val top3 = NearbyPlacesHelper.getTop3NearbyPlaces(context, sessionData.userLat, sessionData.userLng, query)
+            val top1 = top3.firstOrNull()
+
+            // Kullanıcı nöbetçi eczane sorduğunda en yakın eczaneye canlı Google Haritalar navigasyonunu başlat
+            if (top1 != null) {
+                NearbyPlacesHelper.openGoogleMapsNavigation(context, top1.name, top1.lat, top1.lng, top1.address)
+            }
 
             val reply = buildString {
                 append("🏥 **${greeting}T.C. Sağlık Bakanlığı ve TİTCK nöbet çizelgelerine uygun olarak $city $district bölgesindeki en yakın 3 nöbetçi eczane:**\n\n")
@@ -43,14 +51,15 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
                     append("   • ${p.typeLabel} (${p.distanceMeters} metre mesafede)\n")
                     append("   • Adres: ${p.address}\n\n")
                 }
-                append("💡 İstediğiniz eczaneye anında gitmek için alttaki **'Yol Tarifi Al'** veya doğrudan aramak için **'Telefon'** butonunu kullanabilirsiniz.")
+                append("🗺️ **İlk sıradaki ${top1?.name ?: "nöbetçi eczane"} için Google Haritalar canlı yol tarifi başlatıldı.**\n")
+                append("💡 Diğer eczanelere gitmek için alttaki **'Yol Tarifi Al'** veya doğrudan aramak için **'Telefon'** butonunu kullanabilirsiniz.")
             }
 
-            val speech = "${greeting}$district bölgesinde açık nöbetçi eczaneleri mesafelerine göre listeledim. İlk sırada ${top3.firstOrNull()?.distanceMeters ?: 240} metre mesafedeki ${top3.firstOrNull()?.name} yer alıyor."
+            val speech = "${greeting}$district bölgesinde en yakın nöbetçi eczane olan ${top1?.name ?: "eczaneniz"} için Google Haritalar canlı yol tarifini başlattım. En yakın 3 nöbetçi eczane ekranda hazır."
             return DrawerResult(
                 replyText = reply,
                 recommendedPlaces = top3,
-                actionSummary = "🏥 Nöbetçi Eczaneler: $city $district",
+                actionSummary = "🏥 Nöbetçi Eczane Navigasyonu: ${top1?.name ?: "$city $district"}",
                 speechText = speech
             )
         }
@@ -105,18 +114,22 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
         if (lowerQuery.contains("günü planla") || lowerQuery.contains("günlük plan") || lowerQuery.contains("rutin") ||
             lowerQuery.contains("bugün ne yap") || lowerQuery.contains("programım") || lowerQuery.contains("günlük program") ||
             lowerQuery.contains("günümü planla")) {
-            
+
+            // A4 PDF üretimi ve otomatik ekranda açılması
+            val (pdfFile, pdfStatusNote) = DailyRoutinePdfHelper.createDailyPlanPdf(context, sessionData.userNick)
+
             if (lowerQuery.contains("işle") || lowerQuery.contains("kaydet") || lowerQuery.contains("kur")) {
                 val scheduleSummary = DailyRoutinePlanner.scheduleFullRoutine(context)
-                val reply = "🗓️ ${greeting}günlük dengeli yaşam ve çalışma rutinleriniz alarmlarınıza ve yerel takviminize işlendi.\n\n$scheduleSummary"
-                val speech = "${greeting}günlük rutinlerinizin tamamını takviminize ve sesli alarmlarınıza başarıyla işledim."
-                return DrawerResult(replyText = reply, actionSummary = scheduleSummary, speechText = speech)
+                val reply = "🗓️ ${greeting}günlük dengeli yaşam ve çalışma rutinleriniz alarmlarınıza ve yerel takviminize işlendi.\n\n$pdfStatusNote\n\n$scheduleSummary"
+                val speech = "${greeting}günlük rutinlerinizin A4 PDF programını hazırlayıp ekranda açtım; ayrıca takviminize ve sesli alarmlarınıza işledim."
+                return DrawerResult(replyText = reply, actionSummary = "📄 Günlük Plan PDF & Alarmlar Hazır", speechText = speech)
             } else {
                 val fullPlan = DailyRoutinePlanner.getDailyPlanBriefing(sessionData.userNick)
-                val voiceSummary = DailyRoutinePlanner.getVoiceRoutineSummary(sessionData.userNick)
+                val voiceSummary = "${greeting}günlük çalışma ve yaşam programınızı resmi A4 PDF formatında hazırlayarak ekranda açtım."
+                val reply = "$pdfStatusNote\n\n$fullPlan"
                 return DrawerResult(
-                    replyText = fullPlan,
-                    actionSummary = "📋 Günlük Rutin Programı",
+                    replyText = reply,
+                    actionSummary = "📄 Günlük Plan PDF Açıldı",
                     speechText = voiceSummary
                 )
             }
@@ -292,8 +305,20 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
         }
 
         // -------------------------------------------------------------------------
-        // 8. TARİH, KÜLTÜR VE RESMİ DEVLET BİLGİ KÜTÜPHANESİ TARAMASI (657, ÖMK, MEB)
+        // 8. KAPSAMLI ANSİKLOPEDİK, TARİH, BİLİM VE MEVZUAT BİLGİ MOTORU
         // -------------------------------------------------------------------------
+        // 8.1. GeneralKnowledgeHelper ile Çevrimdışı Nokta Atışı Yanıt
+        val staticKnowledge = GeneralKnowledgeHelper.answerQuery(query, greeting)
+        if (staticKnowledge != null) {
+            val reply = "💡 **${staticKnowledge.title} (${staticKnowledge.category})**\n\n${staticKnowledge.fullContent}"
+            return DrawerResult(
+                replyText = reply,
+                actionSummary = "💡 ${staticKnowledge.title}",
+                speechText = staticKnowledge.shortSpeech
+            )
+        }
+
+        // 8.2. Room Veritabanı Resmi Mevzuat Taraması (657, ÖMK, MEB, Sendika)
         val searchWords = lowerQuery.split(Regex("""[\s,?.!;:()'"\-_/]+""")).filter { it.length >= 3 }
         if (searchWords.isNotEmpty()) {
             val allKnowledge = db.aiKnowledgeDao().getAllKnowledgeList()

@@ -189,6 +189,9 @@ Patron Konumu: ${sessionData.userCity}, ${sessionData.userDistrict}.$targetedKno
         for (model in models) {
             val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=${sessionData.apiKey}"
             try {
+                var rawReply: String? = null
+
+                // 1. Birinci Deneme: Saf JSON modu (response_mime_type: application/json)
                 val req = Request.Builder().url(url).post(requestBody).build()
                 val resp = httpClient.newCall(req).execute()
                 resp.use { r ->
@@ -196,39 +199,62 @@ Patron Konumu: ${sessionData.userCity}, ${sessionData.userDistrict}.$targetedKno
                         val bodyStr = r.body?.source()?.readString(StandardCharsets.UTF_8)
                         if (!bodyStr.isNullOrBlank()) {
                             val candidates = JSONObject(bodyStr).optJSONArray("candidates")
-                            val rawReply = candidates?.optJSONObject(0)
+                            rawReply = candidates?.optJSONObject(0)
                                 ?.optJSONObject("content")
                                 ?.optJSONArray("parts")
                                 ?.optJSONObject(0)
                                 ?.optString("text")
+                        }
+                    }
+                }
 
-                            if (!rawReply.isNullOrBlank()) {
-                                val parsed = ActionDispatcherHelper.parseActionBlock(rawReply)
-                                var summary: String? = null
-                                if (parsed.actionType != null && parsed.actionPayload != null) {
-                                    // Geri Bildirim Döngüsü: İşletim sistemi eylemi icra eder
-                                    val feedback = ActionDispatcherHelper.executeActionWithFeedback(context, parsed.actionType, parsed.actionPayload)
-                                    summary = feedback.message
-                                }
-                                
-                                val bridge = parsed.bridgeResponse
-                                val replyToShow = if (bridge != null) {
-                                    val title = bridge.screenDisplay.title
-                                    val body = bridge.screenDisplay.body
-                                    if (title.isNotBlank() && body.isNotBlank()) "**$title**\n\n$body"
-                                    else if (body.isNotBlank()) body
-                                    else if (title.isNotBlank()) title
-                                    else parsed.speechText
-                                } else parsed.speechText
-
-                                return DrawerResult(
-                                    replyText = replyToShow,
-                                    actionSummary = summary,
-                                    speechText = bridge?.voiceResponse?.ifBlank { parsed.speechText } ?: parsed.speechText
-                                )
+                // 2. İkinci Deneme: HTTP 400 veya model uyumsuzluğunda normal metin fallback'i
+                if (rawReply.isNullOrBlank()) {
+                    val fallbackJsonBody = JSONObject(jsonBody.toString()).apply {
+                        optJSONObject("generationConfig")?.remove("response_mime_type")
+                    }
+                    val fallbackReqBody = fallbackJsonBody.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+                    val fallbackReq = Request.Builder().url(url).post(fallbackReqBody).build()
+                    val fallbackResp = httpClient.newCall(fallbackReq).execute()
+                    fallbackResp.use { fr ->
+                        if (fr.isSuccessful) {
+                            val bodyStr = fr.body?.source()?.readString(StandardCharsets.UTF_8)
+                            if (!bodyStr.isNullOrBlank()) {
+                                val candidates = JSONObject(bodyStr).optJSONArray("candidates")
+                                rawReply = candidates?.optJSONObject(0)
+                                    ?.optJSONObject("content")
+                                    ?.optJSONArray("parts")
+                                    ?.optJSONObject(0)
+                                    ?.optString("text")
                             }
                         }
                     }
+                }
+
+                if (!rawReply.isNullOrBlank()) {
+                    val parsed = ActionDispatcherHelper.parseActionBlock(rawReply)
+                    var summary: String? = null
+                    if (parsed.actionType != null && parsed.actionPayload != null) {
+                        // Geri Bildirim Döngüsü: İşletim sistemi eylemi icra eder
+                        val feedback = ActionDispatcherHelper.executeActionWithFeedback(context, parsed.actionType, parsed.actionPayload)
+                        summary = feedback.message
+                    }
+                    
+                    val bridge = parsed.bridgeResponse
+                    val replyToShow = if (bridge != null) {
+                        val title = bridge.screenDisplay.title
+                        val body = bridge.screenDisplay.body
+                        if (title.isNotBlank() && body.isNotBlank()) "**$title**\n\n$body"
+                        else if (body.isNotBlank()) body
+                        else if (title.isNotBlank()) title
+                        else parsed.speechText
+                    } else parsed.speechText
+
+                    return DrawerResult(
+                        replyText = replyToShow,
+                        actionSummary = summary,
+                        speechText = bridge?.voiceResponse?.ifBlank { parsed.speechText } ?: parsed.speechText
+                    )
                 }
             } catch (_: Exception) {}
         }
