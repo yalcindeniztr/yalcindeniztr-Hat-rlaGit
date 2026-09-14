@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/widget_usta_root"
+    android:id="@+id/widget_jarvis_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:foregroundGravity="center"
@@ -8,7 +8,7 @@
     android:focusable="true">
 
     <LinearLayout
-        android:id="@+id/widget_btn_usta_mic"
+        android:id="@+id/widget_btn_jarvis_mic"
         android:layout_width="76dp"
         android:layout_height="76dp"
         android:layout_gravity="center"
@@ -20,6 +20,7 @@
         android:padding="6dp">
 
         <ImageView
+            android:id="@+id/widget_jarvis_icon"
             android:layout_width="34dp"
             android:layout_height="34dp"
             android:layout_marginBottom="2dp"

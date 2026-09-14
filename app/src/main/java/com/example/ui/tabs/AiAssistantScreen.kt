@@ -379,7 +379,7 @@ fun AiAssistantScreen(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = if (isSpeaking) "USTA SESLİ CEVAP VERİYOR..." else if (isProcessing) "VERİ İŞLENİYOR..." else "QUANTUM ÇEKİRDEK : ÇEVRİMİÇİ",
+                                    text = if (isSpeaking) "JARVIS SESLİ CEVAP VERİYOR..." else if (isProcessing) "VERİ İŞLENİYOR..." else "QUANTUM ÇEKİRDEK : ÇEVRİMİÇİ",
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = if (isSpeaking) NeonBlue else if (isProcessing) NeonPurple else NeonGreen,
@@ -626,6 +626,9 @@ fun AiAssistantScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         val quickPrompts = listOf(
+                            "🎵 Oyun Havası Aç" to "oyun havası aç",
+                            "🏥 Nöbetçi Eczane & Rota" to "nöbetçi eczane bul",
+                            "💊 İlaç Hatırlatması Kur" to "ilaç hatırlatması kur",
                             "📍 Konumu Lokasyona Kaydet" to "Konumu lokasyona kaydet",
                             "🚗 Park Yeri Kaydet" to "Park yeri kaydet",
                             "📝 Hızlı Not Al" to "Hızlı not al",

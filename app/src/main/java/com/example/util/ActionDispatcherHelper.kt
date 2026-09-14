@@ -21,11 +21,33 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+data class ScreenDisplayData(
+    val title: String = "",
+    val body: String = "",
+    val widgetType: String = "none" // "none", "reminder_card", "pharmacy_map", "briefing", "document_ready"
+)
+
+data class DeviceActionData(
+    val actionType: String = "none", // "none", "launch_youtube", "open_maps_navigation", "set_alarm", "create_reminder", "generate_document", "manage_calendar", etc.
+    val intentUri: String? = null,
+    val targetQuery: String? = null,
+    val timestamp: String? = null,
+    val payload: JSONObject? = null
+)
+
+data class JarvisBridgeResponse(
+    val voiceResponse: String,
+    val screenDisplay: ScreenDisplayData,
+    val deviceAction: DeviceActionData,
+    val rawJson: String? = null
+)
+
 data class ParsedActionResult(
     val speechText: String,
     val actionType: String?,
     val actionPayload: JSONObject?,
-    val executionSummary: String? = null
+    val executionSummary: String? = null,
+    val bridgeResponse: JarvisBridgeResponse? = null
 )
 
 data class ActionFeedbackResult(
@@ -43,7 +65,85 @@ object ActionDispatcherHelper {
 
     private val ACTION_BLOCK_REGEX = Regex("""(?s)```(?:action|json)?\s*(\{\s*["'](?:action_type|function)["'][\s\S]*?\})\s*```""")
 
+    fun parseJarvisBridgeJson(rawText: String): JarvisBridgeResponse? {
+        try {
+            var clean = rawText.trim()
+            if (clean.startsWith("```json")) {
+                clean = clean.removePrefix("```json").removeSuffix("```").trim()
+            } else if (clean.startsWith("```")) {
+                clean = clean.removePrefix("```").removeSuffix("```").trim()
+            }
+
+            val startBrace = clean.indexOf('{')
+            val endBrace = clean.lastIndexOf('}')
+            if (startBrace == -1 || endBrace == -1 || endBrace <= startBrace) return null
+
+            val jsonStr = clean.substring(startBrace, endBrace + 1)
+            val root = JSONObject(jsonStr)
+
+            if (!root.has("voice_response") && !root.has("screen_display") && !root.has("device_action")) {
+                return null
+            }
+
+            val voiceResp = root.optString("voice_response", "")
+            val screenObj = root.optJSONObject("screen_display")
+            val screenDisplay = if (screenObj != null) {
+                ScreenDisplayData(
+                    title = screenObj.optString("title", ""),
+                    body = screenObj.optString("body", ""),
+                    widgetType = screenObj.optString("widget_type", "none")
+                )
+            } else ScreenDisplayData()
+
+            val actionObj = root.optJSONObject("device_action")
+            val deviceAction = if (actionObj != null) {
+                val params = actionObj.optJSONObject("parameters")
+                DeviceActionData(
+                    actionType = actionObj.optString("action_type", "none"),
+                    intentUri = params?.optString("intent_uri", "")?.takeIf { it.isNotBlank() },
+                    targetQuery = params?.optString("target_query", "")?.takeIf { it.isNotBlank() },
+                    timestamp = params?.optString("timestamp", "")?.takeIf { it.isNotBlank() },
+                    payload = params?.optJSONObject("payload")
+                )
+            } else DeviceActionData()
+
+            return JarvisBridgeResponse(
+                voiceResponse = voiceResp,
+                screenDisplay = screenDisplay,
+                deviceAction = deviceAction,
+                rawJson = jsonStr
+            )
+        } catch (e: Exception) {
+            return null
+        }
+    }
+
     fun parseActionBlock(rawText: String): ParsedActionResult {
+        // 1. Yeni Saf JSON Köprüsü (JarvisBridgeResponse) Doğrudan Kontrolü
+        val bridge = parseJarvisBridgeJson(rawText)
+        if (bridge != null) {
+            val actType = bridge.deviceAction.actionType.takeIf { it != "none" }
+            val payload = JSONObject().apply {
+                bridge.deviceAction.intentUri?.let { put("intent_uri", it) }
+                bridge.deviceAction.targetQuery?.let { put("target_query", it) }
+                bridge.deviceAction.timestamp?.let { put("timestamp", it) }
+                bridge.deviceAction.payload?.let { pl ->
+                    val keys = pl.keys()
+                    while (keys.hasNext()) {
+                        val k = keys.next()
+                        put(k, pl.opt(k))
+                    }
+                }
+            }
+            return ParsedActionResult(
+                speechText = bridge.voiceResponse.ifBlank { bridge.screenDisplay.title },
+                actionType = actType,
+                actionPayload = payload,
+                executionSummary = bridge.screenDisplay.title.ifBlank { bridge.screenDisplay.body.take(60) },
+                bridgeResponse = bridge
+            )
+        }
+
         var cleanSpeech = rawText.trim()
         var matchedJsonStr: String? = null
 
@@ -173,6 +273,50 @@ object ActionDispatcherHelper {
         val normalized = actionType.lowercase(Locale.ROOT)
         try {
             when (normalized) {
+                "launch_youtube", "play_youtube", "play_music" -> {
+                    val intentUri = payload.optString("intent_uri", "")
+                    val targetQuery = payload.optString("target_query", "").ifBlank {
+                        payload.optString("query", "")
+                    }
+                    val query = if (targetQuery.isNotBlank()) targetQuery else {
+                        if (intentUri.contains("search_query=")) {
+                            Uri.parse(intentUri).getQueryParameter("search_query") ?: "ankara oyun havalari"
+                        } else "ankara oyun havalari"
+                    }
+                    val (success, msg) = AppLauncherHelper.searchAndPlayYouTube(context, query)
+                    return@withContext ActionFeedbackResult(
+                        status = if (success) "success" else "error",
+                        action = "launch_youtube",
+                        message = msg
+                    )
+                }
+
+                "open_maps_navigation", "navigate", "search_map", "open_maps" -> {
+                    val intentUri = payload.optString("intent_uri", "")
+                    val targetQuery = payload.optString("target_query", "").ifBlank {
+                        payload.optString("query", "nobetci eczane")
+                    }
+                    val navUri = if (intentUri.isNotBlank()) Uri.parse(intentUri) else Uri.parse("google.navigation:q=${Uri.encode(targetQuery)}")
+                    val mapIntent = Intent(Intent.ACTION_VIEW, navUri).apply {
+                        setPackage("com.google.android.apps.maps")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    val canLaunch = try {
+                        context.startActivity(mapIntent)
+                        true
+                    } catch (e: Exception) {
+                        val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encode(targetQuery)}")).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        try { context.startActivity(webIntent); true } catch (_: Exception) { false }
+                    }
+                    return@withContext ActionFeedbackResult(
+                        status = if (canLaunch) "success" else "error",
+                        action = "open_maps_navigation",
+                        message = if (canLaunch) "Harita navigasyonu başlatıldı: $targetQuery" else "Harita açılamadı."
+                    )
+                }
+
                 "generate_document" -> {
                     val title = payload.optString("title", "Maarif Modeli Belgesi")
                     val fileFormat = payload.optString("file_format", "pdf")
@@ -418,9 +562,13 @@ object ActionDispatcherHelper {
                     )
                 }
 
-                "set_reminder" -> {
-                    val title = payload.optString("title", "Hatırlatıcı")
-                    val rawTrigger = payload.optString("trigger_time", "").ifBlank { payload.optString("time", "") }
+                "create_reminder", "set_reminder" -> {
+                    val title = payload.optString("title", "").ifBlank {
+                        payload.optString("label", "Hatırlatıcı")
+                    }
+                    val rawTrigger = payload.optString("timestamp", "").ifBlank {
+                        payload.optString("trigger_time", "").ifBlank { payload.optString("time", "") }
+                    }
                     val cal = Calendar.getInstance()
                     if (rawTrigger.isNotBlank()) {
                         val timeMatch = Regex("""(?i)(\d{1,2})[:.](\d{2})""").find(rawTrigger)
@@ -439,8 +587,9 @@ object ActionDispatcherHelper {
                     }
 
                     val sdf = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
+                    val category = if (title.contains("İlaç", ignoreCase = true) || title.contains("Ilac", ignoreCase = true)) "İLAÇ" else "HATIRLATICI"
                     val reminder = ReminderEntity(
-                        category = "HATIRLATICI",
+                        category = category,
                         title = title,
                         dueDatetime = sdf.format(cal.time),
                         dueDateMillis = cal.timeInMillis,
@@ -451,12 +600,12 @@ object ActionDispatcherHelper {
                     val db = AppDatabase.getDatabase(context)
                     val id = db.reminderDao().insertReminder(reminder)
                     AlarmHelper.scheduleAlarm(context, reminder.copy(id = id.toInt()), "CLASSIC_BELL")
-                    LocalStorageManager.saveLocalReminder(context, title, sdf.format(cal.time), cal.timeInMillis, "HATIRLATICI")
+                    LocalStorageManager.saveLocalReminder(context, title, sdf.format(cal.time), cal.timeInMillis, category)
 
                     return@withContext ActionFeedbackResult(
                         status = "success",
-                        action = "set_reminder",
-                        message = "'$title' hatırlatıcısı ${sdf.format(cal.time)} için kaydedildi."
+                        action = "create_reminder",
+                        message = "'$title' hatırlatıcısı ${sdf.format(cal.time)} için kaydedildi ve ana ekrana sabitlendi efendim."
                     )
                 }
 

@@ -102,7 +102,20 @@
                 android:resource="@xml/hatirlagit_widget_info" />
         </receiver>
 
-        <!-- Usta AI Assistant Dedicated Home Screen Widget -->
+        <!-- Jarvis ATİLA AI Assistant Dedicated 3D Home Screen Widget -->
+        <receiver
+            android:name="com.example.widget.JarvisAssistantWidgetProvider"
+            android:exported="true"
+            android:label="Jarvis Asistan">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/jarvis_assistant_widget_info" />
+        </receiver>
+
+        <!-- Legacy Usta Assistant Widget Provider -->
         <receiver
             android:name="com.example.widget.UstaAssistantWidgetProvider"
             android:exported="true">
