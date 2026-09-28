@@ -278,32 +278,7 @@ object GeneralKnowledgeHelper {
             )
         }
 
-        // 6. DİNAMİK SORU KALIPLARI (Nedir, Kimdir, Nasıl, Ne zaman)
-        val isQuestion = lower.endsWith("?") || lower.contains("nedir") || lower.contains("kimdir") ||
-                lower.contains("nasıl") || lower.contains("ne zaman") || lower.contains("açıkla") ||
-                lower.contains("bilgi ver") || lower.contains("anlat")
-
-        if (isQuestion) {
-            val subject = rawQuery
-                .replace(Regex("(?i)\b(nedir|kimdir|nasıl|ne zaman|açıkla|bilgi ver|anlat|sence|hakkında|bana|lütfen)\b"), "")
-                .replace(Regex("[?.,!;:]"), "")
-                .trim()
-
-            if (subject.length >= 3) {
-                return KnowledgeAnswer(
-                    title = "$subject Hakkında Analitik Bilgi",
-                    shortSpeech = "$greeting$subject konusuyla ilgili analitik ve pedagojik temel bilgileri derledim.",
-                    fullContent = """
-                        **$subject İncelemesi:**
-                        • **Tanım & Kapsam:** $subject, ilgili disiplinde temel ilkeleri, yapısal özellikleri ve fonksiyonel dinamikleriyle ele alınır.
-                        • **Önem & İşlev:** Alanındaki nedensellik bağları, tarihsel gelişimi ve pratik yaşamdaki karşılığı açısından kritik bir konudur.
-                        • **Öneri:** Konunun derinlikli ayrıntıları, güncel akademik literatür ve resmi mevzuat verileri doğrultusunda sistem hafızasında saklanmaktadır.
-                    """.trimIndent(),
-                    category = "GENEL_BİLGİ"
-                )
-            }
-        }
-
+        // Eşleşme yoksa null döner, böylece canlı internet araştırma motoru (LiveWebResearchDrawer) veya Gemini devreye girer
         return null
     }
 }

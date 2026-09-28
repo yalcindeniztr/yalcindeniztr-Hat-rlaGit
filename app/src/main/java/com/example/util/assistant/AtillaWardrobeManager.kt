@@ -8,6 +8,7 @@ import com.example.util.assistant.drawers.CommunicationDrawer
 import com.example.util.assistant.drawers.CultureTravelDrawer
 import com.example.util.assistant.drawers.GeminiCloudDrawer
 import com.example.util.assistant.drawers.KnowledgeSearchDrawer
+import com.example.util.assistant.drawers.LiveWebResearchDrawer
 import com.example.util.assistant.drawers.NavigationDrawer
 import com.example.util.assistant.drawers.OfflineIntelligenceDrawer
 import com.example.util.assistant.drawers.TeacherMebDrawer
@@ -22,12 +23,13 @@ object AtillaWardrobeManager {
         CalendarDrawer,             // 3. Takvim ve randevu senkronizasyonu
         CommunicationDrawer,        // 4. Telefon arama ve WhatsApp mesajı
         NavigationDrawer,           // 5. Harita, navigasyon ve park yeri
-        TeacherMebDrawer,           // 6. MEB, mevzuat, ŞÖK, sınav ve planlama
-        AppBridgeDrawer,            // 7. YouTube, Google arama, Gemini köprüsü
-        CultureTravelDrawer,        // 8. Kültür, gezi rotaları ve coğrafya
-        GeminiCloudDrawer,          // 9. Canlı Bulut Yapay Zeka (Geçerli API anahtarı varsa)
-        KnowledgeSearchDrawer,      // 10. Çevrimdışı Nokta Atışı Kütüphane Arama (657, ÖMK, Sendika, MEB)
-        OfflineIntelligenceDrawer   // 11. Zengin Çevrimdışı Zeka ve Sohbet Motoru (1.0.1 & 1.2.x mimarisi)
+        AppBridgeDrawer,            // 6. YouTube, Google arama, Telefon Gemini köprüsü
+        GeminiCloudDrawer,          // 7. Canlı Bulut Yapay Zeka (Geçerli API anahtarı varsa - İnsancıl mod)
+        LiveWebResearchDrawer,      // 8. CANLI İNTERNET VE GÜNCEL ARAŞTIRMA (Wikipedia TR, Canlı Haber RSS, Web)
+        TeacherMebDrawer,           // 9. MEB resmi plan ve sınav evrak üretimi
+        CultureTravelDrawer,        // 10. Kültür ve gezi rotaları
+        KnowledgeSearchDrawer,      // 11. Çevrimdışı Nokta Atışı Kütüphane Arama (657, ÖMK, Sendika, MEB)
+        OfflineIntelligenceDrawer   // 12. İnsancıl Patron-Çalışan Diyalog, Karar Destek ve Gemini Köprüsü
     )
 
     suspend fun dispatch(

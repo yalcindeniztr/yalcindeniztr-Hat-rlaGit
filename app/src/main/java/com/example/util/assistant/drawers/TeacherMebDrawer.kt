@@ -16,15 +16,10 @@ object TeacherMebDrawer : AssistantDrawer {
                lowerQuery.contains("öğretmen plan") ||
                lowerQuery.contains("ders programı") ||
                lowerQuery.contains("haftalık plan") ||
-               lowerQuery.contains("şök") ||
+               lowerQuery.contains("şök tutanağı") ||
+               lowerQuery.contains("şök hazırla") ||
                lowerQuery.contains("sınav kağıdı") ||
-               lowerQuery.contains("açık uçlu sınav") ||
-               lowerQuery.contains("657") ||
-               lowerQuery.contains("ömk") ||
-               lowerQuery.contains("ek ders") ||
-               lowerQuery.contains("bep") ||
-               lowerQuery.contains("zümre") ||
-               lowerQuery.contains("sendika")
+               lowerQuery.contains("açık uçlu sınav")
     }
 
     override suspend fun handle(

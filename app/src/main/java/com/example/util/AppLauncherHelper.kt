@@ -109,26 +109,44 @@ object AppLauncherHelper {
     fun openGoogleGemini(context: Context, query: String = ""): Pair<Boolean, String> {
         return try {
             val geminiPackage = "com.google.android.apps.bard"
-            val launchIntent = context.packageManager.getLaunchIntentForPackage(geminiPackage)
+            val pm = context.packageManager
+
+            // 1. Eğer sorgu varsa önce Gemini uygulamasına metin aktarmayı dene
+            if (query.isNotBlank()) {
+                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, query)
+                    setPackage(geminiPackage)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                if (sendIntent.resolveActivity(pm) != null) {
+                    context.startActivity(sendIntent)
+                    return Pair(true, "✨ Telefonunuzdaki Google Gemini uygulamasına köprü kuruldu. '$query' sorgusu aktarılıyor...")
+                }
+            }
+
+            // 2. Doğrudan Gemini Uygulamasını Başlat
+            val launchIntent = pm.getLaunchIntentForPackage(geminiPackage)
             if (launchIntent != null) {
                 launchIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 if (query.isNotBlank()) {
                     launchIntent.putExtra(Intent.EXTRA_TEXT, query)
                 }
                 context.startActivity(launchIntent)
-                Pair(true, "✨ Google Gemini köprüsü kuruldu, uygulama açılıyor...")
-            } else {
-                val targetUrl = if (query.isNotBlank()) {
-                    "https://gemini.google.com/app?q=${Uri.encode(query)}"
-                } else {
-                    "https://gemini.google.com"
-                }
-                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl)).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-                context.startActivity(webIntent)
-                Pair(true, "✨ Google Gemini web köprüsü açılıyor...")
+                return Pair(true, "✨ Telefonunuzdaki Google Gemini uygulaması açılıyor efendim.")
             }
+
+            // 3. Fallback: Google Asistan veya Canlı Web Köprüsü
+            val targetUrl = if (query.isNotBlank()) {
+                "https://gemini.google.com/app?q=${Uri.encode(query)}"
+            } else {
+                "https://gemini.google.com"
+            }
+            val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl)).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(webIntent)
+            Pair(true, "✨ Google Gemini web köprüsü açılıyor, sorgunuz hazır efendim.")
         } catch (e: Exception) {
             Pair(false, "Gemini köprüsü kurulamadı: ${e.localizedMessage}")
         }

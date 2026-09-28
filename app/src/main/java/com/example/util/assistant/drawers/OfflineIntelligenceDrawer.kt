@@ -346,27 +346,19 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
         }
 
         // -------------------------------------------------------------------------
-        // 9. GENEL ANSİKLOPEDİK / BİLİMSEL / GÜNDELİK YANITLAR
+        // 9. DİNAMİK VE İNSANCIL PATRON-ÇALIŞAN AKIL YÜRÜTME & GEMİNİ KÖPRÜSÜ
         // -------------------------------------------------------------------------
-        val generalKnowledge = when {
-            lowerQuery.contains("cumhuriyet") || lowerQuery.contains("atatürk") -> {
-                "Gazi Mustafa Kemal Atatürk önderliğinde 29 Ekim 1923'te ilan edilen Türkiye Cumhuriyeti, egemenliğin kayıtsız şartsız millete ait olduğu çağdaş ve tam bağımsız bir hukuk devletidir."
-            }
-            lowerQuery.contains("yapay zeka") || lowerQuery.contains("ai") -> {
-                "Yapay zeka; insan zekasını modelleyerek veri analizi, doğal dil işleme, görsel tanıma ve mantıksal çıkarım yapabilen modern algoritmalar bütünüdür."
-            }
-            lowerQuery.contains("dünya") || lowerQuery.contains("güneş") || lowerQuery.contains("gezegen") -> {
-                "Güneş Sistemi Samanyolu Galaksisi'nde yer alır. Dünya, Güneş'e en yakın üçüncü gezegen olup sıvı su ve yaşam barındıran tek bilinen gökcismidir."
-            }
-            else -> {
-                "${greeting}sizi dikkatle dinliyorum. Telefon araması, WhatsApp, alarmlar, nöbetçi eczaneler, canlı hava durumu, günlük rutin planlama veya resmi mevzuat konularında emrinizdeyim."
-            }
+        val reply = buildString {
+            append("💡 **${greeting}Konuyu Sizin İçin İnceliyorum:**\n\n")
+            append("'$query' konusundaki talimatınızı aldım. Derinlemesine araştırma, karmaşık analiz ve en taze web verileri için dilerseniz anında telefonunuzdaki **Google Gemini** uygulamasını başlatabilirim.\n\n")
+            append("📱 _'Gemini'ye sor' diyerek veya 'Gemini ile aç' komutuyla telefonunuzdaki yapay zekaya doğrudan bağlanabilirsiniz efendim._")
         }
+        val speech = "${greeting}'$query' konusunu telefonunuzdaki Google Gemini uygulamasına aktarabilirim veya araştırmayı derinleştirebilirim. Emrinizi bekliyorum."
 
         return DrawerResult(
-            replyText = "💡 **ATİLA:**\n\n$generalKnowledge",
-            actionSummary = "⚡ ATİLA Dinlemede",
-            speechText = generalKnowledge
+            replyText = reply,
+            actionSummary = "✨ Telefonumdaki Gemini'ye Aktar",
+            speechText = speech
         )
     }
 }

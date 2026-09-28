@@ -220,7 +220,7 @@ fun PlayStoreUpdateDialog(
  */
 @Composable
 fun AppUpToDateDialog(
-    currentVersionName: String = "v1.4.4",
+    currentVersionName: String = "v1.4.5",
     onDismiss: () -> Unit
 ) {
     Dialog(

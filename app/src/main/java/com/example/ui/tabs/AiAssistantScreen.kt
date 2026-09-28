@@ -626,6 +626,8 @@ fun AiAssistantScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         val quickPrompts = listOf(
+                            "🌐 Canlı İnternet Araştırması" to "internette canlı araştır: ",
+                            "✨ Gemini'ye Sor" to "Google Gemini ile araştır: ",
                             "🎵 Oyun Havası Aç" to "oyun havası aç",
                             "🏥 Nöbetçi Eczane & Rota" to "nöbetçi eczane bul",
                             "💊 İlaç Hatırlatması Kur" to "ilaç hatırlatması kur",
@@ -874,18 +876,24 @@ fun SciFiChatMessageItem(
 
         if (!message.actionSummary.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(4.dp))
+            val isGeminiBridge = message.actionSummary.contains("Gemini", ignoreCase = true)
+            val context = androidx.compose.ui.platform.LocalContext.current
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF064E3B))
-                    .border(1.dp, NeonGreen, RoundedCornerShape(8.dp))
+                    .background(if (isGeminiBridge) Color(0xFF1E1B4B) else Color(0xFF064E3B))
+                    .border(1.dp, if (isGeminiBridge) NeonPurple else NeonGreen, RoundedCornerShape(8.dp))
+                    .then(if (isGeminiBridge) Modifier.clickable {
+                        val queryText = message.text.take(150)
+                        com.example.util.AppLauncherHelper.openGoogleGemini(context, queryText)
+                    } else Modifier)
                     .padding(horizontal = 9.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = "⚡ ${message.actionSummary}",
+                    text = if (isGeminiBridge) "✨ ${message.actionSummary} (Dokun & Başlat)" else "⚡ ${message.actionSummary}",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = NeonGreen
+                    color = if (isGeminiBridge) NeonCyan else NeonGreen
                 )
             }
         }

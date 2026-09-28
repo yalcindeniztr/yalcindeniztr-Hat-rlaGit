@@ -71,13 +71,15 @@ object AppBridgeDrawer : AssistantDrawer {
             )
         }
 
-        // 4. Google Gemini Köprüsü
-        if (lowerQuery.contains("gemini")) {
-            val q = query.replace(Regex("(?i)^(gemini'yi aç|gemini aç|geminiye sor|gemini)[: ]*"), "").trim()
+        // 4. Telefonumdaki Google Gemini Köprüsü
+        if (lowerQuery.contains("gemini") || lowerQuery.contains("yapay zekaya sor")) {
+            val q = query.replace(Regex("(?i)^(gemini'yi aç|gemini aç|geminiye sor|gemini ile araştır|gemini ile bak|telefonumdaki gemini|gemini|yapay zekaya sor)[: ]*"), "").trim()
             val (_, message) = AppLauncherHelper.openGoogleGemini(context, q)
+            val speech = if (q.isNotBlank()) "Sayın Patronum, '$q' konusunu telefonunuzdaki Google Gemini uygulamasına aktarıyorum." else "Sayın Patronum, telefonunuzdaki Google Gemini uygulamasını açıyorum."
             return DrawerResult(
-                replyText = message,
-                actionSummary = "✨ Google Gemini Köprüsü"
+                replyText = "$message\n\n💡 Sorgunuz doğrudan Gemini uygulamasına aktarıldı efendim.",
+                actionSummary = "✨ Telefonumdaki Gemini: ${if (q.isNotBlank()) q.take(30) else "Açıldı"}",
+                speechText = speech
             )
         }
 
