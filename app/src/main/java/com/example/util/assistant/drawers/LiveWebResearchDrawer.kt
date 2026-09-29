@@ -45,12 +45,12 @@ object LiveWebResearchDrawer : AssistantDrawer {
         sessionData: WardrobeSessionData
     ): DrawerResult? {
         val isChatMode = UstaSessionState.isChatMode
-        val greeting = if (isChatMode) "Dostum, " else if (sessionData.userNick.isNotBlank()) "Sayın Patronum ${sessionData.userNick}, " else "Sayın Patronum, "
+        val greeting = if (isChatMode) "Dostum, " else if (sessionData.userNick.isNotBlank()) "Sayın Hocam ${sessionData.userNick}, " else "Sayın Hocam, "
 
         // 1. Canlı Haber Manşetleri (TRT Haber Canlı RSS Akışı)
-        if (lowerQuery.contains("gazete manşet") || lowerQuery.contains("haberler") || lowerQuery.contains("günün haber") || lowerQuery.contains("son dakika")) {
+        if (lowerQuery.contains("gazete manşet") || lowerQuery.contains("haberler") || lowerQuery.contains("günün haber") || lowerQuery.contains("son dakika") || lowerQuery.contains("gündem")) {
             val liveHeadlines = LiveWebSearchHelper.fetchLiveNewsHeadlines()
-            val speech = "${greeting}günün en sıcak canlı haber başlıklarını internetten derledim. Ekranınızdan detayları inceleyebilirsiniz efendim."
+            val speech = com.example.util.DailyNewsHelper.getVoiceHeadlinesSummary(liveHeadlines, greeting.trim().trimEnd(','))
             return DrawerResult(
                 replyText = liveHeadlines,
                 actionSummary = "📰 Canlı Güncel Haberler",

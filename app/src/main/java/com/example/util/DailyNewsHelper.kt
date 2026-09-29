@@ -44,10 +44,19 @@ Bölgesel barış girişimleri ve uluslararası diplomatik temaslar yoğun şeki
     }
 
     /**
-     * TTS için derli toplu insani sesli gazete anonsu
+     * TTS için gazete manşetlerini tek tek seslendiren insani anons
      */
-    fun getVoiceHeadlinesSummary(): String {
-        return "Sayın Patronum, bugünün güncel haber başlıklarını ve ulusal gündem manşetlerini ekranınıza getirdim. Ekonomi, teknoloji ve eğitim alanındaki gelişmeleri inceleyebilirsiniz."
+    fun getVoiceHeadlinesSummary(headlinesText: String? = null, prefix: String = "Sayın Hocam"): String {
+        val raw = headlinesText ?: getHeadlinesOnly()
+        val regex = Regex("""(?m)^\d+\.\s+\*\*(.*?)\*\*""")
+        val matches = regex.findAll(raw).map { it.groupValues[1].trim() }.filter { it.isNotBlank() }.take(3).toList()
+
+        return if (matches.isNotEmpty()) {
+            val spoken = matches.mapIndexed { idx, title -> "${idx + 1}. $title" }.joinToString(". ")
+            "$prefix, günün öne çıkan önemli başlıkları: $spoken. Tüm haber detaylarını ve gazeteleri ekranınıza getirdim."
+        } else {
+            "$prefix, günün güncel haber manşetlerini internetten derledim. Ekonomi, eğitim ve ülke gündemi başlıklarını ekranınızdaki panele getirdim."
+        }
     }
 
     /**

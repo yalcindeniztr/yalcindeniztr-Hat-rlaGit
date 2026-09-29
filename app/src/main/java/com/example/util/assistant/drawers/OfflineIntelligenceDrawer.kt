@@ -27,7 +27,7 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
         sessionData: WardrobeSessionData
     ): DrawerResult {
         val isChatMode = com.example.util.UstaSessionState.isChatMode
-        val greeting = if (isChatMode) "Dostum, " else if (sessionData.userNick.isNotBlank()) "Sayın Patronum ${sessionData.userNick}, " else "Sayın Patronum, "
+        val greeting = if (isChatMode) "Dostum, " else if (sessionData.userNick.isNotBlank()) "Sayın Hocam ${sessionData.userNick}, " else "Sayın Hocam, "
         val db = sessionData.db
 
         // -------------------------------------------------------------------------

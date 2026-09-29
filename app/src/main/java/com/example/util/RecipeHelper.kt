@@ -1,6 +1,10 @@
 package com.example.util
 
 import android.content.Context
+import com.example.data.AppDatabase
+import com.example.data.ReminderEntity
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 data class RecipeItem(
@@ -172,6 +176,60 @@ object RecipeHelper {
         } ?: recipes.random()
     }
 
+    fun findRecipeByIngredients(query: String): Pair<RecipeItem, List<String>> {
+        val lower = query.lowercase(Locale("tr", "TR"))
+        var bestRecipe = recipes.first()
+        var maxScore = -1
+        var bestMissing = listOf<String>()
+
+        for (recipe in recipes) {
+            var score = 0
+            val missing = mutableListOf<String>()
+            for (ing in recipe.ingredients) {
+                val ingLower = ing.lowercase(Locale("tr", "TR"))
+                val words = ingLower.split(" ").filter { it.length > 2 }
+                val hasMatch = words.any { lower.contains(it) }
+                if (hasMatch) {
+                    score += 2
+                } else {
+                    missing.add(ing.replace(Regex("""^\d+.*?(adet|su bardağı|tatlı kaşığı|yemek kaşığı|çay kaşığı|litre|paket|demet|gram|g)\s*"""), "").trim())
+                }
+            }
+            if (score > maxScore) {
+                maxScore = score
+                bestRecipe = recipe
+                bestMissing = missing
+            }
+        }
+        return Pair(bestRecipe, bestMissing)
+    }
+
+    suspend fun addMissingToShoppingList(context: Context, items: List<String>): Int {
+        if (items.isEmpty()) return 0
+        val db = AppDatabase.getDatabase(context)
+        val now = System.currentTimeMillis()
+        val dateStr = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale("tr", "TR")).format(Date(now))
+        var count = 0
+        items.take(6).forEach { rawItem ->
+            val cleanItem = rawItem.take(40).trim()
+            if (cleanItem.isNotBlank()) {
+                val rem = ReminderEntity(
+                    category = "SHOPPING",
+                    title = "🛒 $cleanItem",
+                    dueDatetime = dateStr,
+                    dueDateMillis = now,
+                    customNote = "Yemek tarifi için gereken eksik malzeme.",
+                    isFavorite = false,
+                    encryptedMetadata = "{}",
+                    actionStep = "NOTE_SAVED"
+                )
+                db.reminderDao().insertReminder(rem)
+                count++
+            }
+        }
+        return count
+    }
+
     fun getRecipeBriefing(recipe: RecipeItem, patronPrefix: String): Pair<String, String> {
         val text = buildString {
             append("🍲 **$patronPrefix, İşte Sizin İçin Seçtiğim Tarif: ${recipe.title}**\n")
@@ -186,7 +244,8 @@ object RecipeHelper {
                 append(" ${idx + 1}. $st\n")
             }
             append("\n💡 **Usta Püf Noktası:** ${recipe.tips}\n\n")
-            append("🎬 **Videolu Anlatım:** Dilerseniz _'YouTube'da videolu tarifini aç'_ diyerek yapılış videosunu hemen izleyebilirsiniz!")
+            append("🎬 **Videolu Anlatım:** Dilerseniz _'YouTube'da videolu tarifini aç'_ diyerek yapılış videosunu hemen izleyebilirsiniz!\n")
+            append("📝 _Eksik malzemeleri alışveriş listenize kaydetmemi isterseniz 'Eksikleri alışveriş listeme ekle' demeniz yeterlidir._")
         }
 
         val speech = "$patronPrefix, sizin için ${recipe.title} tarifini hazırladım. ${recipe.tips.take(120)} Dilerseniz videosunu YouTube'da hemen açabilirim."

@@ -57,6 +57,15 @@ object UstaSessionState {
     // Patron - Asistan vs Sohbet Modu
     var isChatMode: Boolean = false
     var lastSuggestedRecipe: RecipeItem? = null
+    var pendingShoppingItems: List<String> = emptyList()
+
+    // Telefon Arama Teyit Durumu
+    var isWaitingForCallConfirmation: Boolean = false
+    var pendingCallPhoneNumber: String? = null
+    var pendingCallPlaceName: String? = null
+
+    // Son Asistan Yanıtı (PDF ve Arayüz Köprüsü İçin)
+    var lastAssistantResponse: AiResponse? = null
 }
 
 object AiAssistantService {
@@ -124,7 +133,7 @@ object AiAssistantService {
         val currentNick = dataStoreManager.userNick.first()?.trim() ?: ""
 
         val isChatMode = UstaSessionState.isChatMode
-        val patronPrefix = if (isChatMode) "Dostum" else if (currentNick.isNotBlank()) "Sayın Patronum $currentNick" else "Sayın Patronum"
+        val patronPrefix = if (isChatMode) "Dostum" else if (currentNick.isNotBlank()) "Sayın Hocam $currentNick" else "Sayın Hocam"
 
         var cleanMsg = userMessage.trim()
         val triggerRegex = Regex("""(?i)^(hey\s+)?(atilla|atila|jarvis|usta|asistan|atilla\s+dinle|atila\s+dinle|usta\s+dinle)[,\s!.:]*""")
@@ -136,6 +145,193 @@ object AiAssistantService {
         }
 
         val lowerMsg = cleanMsg.lowercase(Locale.forLanguageTag("tr-TR"))
+
+        // =========================================================================
+        // 0. TELEFON ARAMA TEYİT KONTROLÜ (İNTERAKTİF PATRON DİYALOĞU)
+        // =========================================================================
+        if (UstaSessionState.isWaitingForCallConfirmation) {
+            val phone = UstaSessionState.pendingCallPhoneNumber ?: ""
+            val placeName = UstaSessionState.pendingCallPlaceName ?: "İlgili numara"
+            val isAffirmative = lowerMsg.contains("evet") || lowerMsg.contains("ara") || lowerMsg.contains("lütfen") || lowerMsg.contains("tamam") || lowerMsg.contains("olur")
+            val isNegative = lowerMsg.contains("hayır") || lowerMsg.contains("iptal") || lowerMsg.contains("arama") || lowerMsg.contains("vazgeç")
+
+            if (isAffirmative && phone.isNotBlank()) {
+                UstaSessionState.isWaitingForCallConfirmation = false
+                UstaSessionState.pendingCallPhoneNumber = null
+                UstaSessionState.pendingCallPlaceName = null
+                NearbyPlacesHelper.makePhoneCall(context, phone)
+                val speech = "$patronPrefix, $placeName için telefon araması başlatılıyor."
+                val resp = AiResponse(
+                    replyText = "📞 **$placeName ($phone)** aranıyor...",
+                    actionSummary = "📞 Aranıyor: $placeName",
+                    speechText = speech
+                )
+                UstaSessionState.lastAssistantResponse = resp
+                return@withContext resp
+            } else if (isNegative) {
+                UstaSessionState.isWaitingForCallConfirmation = false
+                UstaSessionState.pendingCallPhoneNumber = null
+                UstaSessionState.pendingCallPlaceName = null
+                val speech = "Emredersiniz $patronPrefix, arama işlemi iptal edildi."
+                val resp = AiResponse(
+                    replyText = "❌ Arama işlemi iptal edildi.",
+                    actionSummary = "❌ Arama İptal",
+                    speechText = speech
+                )
+                UstaSessionState.lastAssistantResponse = resp
+                return@withContext resp
+            }
+        }
+
+        // =========================================================================
+        // 0.1. EKSİK MALZEMELERİ ALIŞVERİŞ LİSTESİNE EKLEME
+        // =========================================================================
+        if (lowerMsg.contains("alışveriş listeme ekle") || lowerMsg.contains("eksikleri ekle") || lowerMsg.contains("malzemeleri ekle") || lowerMsg.contains("listeme ekle")) {
+            val itemsToAdd = UstaSessionState.pendingShoppingItems
+            if (itemsToAdd.isNotEmpty()) {
+                val count = RecipeHelper.addMissingToShoppingList(context, itemsToAdd)
+                UstaSessionState.pendingShoppingItems = emptyList()
+                val speech = "$patronPrefix, tarif için gereken $count adet eksik malzeme alışveriş listenize eklendi."
+                val resp = AiResponse(
+                    replyText = "🛒 **$count Adet Malzeme Alışveriş Listenize Eklendi:**\n\n" + itemsToAdd.joinToString("\n") { "• $it" },
+                    actionSummary = "🛒 Alışverişe Eklendi ($count)",
+                    speechText = speech
+                )
+                UstaSessionState.lastAssistantResponse = resp
+                return@withContext resp
+            }
+        }
+
+        // =========================================================================
+        // 0.2. "BUNU PDF YAP" / "ARAŞTIRMAYI PDF YAP"
+        // =========================================================================
+        if (lowerMsg.contains("bunu pdf yap") || lowerMsg.contains("pdf olarak kaydet") || lowerMsg.contains("pdf'e dönüştür") || lowerMsg.contains("pdf yap") || lowerMsg.contains("pdf çıkar")) {
+            val lastResp = UstaSessionState.lastAssistantResponse
+            val contentToPdf = lastResp?.replyText ?: cleanMsg
+            val titleToPdf = lastResp?.actionSummary?.replace(Regex("[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ _-]"), "")?.trim()?.ifBlank { "ATİLA Araştırma Raporu" } ?: "ATİLA Araştırma Raporu"
+            val (_, status) = ResearchPdfHelper.createAndOpenPdf(context, titleToPdf, contentToPdf)
+            val speech = "$patronPrefix, hazırladığım raporu PDF belgesi olarak oluşturup ekranda açtım."
+            val resp = AiResponse(
+                replyText = status,
+                actionSummary = "📄 PDF Oluşturuldu",
+                speechText = speech
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        }
+
+        // =========================================================================
+        // 0.3. TARİH ÖĞRETMENİ MAARİF GÜNLÜK DERS PLANI PDF
+        // =========================================================================
+        if (lowerMsg.contains("maarif") || lowerMsg.contains("tarih planı") || lowerMsg.contains("tarih günlük plan") || lowerMsg.contains("tarih ders planı") || (lowerMsg.contains("tarih") && lowerMsg.contains("günlük plan"))) {
+            val grade = if (lowerMsg.contains("9")) "9. Sınıf" else if (lowerMsg.contains("11")) "11. Sınıf" else if (lowerMsg.contains("12")) "12. Sınıf" else "10. Sınıf"
+            val topic = when {
+                lowerMsg.contains("selçuklu") -> "Yerleşme ve Devletleşme Sürecinde Selçuklu Türkiyesi"
+                lowerMsg.contains("kurtuluş") || lowerMsg.contains("milli mücadele") -> "Millî Mücadele ve Atatürk İnkılapları"
+                lowerMsg.contains("osmanlı") -> "Beylikten Devlete Osmanlı Siyaseti ve Teşkilatlanma"
+                lowerMsg.contains("ilk çağ") || lowerMsg.contains("zaman") -> "Tarih ve Zaman - İnsanlığın İlk Dönemleri"
+                else -> "Beylikten Devlete Osmanlı Siyaseti ve Gaza Anlayışı"
+            }
+            val (_, pdfReport) = HistoryLessonPlanPdfHelper.createMaarifHistoryPlanPdf(
+                context = context,
+                gradeLevel = grade,
+                topicTitle = topic,
+                teacherName = if (currentNick.isNotBlank()) currentNick else "Tarih Öğretmeni"
+            )
+            val speech = "$patronPrefix, Türkiye Yüzyılı Maarif Modeline uygun $grade Tarih Dersi günlük planını resmi A4 PDF formatında hazırlayıp ekranda açtım."
+            val resp = AiResponse(
+                replyText = pdfReport,
+                actionSummary = "📚 Maarif Tarih Planı PDF ($grade)",
+                speechText = speech
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        }
+
+        // =========================================================================
+        // 0.4. LİSE ÖĞRENCİSİ İÇİN TEZ / PERFORMANS ÖDEVİ PDF
+        // =========================================================================
+        if (lowerMsg.contains("performans ödevi") || lowerMsg.contains("tarih tezi") || lowerMsg.contains("tez hazırla") || lowerMsg.contains("ödev hazırla") || lowerMsg.contains("performans görevi")) {
+            val topic = cleanMsg.replace(Regex("(?i)performans ödevi|tarih tezi|tez hazırla|ödev hazırla|performans görevi|hazırla|hakkında|için|bana|lütfen"), "").trim().ifBlank { "Osmanlı Devleti Kuruluş Dönemi Dinamikleri" }
+            val (_, thesisReport) = HistoryLessonPlanPdfHelper.createStudentHistoryThesisPdf(
+                context = context,
+                thesisTopic = topic,
+                studentName = "Lise Öğrencisi",
+                gradeLevel = "10. Sınıf"
+            )
+            val speech = "$patronPrefix, lise öğrencisine yönelik akademik performans tezi ve kaynakça raporunu A4 PDF formatında oluşturup ekranda açtım."
+            val resp = AiResponse(
+                replyText = thesisReport,
+                actionSummary = "🎓 Tarih Tezi PDF: $topic",
+                speechText = speech
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        }
+
+        // =========================================================================
+        // 0.5. ELDEKİ MALZEMELERLE YEMEK TARİFİ ÖNERME & ALIŞVERİŞ LİSTESİ
+        // =========================================================================
+        if (lowerMsg.contains("elimde") || lowerMsg.contains("dolapta") || lowerMsg.contains("malzemelerim") || (lowerMsg.contains("malzeme") && lowerMsg.contains("yemek"))) {
+            val (matchedRecipe, missingItems) = RecipeHelper.findRecipeByIngredients(cleanMsg)
+            UstaSessionState.lastSuggestedRecipe = matchedRecipe
+            UstaSessionState.pendingShoppingItems = missingItems
+
+            val reply = buildString {
+                append("🍲 **$patronPrefix, Elinizdeki Malzemelerle Yapabileceğiniz En İyi Yemek: ${matchedRecipe.title}**\n\n")
+                append("⏱️ Hazırlık: ${matchedRecipe.prepTime} | Pişirme: ${matchedRecipe.cookTime}\n\n")
+                if (missingItems.isNotEmpty()) {
+                    append("🛒 **Eksik Olan Malzemeler:**\n")
+                    missingItems.forEach { append(" • $it\n") }
+                    append("\n💡 _Bu eksikleri alışveriş listenize kaydetmek için **'Eksikleri alışveriş listeme ekle'** diyebilirsiniz._\n\n")
+                } else {
+                    append("✨ Harika haber! Gerekli tüm temel malzemeler elinizde mevcut.\n\n")
+                }
+                append("👩‍🍳 **Hazırlanışı:**\n")
+                matchedRecipe.steps.forEachIndexed { i, s -> append("${i + 1}. $s\n") }
+                append("\n💡 **Usta Püf Noktası:** ${matchedRecipe.tips}\n\n")
+                append("🎬 _'YouTube'da videolu tarifini aç' diyerek yapılış videosunu hemen izleyebilirsiniz._")
+            }
+            val speech = "$patronPrefix, elinizdeki malzemelerle en uygun yemek ${matchedRecipe.title}. ${if (missingItems.isNotEmpty()) "Yaklaşık ${missingItems.size} eksik malzeme var, dilerseniz alışveriş listenize ekleyebilirim." else "Tüm malzemeler elinizde hazır."}"
+            val resp = AiResponse(
+                replyText = reply,
+                actionSummary = "🍲 Tarif: ${matchedRecipe.title}",
+                speechText = speech
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        }
+
+        // =========================================================================
+        // 0.6. TELEFON NUMARASI İSTEME & TEYİTLİ ARAMA MOTORU
+        // =========================================================================
+        if (lowerMsg.contains("telefon numarası") || lowerMsg.contains("telefon numarasını") || lowerMsg.contains("numarası kaç") || lowerMsg.contains("iletişim numarası") || lowerMsg.contains("telefonu ne")) {
+            val targetTerm = cleanMsg.replace(Regex("(?i)telefon numarası|telefon numarasını|numarası kaç|iletişim numarası|telefonu ne|kaç|nedir|bana|ver|öğren"), "").trim()
+            val (realLatForPhone, realLngForPhone) = if (userLat != 0.0 && userLng != 0.0) Pair(userLat, userLng) else getDeviceLocation(context)
+            val places = NearbyPlacesHelper.getRecommendedPlaces(context, realLatForPhone, realLngForPhone, targetTerm)
+            val foundPlace = places.firstOrNull { !it.phone.isNullOrBlank() } ?: places.firstOrNull()
+            val phone = foundPlace?.phone ?: "182"
+            val placeName = foundPlace?.name ?: targetTerm.ifBlank { "İlgili Kuruluş" }
+
+            UstaSessionState.isWaitingForCallConfirmation = true
+            UstaSessionState.pendingCallPhoneNumber = phone
+            UstaSessionState.pendingCallPlaceName = placeName
+
+            val speech = "$patronPrefix, $placeName telefon numarası $phone. Şimdi aramamı ister misiniz?"
+            val reply = buildString {
+                append("📞 **$placeName İletişim Bilgisi**\n\n")
+                append("• **Telefon:** `$phone`\n")
+                if (foundPlace != null) append("• **Adres:** ${foundPlace.address}\n\n")
+                append("💡 _Aramamı ister misiniz? **'Evet'** veya **'Ara'** demeniz yeterlidir._")
+            }
+            val resp = AiResponse(
+                replyText = reply,
+                actionSummary = "📞 $placeName: $phone",
+                speechText = speech
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        }
 
         // Sohbet Modu Açma / Kapatma Kontrolü
         if (lowerMsg.contains("sohbet modu") || lowerMsg.contains("arkadaş gibi konuş") || lowerMsg.contains("dost gibi konuş")) {
@@ -502,12 +698,14 @@ object AiAssistantService {
         )
 
         val drawerResult = com.example.util.assistant.AtillaWardrobeManager.dispatch(context, cleanMsg, sessionData)
-        return@withContext AiResponse(
+        val finalResp = AiResponse(
             replyText = drawerResult.replyText,
             recommendedPlaces = drawerResult.recommendedPlaces,
             actionSummary = drawerResult.actionSummary,
             speechText = drawerResult.speechText ?: drawerResult.replyText
         )
+        UstaSessionState.lastAssistantResponse = finalResp
+        return@withContext finalResp
     }
 
     private fun getDeviceLocation(context: Context): Pair<Double, Double> {

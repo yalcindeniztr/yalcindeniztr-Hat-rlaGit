@@ -88,6 +88,8 @@ fun HomeScreen(
     var showAgentsMenu by remember { mutableStateOf(false) }
     var showKnowledgeLibrary by remember { mutableStateOf(false) }
     var showAiAssistant by remember { mutableStateOf(false) }
+    var showAtilaPopup by remember { mutableStateOf(false) }
+    var currentAtilaResponse by remember { mutableStateOf<com.example.util.AiResponse?>(null) }
 
     // ATİLA Terminal Durumları
     var terminalInputText by remember { mutableStateOf("") }
@@ -127,6 +129,8 @@ fun HomeScreen(
                     assistantName = "ATİLA"
                 )
                 isAtilaProcessing = false
+                currentAtilaResponse = response
+                showAtilaPopup = true
                 lastAtilaStatus = response.actionSummary ?: if (response.replyText.length > 60) {
                     "İşleminiz tamamlandı efendim."
                 } else {
@@ -360,6 +364,15 @@ fun HomeScreen(
     }
 
     InAppListeningDialog(manager = inAppSpeechManager, assistantName = "ATİLA")
+
+    // 6. ATİLA Akıllı Asistan & Canlı Araştırma Pop-up HUD Ekranı
+    if (showAtilaPopup && currentAtilaResponse != null) {
+        com.example.ui.components.AtilaResponsePopupDialog(
+            response = currentAtilaResponse!!,
+            userQuery = lastUserPrompt ?: "",
+            onDismiss = { showAtilaPopup = false }
+        )
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -671,13 +684,18 @@ fun HomeScreen(
                         }
                     }
 
-                    // Minimal Durum Göstergesi (Net ve okunaklı)
+                    // Minimal Durum Göstergesi (Net ve okunaklı, tıklanabilir HUD paneli)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(Color(0xFFF8FAFC))
                             .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
+                            .clickable {
+                                if (currentAtilaResponse != null) {
+                                    showAtilaPopup = true
+                                }
+                            }
                             .padding(10.dp)
                     ) {
                         Column {
@@ -708,8 +726,18 @@ fun HomeScreen(
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF0369A1),
-                                    maxLines = 2
+                                    maxLines = 2,
+                                    modifier = Modifier.weight(1f, fill = false)
                                 )
+                                if (currentAtilaResponse != null && !isAtilaProcessing) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "🔍 [Aç]",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color(0xFF0284C7)
+                                    )
+                                }
                             }
                         }
                     }

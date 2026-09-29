@@ -72,7 +72,7 @@ object NavigationDrawer : AssistantDrawer {
         }
 
         // 3. En Yakın 3 Mekan Tespiti ve Listeleme (Eczane, Market, Fırın, Benzinlik vb.)
-        val patronPrefix = if (sessionData.userNick.isNotBlank()) "Sayın Patronum ${sessionData.userNick}" else "Sayın Patronum"
+        val patronPrefix = if (sessionData.userNick.isNotBlank()) "Sayın Hocam ${sessionData.userNick}" else "Sayın Hocam"
         val targetQuery = query.replace(Regex("""(?i)bana|yol tarifi ver|yol tarifini ver|nasıl giderim|haritada göster|nerede|en yakın"""), "").trim().ifBlank { "Mekanlar" }
         
         val top3Places = NearbyPlacesHelper.getTop3NearbyPlaces(
@@ -99,8 +99,13 @@ object NavigationDrawer : AssistantDrawer {
             navLaunched = true
         }
 
+        val isLocEnabled = NearbyPlacesHelper.isLocationEnabled(context)
         val speech = if (navLaunched && top1 != null) {
-            "$patronPrefix, ${top1.name} için Google Haritalar canlı yol tarifini başlattım efendim."
+            if (!isLocEnabled) {
+                "$patronPrefix, konum servisiniz kapalı olduğu için konum ayarlarını açtım. ${top1.name} için canlı yol tarifini başlattım."
+            } else {
+                "$patronPrefix, ${top1.name} için Google Haritalar canlı yol tarifini başlattım."
+            }
         } else {
             "$patronPrefix, konumunuza en yakın 3 yer listelendi. İlk sırada ${top1?.distanceMeters ?: 200} metre mesafedeki ${top1?.name ?: targetQuery} yer alıyor."
         }

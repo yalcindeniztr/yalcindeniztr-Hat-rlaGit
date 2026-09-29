@@ -19,7 +19,12 @@ object TeacherMebDrawer : AssistantDrawer {
                lowerQuery.contains("şök tutanağı") ||
                lowerQuery.contains("şök hazırla") ||
                lowerQuery.contains("sınav kağıdı") ||
-               lowerQuery.contains("açık uçlu sınav")
+               lowerQuery.contains("açık uçlu sınav") ||
+               lowerQuery.contains("ders anlat") ||
+               lowerQuery.contains("tarih anlat") ||
+               lowerQuery.contains("test hazırla") ||
+               lowerQuery.contains("soru sor") ||
+               lowerQuery.contains("maarif")
     }
 
     override suspend fun handle(
@@ -113,6 +118,43 @@ object TeacherMebDrawer : AssistantDrawer {
             return DrawerResult(
                 replyText = report,
                 actionSummary = "📝 Sınav Kağıdı Hazırlandı: $courseName"
+            )
+        }
+
+        // 5. Tarih Dersi Anlatımı & İnteraktif Senaryo Sınavı / Test Hazırlığı
+        if (lowerQuery.contains("ders anlat") || lowerQuery.contains("tarih anlat") || lowerQuery.contains("konuyu anlat") ||
+            lowerQuery.contains("test hazırla") || lowerQuery.contains("soru sor") || lowerQuery.contains("sınav hazırla")) {
+
+            val isTestOnly = lowerQuery.contains("test hazırla") || lowerQuery.contains("soru sor")
+            val topic = query.replace(Regex("(?i)ders anlat|tarih anlat|konuyu anlat|test hazırla|soru sor|sınav hazırla|öğretmen gibi|bana|lütfen"), "").trim()
+                .ifBlank { "Osmanlı Devleti Kuruluş Dönemi ve Gaza Siyaseti" }
+
+            val reply = buildString {
+                if (!isTestOnly) {
+                    append("📖 **$patronPrefix, Tarih Konu Anlatımı:**\n")
+                    append("🎓 **Konu:** $topic\n\n")
+                    append("Sayın Hocam; $topic konusu Türkiye Yüzyılı Maarif Modelinde tarihsel empati, birincil kaynak analizi ve kronolojik düşünme becerileri ekseninde ele alınır:\n\n")
+                    append("1. **Tarihsel Arka Plan:** Bölgesel jeopolitik dengeler, beylikler arası ilişkiler ve gaza ruhunun teşkilatlanmadaki rolü temel belirleyicidir.\n")
+                    append("2. **Temel Kavramlar:** Gaza, İstimalet (Hoşgörü) Politikası, İskân Siyaseti ve Alperenlik Geleneği.\n")
+                    append("3. **Medeniyet Çıktısı:** Sadece askeri zaferler değil, fethedilen topraklarda adil yönetim ve sosyal kurumların inşası kalıcılığı sağlamıştır.\n\n")
+                    append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
+                }
+
+                append("✍️ **Ölçme - Değerlendirme & Açık Uçlu Senaryo Soruları:**\n\n")
+                append("• **Soru 1 (Analiz):** Osmanlı Devleti'nin Rumeli'ye geçişinde uyguladığı İskân ve İstimalet politikalarının fetihlerin kalıcı olmasındaki rolünü gerekçelendirerek açıklayınız.\n\n")
+                append("• **Soru 2 (Tarihsel Empati):** Dönemin bir tımarlı sipahisi veya ahisi olduğunuzu varsayarak, toplumsal düzenin sağlanmasındaki sorumluluklarınızı 2 madde halinde belirtiniz.\n\n")
+                append("• **Soru 3 (Çoktan Seçmeli):** Aşağıdakilerden hangisi Kuruluş Dönemi teşkilatlanma çalışmalarından biri değildir?\n")
+                append("   A) Yaya ve Müsellem ordusu  B) Divan Teşkilatı  C) Nizâm-ı Cedid  D) Tımar Sistemi\n")
+                append("   *(Cevap: C - Nizâm-ı Cedid, III. Selim dönemine aittir)*\n\n")
+                append("💡 _Bu sınavı resmi A4 PDF formatında yazdırmak için **'Sınav kağıdı hazırla'** demeniz yeterlidir._")
+            }
+
+            val speech = "$patronPrefix, $topic konusunun pedagojik anlatımını ve Maarif modeline uygun açık uçlu senaryo sorularını ekranınıza getirdim."
+
+            return DrawerResult(
+                replyText = reply,
+                actionSummary = "🎓 Tarih Dersi & Sınavı: $topic",
+                speechText = speech
             )
         }
 

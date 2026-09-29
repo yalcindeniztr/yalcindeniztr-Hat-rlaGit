@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.location.Address
 import android.location.Geocoder
+import android.location.LocationManager
 import android.net.Uri
+import android.provider.Settings
 import android.widget.Toast
 import java.util.Locale
 
@@ -471,8 +473,33 @@ object NearbyPlacesHelper {
         return Pair(text, places)
     }
 
+    fun isLocationEnabled(context: Context): Boolean {
+        return try {
+            val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+            locationManager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true ||
+            locationManager?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    fun promptEnableLocation(context: Context) {
+        try {
+            val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            Toast.makeText(context, "Yol tarifi için lütfen cihazınızın konumunu (GPS) açınız.", Toast.LENGTH_LONG).show()
+        } catch (_: Exception) {}
+    }
+
     fun openGoogleMapsNavigation(context: Context, placeName: String, lat: Double, lng: Double, searchQuery: String = "") {
         try {
+            // Konum kapalıysa önce konum açma ayarlarını aç ve kullanıcıyı uyar
+            if (!isLocationEnabled(context)) {
+                promptEnableLocation(context)
+            }
+
             val queryParam = if (searchQuery.isNotBlank()) Uri.encode(searchQuery) else Uri.encode(placeName)
             val navUri = if (lat != 0.0 && lng != 0.0) {
                 Uri.parse("google.navigation:q=$lat,$lng&mode=d")
