@@ -11,7 +11,8 @@ data class DrawerResult(
     val recommendedPlaces: List<NearbyPlace> = emptyList(),
     val actionSummary: String? = null,
     val isSpeechReady: Boolean = true,
-    val speechText: String? = null
+    val speechText: String? = null,
+    val generatedPdfFile: java.io.File? = null
 )
 
 data class WardrobeSessionData(

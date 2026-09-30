@@ -70,7 +70,7 @@ object TeacherMebDrawer : AssistantDrawer {
             val isEdebiyat = lowerQuery.contains("edebiyat")
             val courseName = if (isEdebiyat) "Türk Dili ve Edebiyatı" else "Tarih"
             val grade = if (lowerQuery.contains("10")) "10. Sınıf" else if (lowerQuery.contains("11")) "11. Sınıf" else if (lowerQuery.contains("12")) "12. Sınıf" else "9. Sınıf"
-            val (_, report) = MebDocumentHelper.createAnnualPlanPdf(
+            val (file, report) = MebDocumentHelper.createAnnualPlanPdf(
                 context = context,
                 params = AnnualPlanParams(
                     schoolName = "${sessionData.userCity} Anadolu Lisesi",
@@ -83,13 +83,14 @@ object TeacherMebDrawer : AssistantDrawer {
             )
             return DrawerResult(
                 replyText = report,
-                actionSummary = "📋 Yıllık Plan Hazırlandı: $courseName ($grade)"
+                actionSummary = "📋 Yıllık Plan Hazırlandı: $courseName ($grade)",
+                generatedPdfFile = file
             )
         }
 
         if (lowerQuery.contains("şök")) {
             val className = "10-A"
-            val (_, report) = MebDocumentHelper.createSokMeetingPdf(
+            val (file, report) = MebDocumentHelper.createSokMeetingPdf(
                 context = context,
                 params = SokMeetingParams(
                     schoolName = "${sessionData.userCity} Anadolu Lisesi",
@@ -100,14 +101,15 @@ object TeacherMebDrawer : AssistantDrawer {
             )
             return DrawerResult(
                 replyText = report,
-                actionSummary = "📑 ŞÖK Tutanağı Hazırlandı: $className"
+                actionSummary = "📑 ŞÖK Tutanağı Hazırlandı: $className",
+                generatedPdfFile = file
             )
         }
 
         if (lowerQuery.contains("sınav kağıdı") || lowerQuery.contains("açık uçlu sınav")) {
             val isEdebiyat = lowerQuery.contains("edebiyat")
             val courseName = if (isEdebiyat) "Türk Dili ve Edebiyatı" else "Tarih"
-            val (_, report) = MebDocumentHelper.createExamPaperPdf(
+            val (file, report) = MebDocumentHelper.createExamPaperPdf(
                 context = context,
                 schoolName = "${sessionData.userCity} Anadolu Lisesi",
                 courseName = courseName,
@@ -117,7 +119,8 @@ object TeacherMebDrawer : AssistantDrawer {
             )
             return DrawerResult(
                 replyText = report,
-                actionSummary = "📝 Sınav Kağıdı Hazırlandı: $courseName"
+                actionSummary = "📝 Sınav Kağıdı Hazırlandı: $courseName",
+                generatedPdfFile = file
             )
         }
 

@@ -166,9 +166,53 @@ object ResearchPdfHelper {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            context.startActivity(intent)
+            val chooser = Intent.createChooser(intent, "PDF Belgesini Aç").apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(chooser)
         } catch (e: Exception) {
             e.printStackTrace()
+            // Doğrudan fallback
+            try {
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                val fallbackIntent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "application/pdf")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(fallbackIntent)
+            } catch (ex: Exception) {
+                ex.printStackTrace()
+            }
+        }
+    }
+
+    fun getLatestGeneratedPdf(context: Context): File? {
+        return try {
+            val docsDir = context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOCUMENTS) ?: context.filesDir
+            val subFolders = listOf(
+                File(docsDir, "HatirlaGit_TarihPlanlari"),
+                File(docsDir, "HatirlaGit_Raporlar"),
+                File(docsDir, "HatirlaGit_OgrenciTezleri"),
+                File(docsDir, "HatirlaGit_MebEvraklari")
+            )
+            var latestFile: File? = null
+            var latestTime: Long = 0L
+
+            for (folder in subFolders) {
+                if (folder.exists() && folder.isDirectory) {
+                    val files = folder.listFiles { f -> f.extension.equals("pdf", ignoreCase = true) }
+                    files?.forEach { f ->
+                        if (f.lastModified() > latestTime) {
+                            latestTime = f.lastModified()
+                            latestFile = f
+                        }
+                    }
+                }
+            }
+            latestFile
+        } catch (e: Exception) {
+            null
         }
     }
 }

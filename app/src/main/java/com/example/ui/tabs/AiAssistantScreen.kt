@@ -68,6 +68,7 @@ data class ChatMessage(
     val text: String,
     val recommendedPlaces: List<NearbyPlace> = emptyList(),
     val actionSummary: String? = null,
+    val generatedPdfFile: java.io.File? = null,
     val timestamp: Long = System.currentTimeMillis()
 )
 
@@ -190,7 +191,8 @@ fun AiAssistantScreen(
                 sender = "AI",
                 text = response.replyText,
                 recommendedPlaces = response.recommendedPlaces,
-                actionSummary = response.actionSummary
+                actionSummary = response.actionSummary,
+                generatedPdfFile = response.generatedPdfFile
             )
             messages.add(aiMsg)
 
@@ -895,6 +897,61 @@ fun SciFiChatMessageItem(
                     fontWeight = FontWeight.Bold,
                     color = if (isGeminiBridge) NeonCyan else NeonGreen
                 )
+            }
+        }
+
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val hasPdf = message.generatedPdfFile != null ||
+                (message.sender == "AI" && (
+                    message.text.contains(".pdf", ignoreCase = true) ||
+                    message.text.contains("PDF formatında", ignoreCase = true) ||
+                    message.text.contains("Ders Planınız Hazırlandı", ignoreCase = true) ||
+                    message.text.contains("Performans Tezi", ignoreCase = true) ||
+                    message.text.contains("Raporu Hazırlandı", ignoreCase = true)
+                ))
+
+        if (hasPdf) {
+            Spacer(modifier = Modifier.height(6.dp))
+            Button(
+                onClick = {
+                    val fileToOpen = message.generatedPdfFile ?: com.example.util.ResearchPdfHelper.getLatestGeneratedPdf(context)
+                    if (fileToOpen != null && fileToOpen.exists()) {
+                        com.example.util.ResearchPdfHelper.openPdfFile(context, fileToOpen)
+                    } else {
+                        val latest = com.example.util.ResearchPdfHelper.getLatestGeneratedPdf(context)
+                        if (latest != null) {
+                            com.example.util.ResearchPdfHelper.openPdfFile(context, latest)
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .height(44.dp)
+                    .shadow(8.dp, RoundedCornerShape(12.dp), spotColor = NeonCyan),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF0D9488)
+                ),
+                contentPadding = PaddingValues(horizontal = 12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        Icons.Default.PictureAsPdf,
+                        contentDescription = "PDF Belgesini Aç",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "📄 Hazırlanan PDF Belgesini Aç ve İncele",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
             }
         }
 

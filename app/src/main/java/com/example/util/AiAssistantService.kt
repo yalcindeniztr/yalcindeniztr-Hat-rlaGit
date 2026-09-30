@@ -25,12 +25,15 @@ data class AiResponse(
     val recommendedPlaces: List<NearbyPlace> = emptyList(),
     val actionSummary: String? = null,
     val isSpeechReady: Boolean = true,
-    val speechText: String? = null
+    val speechText: String? = null,
+    val generatedPdfFile: java.io.File? = null
 )
 
 object UstaSessionState {
     var pendingPlaceToSave: NearbyPlace? = null
     var isWaitingForLessonPlanCourse: Boolean = false
+    var isWaitingForLessonPlanGrade: Boolean = false
+    var pendingLessonPlanTopic: String = "Beylikten Devlete Osmanlı Siyaseti"
     var pendingLocationCoords: Pair<Double, Double>? = null
     var pendingNoteContent: String? = null
     var isWaitingForNoteBody: Boolean = false
@@ -54,8 +57,9 @@ object UstaSessionState {
     var isWaitingForParkNote: Boolean = false
     var pendingParkCoords: Pair<Double, Double>? = null
 
-    // Patron - Asistan vs Sohbet Modu
+    // Patron - Asistan vs Sohbet Modu & Yemek İstişaresi
     var isChatMode: Boolean = false
+    var isWaitingForFoodPreference: Boolean = false
     var lastSuggestedRecipe: RecipeItem? = null
     var pendingShoppingItems: List<String> = emptyList()
 
@@ -64,8 +68,9 @@ object UstaSessionState {
     var pendingCallPhoneNumber: String? = null
     var pendingCallPlaceName: String? = null
 
-    // Son Asistan Yanıtı (PDF ve Arayüz Köprüsü İçin)
+    // Son Asistan Yanıtı & Üretilen PDF (Arayüz ve Bildirim Köprüsü)
     var lastAssistantResponse: AiResponse? = null
+    var lastGeneratedPdfFile: java.io.File? = null
 }
 
 object AiAssistantService {
@@ -184,6 +189,84 @@ object AiAssistantService {
         }
 
         // =========================================================================
+        // 0.0.1. ÖĞRETMEN DERS PLANI SINIF SEÇİM DİYALOĞU
+        // =========================================================================
+        if (UstaSessionState.isWaitingForLessonPlanGrade) {
+            val gradeLevel = when {
+                lowerMsg.contains("9") -> "9. Sınıf"
+                lowerMsg.contains("11") -> "11. Sınıf"
+                lowerMsg.contains("12") -> "12. Sınıf"
+                lowerMsg.contains("10") -> "10. Sınıf"
+                else -> "10. Sınıf"
+            }
+            UstaSessionState.isWaitingForLessonPlanGrade = false
+            val topic = UstaSessionState.pendingLessonPlanTopic.ifBlank { "Beylikten Devlete Osmanlı Siyaseti ve Teşkilatlanma" }
+
+            val (pdfFile, pdfReport) = HistoryLessonPlanPdfHelper.createMaarifHistoryPlanPdf(
+                context = context,
+                gradeLevel = gradeLevel,
+                topicTitle = topic,
+                teacherName = if (currentNick.isNotBlank()) currentNick else "Tarih Öğretmeni"
+            )
+            UstaSessionState.lastGeneratedPdfFile = pdfFile
+            val speech = "$patronPrefix, $gradeLevel Türkiye Yüzyılı Maarif Modeli Tarih ders planınızı resmi A4 PDF formatında hazırlayıp ekranınıza getirdim."
+
+            val reply = buildString {
+                append("📑 **$patronPrefix, $gradeLevel Türkiye Yüzyılı Maarif Modeli Tarih Ders Planınız Hazırlandı!**\n\n")
+                append("📋 **Konu:** $topic\n")
+                append("🏫 **Pedagojik Çerçeve:** MEB 2026/2027 Maarif Modeli (Beceri Temelli, Süreç Odaklı Değerlendirme)\n")
+                append("📄 **Resmi Evrak:** A4 Formatında Tarih Dersi Günlük Planı\n")
+                append("📁 **Kayıt Konumu:** `Documents/HatirlaGit_TarihPlanlari/${pdfFile?.name ?: "Tarih_Ders_Plani.pdf"}`\n\n")
+                append("💡 Belge cihazınızda doğrudan açıldı. Dilerseniz aşağıdaki butondan tekrar açabilir veya yazdırabilirsiniz.")
+            }
+
+            val resp = AiResponse(
+                replyText = reply,
+                actionSummary = "📚 Maarif Planı Hazır: $gradeLevel",
+                speechText = speech,
+                generatedPdfFile = pdfFile
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        }
+
+        // =========================================================================
+        // 0.0.2. YEMEK TERCİHİ & DOLAP İSTİŞARE DİYALOĞU
+        // =========================================================================
+        if (UstaSessionState.isWaitingForFoodPreference) {
+            UstaSessionState.isWaitingForFoodPreference = false
+            val (recipeText, recipeSpeech) = RecipeHelper.analyzeFridgeAndSuggest(cleanMsg, patronPrefix)
+            val resp = AiResponse(
+                replyText = recipeText,
+                actionSummary = "🍽️ Şef Menüsü & Tarif",
+                speechText = recipeSpeech
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        }
+
+        // =========================================================================
+        // 0.0.3. "PDF'İ AÇ" / "BELGEYİ EKRANA GETİR" / "PLANI GÖSTER"
+        // =========================================================================
+        if (lowerMsg.contains("pdf aç") || lowerMsg.contains("pdf'i aç") || lowerMsg.contains("belgeyi aç") ||
+            lowerMsg.contains("ekrana getir") || lowerMsg.contains("dosyayı aç") || lowerMsg.contains("planı aç") ||
+            lowerMsg.contains("hazırladığın planı göster") || lowerMsg.contains("pdf göster")) {
+            val targetPdf = UstaSessionState.lastGeneratedPdfFile ?: ResearchPdfHelper.getLatestGeneratedPdf(context)
+            if (targetPdf != null && targetPdf.exists()) {
+                ResearchPdfHelper.openPdfFile(context, targetPdf)
+                val speech = "$patronPrefix, hazırlanan PDF belgesini ekranınıza getirdim."
+                val resp = AiResponse(
+                    replyText = "📄 **Hazırlanan PDF Belgesi Ekranınıza Getirildi!**\n\n📁 **Dosya:** `${targetPdf.name}`\n\n💡 Belge açılmazsa aşağıdaki butona dokunarak doğrudan görüntüleyebilirsiniz.",
+                    actionSummary = "📄 PDF Açıldı: ${targetPdf.name}",
+                    speechText = speech,
+                    generatedPdfFile = targetPdf
+                )
+                UstaSessionState.lastAssistantResponse = resp
+                return@withContext resp
+            }
+        }
+
+        // =========================================================================
         // 0.1. EKSİK MALZEMELERİ ALIŞVERİŞ LİSTESİNE EKLEME
         // =========================================================================
         if (lowerMsg.contains("alışveriş listeme ekle") || lowerMsg.contains("eksikleri ekle") || lowerMsg.contains("malzemeleri ekle") || lowerMsg.contains("listeme ekle")) {
@@ -209,43 +292,80 @@ object AiAssistantService {
             val lastResp = UstaSessionState.lastAssistantResponse
             val contentToPdf = lastResp?.replyText ?: cleanMsg
             val titleToPdf = lastResp?.actionSummary?.replace(Regex("[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ _-]"), "")?.trim()?.ifBlank { "ATİLA Araştırma Raporu" } ?: "ATİLA Araştırma Raporu"
-            val (_, status) = ResearchPdfHelper.createAndOpenPdf(context, titleToPdf, contentToPdf)
-            val speech = "$patronPrefix, hazırladığım raporu PDF belgesi olarak oluşturup ekranda açtım."
+            val (pdfFile, status) = ResearchPdfHelper.createAndOpenPdf(context, titleToPdf, contentToPdf)
+            UstaSessionState.lastGeneratedPdfFile = pdfFile
+            val speech = "$patronPrefix, hazırladığım raporu PDF belgesi olarak oluşturup ekranınıza getirdim."
             val resp = AiResponse(
                 replyText = status,
                 actionSummary = "📄 PDF Oluşturuldu",
-                speechText = speech
+                speechText = speech,
+                generatedPdfFile = pdfFile
             )
             UstaSessionState.lastAssistantResponse = resp
             return@withContext resp
         }
 
         // =========================================================================
-        // 0.3. TARİH ÖĞRETMENİ MAARİF GÜNLÜK DERS PLANI PDF
+        // 0.3. TARİH ÖĞRETMENİ MAARİF GÜNLÜK & HAFTALIK DERS PLANI (İNTERAKTİF SINIF SORMA)
         // =========================================================================
-        if (lowerMsg.contains("maarif") || lowerMsg.contains("tarih planı") || lowerMsg.contains("tarih günlük plan") || lowerMsg.contains("tarih ders planı") || (lowerMsg.contains("tarih") && lowerMsg.contains("günlük plan"))) {
-            val grade = if (lowerMsg.contains("9")) "9. Sınıf" else if (lowerMsg.contains("11")) "11. Sınıf" else if (lowerMsg.contains("12")) "12. Sınıf" else "10. Sınıf"
-            val topic = when {
-                lowerMsg.contains("selçuklu") -> "Yerleşme ve Devletleşme Sürecinde Selçuklu Türkiyesi"
-                lowerMsg.contains("kurtuluş") || lowerMsg.contains("milli mücadele") -> "Millî Mücadele ve Atatürk İnkılapları"
-                lowerMsg.contains("osmanlı") -> "Beylikten Devlete Osmanlı Siyaseti ve Teşkilatlanma"
-                lowerMsg.contains("ilk çağ") || lowerMsg.contains("zaman") -> "Tarih ve Zaman - İnsanlığın İlk Dönemleri"
-                else -> "Beylikten Devlete Osmanlı Siyaseti ve Gaza Anlayışı"
+        val isLessonPlanRequest = lowerMsg.contains("ders planı") ||
+                lowerMsg.contains("maarif") ||
+                lowerMsg.contains("tarih planı") ||
+                lowerMsg.contains("haftalık plan") ||
+                lowerMsg.contains("ders programı") ||
+                (lowerMsg.contains("günlük plan") && !lowerMsg.contains("su iç") && !lowerMsg.contains("rutin")) ||
+                (lowerMsg.contains("bu hafta için plan") || lowerMsg.contains("bu haftanın planı") || lowerMsg.contains("bu hafta için günlük plan")) ||
+                (lowerMsg.contains("plan hazırla") && !lowerMsg.contains("rutin") && !lowerMsg.contains("kişisel"))
+
+        if (isLessonPlanRequest) {
+            val hasExplicitGrade = lowerMsg.contains("9") || lowerMsg.contains("10") || lowerMsg.contains("11") || lowerMsg.contains("12")
+
+            if (!hasExplicitGrade) {
+                // Öğretmen sınıf belirtmediyse ezbere rutin basmak YASAKTIR! Önce sınıf sorulur.
+                UstaSessionState.isWaitingForLessonPlanGrade = true
+                UstaSessionState.pendingLessonPlanTopic = "Beylikten Devlete Osmanlı Siyaseti ve Teşkilatlanma"
+                val speech = "Sayın Hocam, bu haftanın Tarih ders planını hangi sınıf düzeyimiz için hazırlamamı istersiniz? 9, 10, 11 veya 12. Sınıf olarak belirtirseniz Maarif modeline uygun resmi planınızı hemen ekrana getireyim."
+                val reply = buildString {
+                    append("🎓 **$patronPrefix, Bu Haftanın Ders Planını Hangi Sınıf Düzeyimiz İçin Hazırlamamı İstersiniz?**\n\n")
+                    append("• **9. Sınıf:** Tarih ve Zaman / İlk ve Orta Çağlarda Türk Dünyası\n")
+                    append("• **10. Sınıf:** Beylikten Devlete Osmanlı Siyaseti ve Gaza Anlayışı\n")
+                    append("• **11. Sınıf:** Değişen Dünya Dengeleri Karşısında Osmanlı Siyaseti\n")
+                    append("• **12. Sınıf:** 20. Yüzyıl Başlarında Osmanlı ve Millî Mücadele\n\n")
+                    append("✍️ Sınıf düzeyini (örn: _'10. Sınıf'_ veya _'10'_) söylemeniz yeterlidir; Maarif Modeline uygun resmi A4 PDF belgeniz anında hazırlanıp açılacaktır.")
+                }
+                val resp = AiResponse(
+                    replyText = reply,
+                    actionSummary = "🎓 Sınıf Düzeyi Bekleniyor (9-12)",
+                    speechText = speech
+                )
+                UstaSessionState.lastAssistantResponse = resp
+                return@withContext resp
+            } else {
+                val grade = if (lowerMsg.contains("9")) "9. Sınıf" else if (lowerMsg.contains("11")) "11. Sınıf" else if (lowerMsg.contains("12")) "12. Sınıf" else "10. Sınıf"
+                val topic = when {
+                    lowerMsg.contains("selçuklu") -> "Yerleşme ve Devletleşme Sürecinde Selçuklu Türkiyesi"
+                    lowerMsg.contains("kurtuluş") || lowerMsg.contains("milli mücadele") -> "Millî Mücadele ve Atatürk İnkılapları"
+                    lowerMsg.contains("osmanlı") -> "Beylikten Devlete Osmanlı Siyaseti ve Teşkilatlanma"
+                    lowerMsg.contains("ilk çağ") || lowerMsg.contains("zaman") -> "Tarih ve Zaman - İnsanlığın İlk Dönemleri"
+                    else -> "Beylikten Devlete Osmanlı Siyaseti ve Gaza Anlayışı"
+                }
+                val (pdfFile, pdfReport) = HistoryLessonPlanPdfHelper.createMaarifHistoryPlanPdf(
+                    context = context,
+                    gradeLevel = grade,
+                    topicTitle = topic,
+                    teacherName = if (currentNick.isNotBlank()) currentNick else "Tarih Öğretmeni"
+                )
+                UstaSessionState.lastGeneratedPdfFile = pdfFile
+                val speech = "$patronPrefix, Türkiye Yüzyılı Maarif Modeline uygun $grade Tarih Dersi günlük planını resmi A4 PDF formatında hazırlayıp ekranınıza getirdim."
+                val resp = AiResponse(
+                    replyText = pdfReport,
+                    actionSummary = "📚 Maarif Tarih Planı PDF ($grade)",
+                    speechText = speech,
+                    generatedPdfFile = pdfFile
+                )
+                UstaSessionState.lastAssistantResponse = resp
+                return@withContext resp
             }
-            val (_, pdfReport) = HistoryLessonPlanPdfHelper.createMaarifHistoryPlanPdf(
-                context = context,
-                gradeLevel = grade,
-                topicTitle = topic,
-                teacherName = if (currentNick.isNotBlank()) currentNick else "Tarih Öğretmeni"
-            )
-            val speech = "$patronPrefix, Türkiye Yüzyılı Maarif Modeline uygun $grade Tarih Dersi günlük planını resmi A4 PDF formatında hazırlayıp ekranda açtım."
-            val resp = AiResponse(
-                replyText = pdfReport,
-                actionSummary = "📚 Maarif Tarih Planı PDF ($grade)",
-                speechText = speech
-            )
-            UstaSessionState.lastAssistantResponse = resp
-            return@withContext resp
         }
 
         // =========================================================================
@@ -253,50 +373,46 @@ object AiAssistantService {
         // =========================================================================
         if (lowerMsg.contains("performans ödevi") || lowerMsg.contains("tarih tezi") || lowerMsg.contains("tez hazırla") || lowerMsg.contains("ödev hazırla") || lowerMsg.contains("performans görevi")) {
             val topic = cleanMsg.replace(Regex("(?i)performans ödevi|tarih tezi|tez hazırla|ödev hazırla|performans görevi|hazırla|hakkında|için|bana|lütfen"), "").trim().ifBlank { "Osmanlı Devleti Kuruluş Dönemi Dinamikleri" }
-            val (_, thesisReport) = HistoryLessonPlanPdfHelper.createStudentHistoryThesisPdf(
+            val (thesisFile, thesisReport) = HistoryLessonPlanPdfHelper.createStudentHistoryThesisPdf(
                 context = context,
                 thesisTopic = topic,
                 studentName = "Lise Öğrencisi",
                 gradeLevel = "10. Sınıf"
             )
-            val speech = "$patronPrefix, lise öğrencisine yönelik akademik performans tezi ve kaynakça raporunu A4 PDF formatında oluşturup ekranda açtım."
+            UstaSessionState.lastGeneratedPdfFile = thesisFile
+            val speech = "$patronPrefix, lise öğrencisine yönelik akademik performans tezi ve kaynakça raporunu A4 PDF formatında oluşturup ekranınıza getirdim."
             val resp = AiResponse(
                 replyText = thesisReport,
                 actionSummary = "🎓 Tarih Tezi PDF: $topic",
-                speechText = speech
+                speechText = speech,
+                generatedPdfFile = thesisFile
             )
             UstaSessionState.lastAssistantResponse = resp
             return@withContext resp
         }
 
         // =========================================================================
-        // 0.5. ELDEKİ MALZEMELERLE YEMEK TARİFİ ÖNERME & ALIŞVERİŞ LİSTESİ
+        // 0.5. YEMEK TARİFİ İSTİŞARESİ & BUZDOLABI MALZEMESİ MOTORU
         // =========================================================================
-        if (lowerMsg.contains("elimde") || lowerMsg.contains("dolapta") || lowerMsg.contains("malzemelerim") || (lowerMsg.contains("malzeme") && lowerMsg.contains("yemek"))) {
-            val (matchedRecipe, missingItems) = RecipeHelper.findRecipeByIngredients(cleanMsg)
-            UstaSessionState.lastSuggestedRecipe = matchedRecipe
-            UstaSessionState.pendingShoppingItems = missingItems
+        val isFridgeRequest = lowerMsg.contains("dolapta") || lowerMsg.contains("buzdolab") || lowerMsg.contains("elimde") || lowerMsg.contains("neler yapabilirim") || (lowerMsg.contains("malzeme") && lowerMsg.contains("yemek"))
+        val isFoodInquiryRequest = lowerMsg.contains("yemek tarifi") || lowerMsg.contains("akşam için yemek") || lowerMsg.contains("ne pişirsem") || lowerMsg.contains("akşam yemeği") || lowerMsg.contains("yemek öner")
 
-            val reply = buildString {
-                append("🍲 **$patronPrefix, Elinizdeki Malzemelerle Yapabileceğiniz En İyi Yemek: ${matchedRecipe.title}**\n\n")
-                append("⏱️ Hazırlık: ${matchedRecipe.prepTime} | Pişirme: ${matchedRecipe.cookTime}\n\n")
-                if (missingItems.isNotEmpty()) {
-                    append("🛒 **Eksik Olan Malzemeler:**\n")
-                    missingItems.forEach { append(" • $it\n") }
-                    append("\n💡 _Bu eksikleri alışveriş listenize kaydetmek için **'Eksikleri alışveriş listeme ekle'** diyebilirsiniz._\n\n")
-                } else {
-                    append("✨ Harika haber! Gerekli tüm temel malzemeler elinizde mevcut.\n\n")
-                }
-                append("👩‍🍳 **Hazırlanışı:**\n")
-                matchedRecipe.steps.forEachIndexed { i, s -> append("${i + 1}. $s\n") }
-                append("\n💡 **Usta Püf Noktası:** ${matchedRecipe.tips}\n\n")
-                append("🎬 _'YouTube'da videolu tarifini aç' diyerek yapılış videosunu hemen izleyebilirsiniz._")
-            }
-            val speech = "$patronPrefix, elinizdeki malzemelerle en uygun yemek ${matchedRecipe.title}. ${if (missingItems.isNotEmpty()) "Yaklaşık ${missingItems.size} eksik malzeme var, dilerseniz alışveriş listenize ekleyebilirim." else "Tüm malzemeler elinizde hazır."}"
+        if (isFridgeRequest) {
+            val (recipeText, recipeSpeech) = RecipeHelper.analyzeFridgeAndSuggest(cleanMsg, patronPrefix)
             val resp = AiResponse(
-                replyText = reply,
-                actionSummary = "🍲 Tarif: ${matchedRecipe.title}",
-                speechText = speech
+                replyText = recipeText,
+                actionSummary = "🍽️ Dolap Analizi & Tarif",
+                speechText = recipeSpeech
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        } else if (isFoodInquiryRequest) {
+            UstaSessionState.isWaitingForFoodPreference = true
+            val (inquiryText, inquirySpeech) = RecipeHelper.getInteractiveFoodInquiry(patronPrefix)
+            val resp = AiResponse(
+                replyText = inquiryText,
+                actionSummary = "🍽️ Akşam Yemeği İstişaresi",
+                speechText = inquirySpeech
             )
             UstaSessionState.lastAssistantResponse = resp
             return@withContext resp
@@ -384,13 +500,16 @@ object AiAssistantService {
         }
 
         // =========================================================================
-        // 2. GÜNLÜK RUTİN VE PROGRAMLAMA MOTORU
+        // 2. KİŞİSEL YAŞAM VE SAĞLIK RUTİNİ MOTORU (SADECE KİŞİSEL TALEP EDİLDİĞİNDE)
         // =========================================================================
-        if (lowerMsg.contains("günü planla") || lowerMsg.contains("günlük plan") || lowerMsg.contains("rutin") ||
-            lowerMsg.contains("bugün ne yap") || lowerMsg.contains("programım") || lowerMsg.contains("günlük program")) {
+        val isPersonalRoutineRequest = (lowerMsg.contains("benim günümü planla") || lowerMsg.contains("kişisel rutin") ||
+                lowerMsg.contains("yaşam rutinim") || lowerMsg.contains("su içme rutini") || lowerMsg.contains("kişisel program") ||
+                (lowerMsg.contains("günü planla") && !lowerMsg.contains("ders") && !lowerMsg.contains("okul") && !lowerMsg.contains("öğretmen") && !lowerMsg.contains("hafta")))
+
+        if (isPersonalRoutineRequest) {
             if (lowerMsg.contains("işle") || lowerMsg.contains("kaydet") || lowerMsg.contains("kur")) {
                 val scheduleSummary = DailyRoutinePlanner.scheduleFullRoutine(context)
-                val speech = "Efendim, günlük rutinlerinizin tamamını takviminize ve sesli alarmlarınıza başarıyla işledim."
+                val speech = "Efendim, kişisel yaşam ve çalışma rutinlerinizin tamamını takviminize ve sesli alarmlarınıza başarıyla işledim."
                 return@withContext AiResponse(
                     replyText = "🗓️ Efendim, günlük dengeli yaşam ve çalışma rutinleriniz alarmlarınıza ve yerel takviminize işlendi.\n\n$scheduleSummary",
                     actionSummary = scheduleSummary,
@@ -401,7 +520,7 @@ object AiAssistantService {
                 val voiceSummary = DailyRoutinePlanner.getVoiceRoutineSummary(currentNick)
                 return@withContext AiResponse(
                     replyText = fullPlan,
-                    actionSummary = "📋 Günlük Rutin Programı",
+                    actionSummary = "📋 Kişisel Yaşam Rutini",
                     speechText = voiceSummary
                 )
             }
@@ -702,8 +821,12 @@ object AiAssistantService {
             replyText = drawerResult.replyText,
             recommendedPlaces = drawerResult.recommendedPlaces,
             actionSummary = drawerResult.actionSummary,
-            speechText = drawerResult.speechText ?: drawerResult.replyText
+            speechText = drawerResult.speechText ?: drawerResult.replyText,
+            generatedPdfFile = drawerResult.generatedPdfFile
         )
+        if (drawerResult.generatedPdfFile != null) {
+            UstaSessionState.lastGeneratedPdfFile = drawerResult.generatedPdfFile
+        }
         UstaSessionState.lastAssistantResponse = finalResp
         return@withContext finalResp
     }
