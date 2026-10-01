@@ -134,7 +134,7 @@ object AiAssistantService {
 
         AiKnowledgeSeeder.seedIfNeeded(context)
 
-        val resolvedAssistantName = "ATİLA"
+        val resolvedAssistantName = "ATİLLA"
         val currentNick = dataStoreManager.userNick.first()?.trim() ?: ""
 
         val isChatMode = UstaSessionState.isChatMode
@@ -186,6 +186,88 @@ object AiAssistantService {
                 UstaSessionState.lastAssistantResponse = resp
                 return@withContext resp
             }
+        }
+
+        // =========================================================================
+        // 0.0.0.1. JARVIS PROTOKOLÜ: SİSTEM TELEMETRİSİ VE TEŞHİS RAPORU (STATUS REPORT)
+        // =========================================================================
+        if (lowerMsg.contains("durum raporu") || lowerMsg.contains("sistem durumu") || lowerMsg.contains("telemetri") ||
+            lowerMsg.contains("cihaz sağlığı") || lowerMsg.contains("batarya durumu") || lowerMsg.contains("şarj durumu") ||
+            lowerMsg.contains("teşhis") || lowerMsg.contains("sistem teşhisi") || lowerMsg.contains("rapor ver")) {
+            val telemetry = AtillaJarvisCoreHelper.getDeviceTelemetry(context, patronPrefix)
+            val resp = AiResponse(
+                replyText = telemetry.screenReport,
+                actionSummary = "⚡ ATİLLA Telemetri: %${telemetry.batteryPercent}",
+                speechText = telemetry.voiceReport
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        }
+
+        // =========================================================================
+        // 0.0.0.2. JARVIS PROTOKOLÜ: DONANIM AYDINLATMA / FENER (TORCH) KONTROLÜ
+        // =========================================================================
+        if (lowerMsg.contains("feneri aç") || lowerMsg.contains("ışığı aç") || lowerMsg.contains("flaşı aç") || lowerMsg.contains("fener aç")) {
+            val (success, msg) = AtillaJarvisCoreHelper.setFlashlight(context, true)
+            val speech = if (success) "Fener açıldı $patronPrefix." else "Fener açılamadı."
+            val resp = AiResponse(
+                replyText = "💡 **Aydınlatma Protokolü:** $msg",
+                actionSummary = "💡 Fener Açıldı",
+                speechText = speech
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        } else if (lowerMsg.contains("feneri kapat") || lowerMsg.contains("ışığı kapat") || lowerMsg.contains("flaşı kapat") || lowerMsg.contains("fener kapat")) {
+            val (success, msg) = AtillaJarvisCoreHelper.setFlashlight(context, false)
+            val speech = if (success) "Fener kapatıldı $patronPrefix." else "Fener kapatılamadı."
+            val resp = AiResponse(
+                replyText = "💡 **Aydınlatma Protokolü:** $msg",
+                actionSummary = "💡 Fener Kapatıldı",
+                speechText = speech
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        }
+
+        // =========================================================================
+        // 0.0.0.3. JARVIS PROTOKOLÜ: SES VE SESSİZLİK PROFİLİ (AUDIO PROFILE)
+        // =========================================================================
+        if (lowerMsg.contains("sessize al") || lowerMsg.contains("sessiz mod") || lowerMsg.contains("toplantı modu") || lowerMsg.contains("ders modu")) {
+            val (success, msg) = AtillaJarvisCoreHelper.setAudioProfile(context, "silent")
+            val speech = "Cihaz sessiz moda alındı $patronPrefix. Bildirimler susturuldu."
+            val resp = AiResponse(
+                replyText = msg,
+                actionSummary = "🔕 Sessiz Mod Devrede",
+                speechText = speech
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        } else if (lowerMsg.contains("sesi aç") || lowerMsg.contains("normal mod") || lowerMsg.contains("sesli mod")) {
+            val (success, msg) = AtillaJarvisCoreHelper.setAudioProfile(context, "normal")
+            val speech = "Normal sesli moda geçildi $patronPrefix."
+            val resp = AiResponse(
+                replyText = msg,
+                actionSummary = "🔔 Sesli Mod Devrede",
+                speechText = speech
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        }
+
+        // =========================================================================
+        // 0.0.0.4. JARVIS KİMLİK & VAROLUŞ SORULARI (ATİLLA İMZASI)
+        // =========================================================================
+        if (lowerMsg.contains("sen kimsin") || lowerMsg.contains("adın ne") || lowerMsg.contains("kendini tanıt") ||
+            lowerMsg.contains("kimsin sen") || lowerMsg.contains("jarvis kim") || lowerMsg.contains("atilla kim")) {
+            val speech = AtillaJarvisCoreHelper.getIdentitySpeech(patronPrefix)
+            val briefing = AtillaJarvisCoreHelper.getIdentityBriefing(patronPrefix)
+            val resp = AiResponse(
+                replyText = briefing,
+                actionSummary = "🤖 ATİLLA Kimlik Brifingi",
+                speechText = speech
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
         }
 
         // =========================================================================

@@ -16,7 +16,7 @@ import java.util.Calendar
 import java.util.Locale
 
 object OfflineIntelligenceDrawer : AssistantDrawer {
-    override val drawerName: String = "ATİLA Çevrimdışı Jarvis Zekası ve Muhakeme Çekmecesi"
+    override val drawerName: String = "ATİLLA Çevrimdışı Jarvis Zekası ve Muhakeme Çekmecesi"
 
     override fun canHandle(query: String, lowerQuery: String): Boolean = true
 
@@ -28,7 +28,73 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
     ): DrawerResult {
         val isChatMode = com.example.util.UstaSessionState.isChatMode
         val greeting = if (isChatMode) "Dostum, " else if (sessionData.userNick.isNotBlank()) "Sayın Hocam ${sessionData.userNick}, " else "Sayın Hocam, "
+        val patronPrefix = if (isChatMode) "Dostum" else if (sessionData.userNick.isNotBlank()) "Sayın Hocam ${sessionData.userNick}" else "Sayın Hocam"
         val db = sessionData.db
+
+        // -------------------------------------------------------------------------
+        // 0.1. JARVIS DONANIM TELEMETRİSİ VE TEŞHİS RAPORU (STATUS REPORT)
+        // -------------------------------------------------------------------------
+        if (lowerQuery.contains("durum raporu") || lowerQuery.contains("sistem durumu") || lowerQuery.contains("telemetri") ||
+            lowerQuery.contains("cihaz sağlığı") || lowerQuery.contains("batarya durumu") || lowerQuery.contains("teşhis")) {
+            val telemetry = com.example.util.AtillaJarvisCoreHelper.getDeviceTelemetry(context, patronPrefix)
+            return DrawerResult(
+                replyText = telemetry.screenReport,
+                actionSummary = "⚡ ATİLLA Telemetri: %${telemetry.batteryPercent}",
+                speechText = telemetry.voiceReport
+            )
+        }
+
+        // -------------------------------------------------------------------------
+        // 0.2. JARVIS AYDINLATMA VE FENER KONTROLÜ
+        // -------------------------------------------------------------------------
+        if (lowerQuery.contains("feneri aç") || lowerQuery.contains("ışığı aç") || lowerQuery.contains("flaşı aç")) {
+            val (success, msg) = com.example.util.AtillaJarvisCoreHelper.setFlashlight(context, true)
+            return DrawerResult(
+                replyText = "💡 **Aydınlatma Protokolü:** $msg",
+                actionSummary = "💡 Fener Açıldı",
+                speechText = if (success) "Fener açıldı $patronPrefix." else "Fener açılamadı."
+            )
+        } else if (lowerQuery.contains("feneri kapat") || lowerQuery.contains("ışığı kapat") || lowerQuery.contains("flaşı kapat")) {
+            val (success, msg) = com.example.util.AtillaJarvisCoreHelper.setFlashlight(context, false)
+            return DrawerResult(
+                replyText = "💡 **Aydınlatma Protokolü:** $msg",
+                actionSummary = "💡 Fener Kapatıldı",
+                speechText = if (success) "Fener kapatıldı $patronPrefix." else "Fener kapatılamadı."
+            )
+        }
+
+        // -------------------------------------------------------------------------
+        // 0.3. JARVIS SES VE SESSİZLİK PROFİLİ
+        // -------------------------------------------------------------------------
+        if (lowerQuery.contains("sessize al") || lowerQuery.contains("sessiz mod") || lowerQuery.contains("toplantı modu")) {
+            val (_, msg) = com.example.util.AtillaJarvisCoreHelper.setAudioProfile(context, "silent")
+            return DrawerResult(
+                replyText = msg,
+                actionSummary = "🔕 Sessiz Mod Devrede",
+                speechText = "Cihaz sessiz moda alındı $patronPrefix."
+            )
+        } else if (lowerQuery.contains("sesi aç") || lowerQuery.contains("normal mod")) {
+            val (_, msg) = com.example.util.AtillaJarvisCoreHelper.setAudioProfile(context, "normal")
+            return DrawerResult(
+                replyText = msg,
+                actionSummary = "🔔 Sesli Mod Devrede",
+                speechText = "Normal sesli moda geçildi $patronPrefix."
+            )
+        }
+
+        // -------------------------------------------------------------------------
+        // 0.4. JARVIS KİMLİK & VAROLUŞ SORULARI (ATİLLA İMZASI)
+        // -------------------------------------------------------------------------
+        if (lowerQuery.contains("kimsin") || lowerQuery.contains("nesin") || lowerQuery.contains("adın ne") ||
+            lowerQuery.contains("ne yapabilirsin") || lowerQuery.contains("kendini tanıt") || lowerQuery.contains("jarvis kim")) {
+            val speech = com.example.util.AtillaJarvisCoreHelper.getIdentitySpeech(patronPrefix)
+            val briefing = com.example.util.AtillaJarvisCoreHelper.getIdentityBriefing(patronPrefix)
+            return DrawerResult(
+                replyText = briefing,
+                actionSummary = "🤖 ATİLLA Kimlik Brifingi",
+                speechText = speech
+            )
+        }
 
         // -------------------------------------------------------------------------
         // 1. NÖBETÇİ ECZANE & SAĞLIK DESTEĞİ (EN YAKIN 3 ECZANE & NAVİGASYON)
@@ -175,10 +241,10 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
             lowerQuery.equals("hey", ignoreCase = true) || lowerQuery.equals("atila", ignoreCase = true) ||
             lowerQuery.equals("atilla", ignoreCase = true) || lowerQuery.equals("jarvis", ignoreCase = true) ||
             lowerQuery.equals("usta", ignoreCase = true)) {
-            val speech = if (isChatMode) "Selam dostum! Ben ATİLA. Sohbet modundayız, nasılsın, nasıl gidiyor?" else "Merhaba $greeting Ben ATİLA. Tüm sistemler devrede ve emrinizdeyim. Nasıl yardımcı olabilirim?"
+            val speech = if (isChatMode) "Selam dostum! Ben ATİLLA. Sohbet modundayız, nasılsın, nasıl gidiyor?" else "Merhaba $greeting Ben ATİLLA. Tüm sistemler devrede ve emrinizdeyim. Nasıl yardımcı olabilirim?"
             return DrawerResult(
                 replyText = "⚡ **Sistemler Aktif**\n\n$speech",
-                actionSummary = "⚡ ATİLA Çevrimiçi",
+                actionSummary = "⚡ ATİLLA Çevrimiçi",
                 speechText = speech
             )
         }
@@ -205,10 +271,11 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
 
         if (lowerQuery.contains("kimsin") || lowerQuery.contains("nesin") || lowerQuery.contains("adın ne") ||
             lowerQuery.contains("ne yapabilirsin") || lowerQuery.contains("kendini tanıt")) {
-            val speech = "Ben ATİLA $greeting HatırlaGit'in kişisel asistanıyım. Sesinizle telefon araması ve WhatsApp mesajı hazırlar, alarmlar ve günlük rutinler kurar, mevzuatı ve resmi devlet kaynaklarını bilir, nöbetçi eczaneleri ve canlı hava durumunu haritada anında sunarım."
+            val speech = com.example.util.AtillaJarvisCoreHelper.getIdentitySpeech(patronPrefix)
+            val briefing = com.example.util.AtillaJarvisCoreHelper.getIdentityBriefing(patronPrefix)
             return DrawerResult(
-                replyText = "🤖 **ATİLA Yapay Zeka Asistanı**\n\n$speech",
-                actionSummary = "🤖 ATİLA Asistan",
+                replyText = briefing,
+                actionSummary = "🤖 ATİLLA Kimlik Brifingi",
                 speechText = speech
             )
         }

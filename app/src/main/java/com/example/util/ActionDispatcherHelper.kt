@@ -476,51 +476,32 @@ object ActionDispatcherHelper {
                     )
                 }
 
-                "set_device_profile" -> {
-                    val profile = payload.optString("profile", "work").lowercase(Locale.ROOT)
-                    val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-                    when (profile) {
-                        "silent", "class_mode", "focus", "meeting" -> {
-                            audioManager?.ringerMode = AudioManager.RINGER_MODE_SILENT
-                        }
-                        "relax" -> {
-                            audioManager?.ringerMode = AudioManager.RINGER_MODE_NORMAL
-                        }
-                        "work" -> {
-                            audioManager?.ringerMode = AudioManager.RINGER_MODE_VIBRATE
-                        }
-                    }
+                "set_device_profile", "set_audio_profile" -> {
+                    val profile = payload.optString("profile", "silent").lowercase(Locale.ROOT)
+                    val (success, message) = AtillaJarvisCoreHelper.setAudioProfile(context, profile)
                     return@withContext ActionFeedbackResult(
-                        status = "success",
+                        status = if (success) "success" else "error",
                         action = "set_device_profile",
-                        message = "Cihaz profili '$profile' moduna ayarlandı efendim."
+                        message = message
                     )
                 }
 
-                "get_device_status" -> {
-                    val param = payload.optString("parameter", "battery").lowercase(Locale.ROOT)
-                    val statusText = when (param) {
-                        "battery" -> {
-                            val bm = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
-                            val level = bm?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: -1
-                            "Batarya seviyesi: %$level"
-                        }
-                        "network" -> {
-                            val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-                            val network = cm?.activeNetwork
-                            val caps = cm?.getNetworkCapabilities(network)
-                            val isConnected = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-                            if (isConnected) "Ağ bağlantısı: Aktif ve bağlı" else "Ağ bağlantısı: Çevrimdışı"
-                        }
-                        "activity_level", "circadian" -> {
-                            "Biyolojik ritim: Patron aktif çalışma modunda, hidrasyon ve duruş molası önerilir."
-                        }
-                        else -> "Bildirim ve telemetri servisleri aktif."
-                    }
+                "toggle_torch", "set_torch", "flashlight" -> {
+                    val enabled = payload.optBoolean("enabled", true)
+                    val (success, message) = AtillaJarvisCoreHelper.setFlashlight(context, enabled)
+                    return@withContext ActionFeedbackResult(
+                        status = if (success) "success" else "error",
+                        action = "toggle_torch",
+                        message = message
+                    )
+                }
+
+                "get_device_status", "get_device_telemetry", "diagnostics" -> {
+                    val telemetry = AtillaJarvisCoreHelper.getDeviceTelemetry(context)
                     return@withContext ActionFeedbackResult(
                         status = "success",
-                        action = "get_device_status",
-                        message = statusText
+                        action = "get_device_telemetry",
+                        message = telemetry.screenReport
                     )
                 }
 
@@ -559,7 +540,7 @@ object ActionDispatcherHelper {
                         title = label,
                         dueDatetime = sdf.format(cal.time),
                         dueDateMillis = cal.timeInMillis,
-                        customNote = "ATİLA Jarvis tarafından kuruldu.",
+                        customNote = "ATİLLA tarafından kuruldu.",
                         encryptedMetadata = "{}",
                         actionStep = "SOUND_CLASSIC_BELL"
                     )
@@ -607,7 +588,7 @@ object ActionDispatcherHelper {
                         title = title,
                         dueDatetime = sdf.format(cal.time),
                         dueDateMillis = cal.timeInMillis,
-                        customNote = "ATİLA Jarvis tarafından kaydedildi.",
+                        customNote = "ATİLLA tarafından kaydedildi.",
                         encryptedMetadata = "{}",
                         actionStep = "SOUND_CLASSIC_BELL"
                     )
@@ -626,7 +607,7 @@ object ActionDispatcherHelper {
                 "manage_calendar", "create_event" -> {
                     val action = payload.optString("action", "create").lowercase(Locale.ROOT)
                     val title = payload.optString("title", "Randevu")
-                    val desc = payload.optString("description", "ATİLA Jarvis Ajanda")
+                    val desc = payload.optString("description", "ATİLLA Ajanda")
 
                     if (action == "list") {
                         val (text, _) = NearbyPlacesHelper.getUpcomingCalendarBriefing(context)
