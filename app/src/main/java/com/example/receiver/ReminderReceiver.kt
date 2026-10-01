@@ -113,6 +113,11 @@ class ReminderReceiver : BroadcastReceiver() {
             return
         }
 
+        if (action == "ACTION_WEAR_QUICK_TORCH") {
+            com.example.util.AtillaJarvisCoreHelper.setFlashlight(context, !com.example.util.AtillaJarvisCoreHelper.isFlashlightOn)
+            return
+        }
+
         // 3. Normal Reminder / Alarm Trigger Handling
         val isPrayer = intent.getBooleanExtra("IS_PRAYER", false)
         val reminderId = intent.getIntExtra("REMINDER_ID", (System.currentTimeMillis() % 100000).toInt())

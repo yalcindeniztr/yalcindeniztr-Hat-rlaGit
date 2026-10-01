@@ -42,7 +42,9 @@ class MainActivity : ComponentActivity() {
         if (intent == null) return
         val action = intent.getStringExtra("action")
         val autoListen = intent.getBooleanExtra("auto_listen", false) || intent.getBooleanExtra("EXTRA_AUTO_LISTEN", false)
-        val prompt = intent.getStringExtra("ai_prompt") ?: intent.getStringExtra("PROACTIVE_PROMPT")
+        val wearVoice = com.example.util.AtillaWearSyncHelper.extractVoiceReplyFromIntent(intent)
+        val voiceCommand = intent.getStringExtra("EXTRA_VOICE_COMMAND")
+        val prompt = intent.getStringExtra("ai_prompt") ?: intent.getStringExtra("PROACTIVE_PROMPT") ?: wearVoice ?: voiceCommand
         if (action == "OPEN_AI_ASSISTANT" || autoListen || !prompt.isNullOrBlank()) {
             viewModel.triggerAiFromWidget(autoListen, prompt)
         }

@@ -234,6 +234,26 @@ object AiAssistantService {
         }
 
         // =========================================================================
+        // 0.0.0. TÜRKÇE İMLA, DEYİMLER, ATASÖZLERİ VE DOĞAL DİL ANALİZİ (LINGUISTICS)
+        // =========================================================================
+        val linguistic = AtillaTurkishLinguisticsHelper.analyze(context, cleanMsg, patronPrefix)
+        if (linguistic.directReply != null) {
+            val resp = AiResponse(
+                replyText = linguistic.directReply.second,
+                actionSummary = when (linguistic.intent) {
+                    AtillaTurkishLinguisticsHelper.NormalizedIntent.PLAN_TOMORROW -> "📅 Yarının Planı"
+                    AtillaTurkishLinguisticsHelper.NormalizedIntent.PLAN_TODAY -> "📋 Günlük Program"
+                    AtillaTurkishLinguisticsHelper.NormalizedIntent.IDIOM_OR_PROVERB -> "📖 Türkçe Deyim & Atasözü"
+                    else -> "⚡ Türkçe Analiz"
+                },
+                speechText = linguistic.directReply.first
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            AtillaMemoryManager.recordConversation(context, userMessage, resp.replyText)
+            return@withContext resp
+        }
+
+        // =========================================================================
         // 0.0.0.0. ÖĞRENEN ZEKA: KULLANICI PROFİLİ VE KONUŞMA HAFIZASI
         // =========================================================================
         if (lowerMsg.contains("beni tanıyor musun") || lowerMsg.contains("ben kimim") || 
@@ -411,6 +431,35 @@ object AiAssistantService {
             val resp = AiResponse(
                 replyText = "🔮 **ATİLLA Hologram Küresi:** Ekran balonu kapatıldı.",
                 actionSummary = "🔮 Yüzen Küre Kapatıldı",
+                speechText = speech
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        } else if (lowerMsg.contains("saatime gönder") || lowerMsg.contains("akıllı saate gönder") || lowerMsg.contains("saatte göster") || lowerMsg.contains("bileğime gönder")) {
+            AtillaWearSyncHelper.sendWearableHudNotification(context, "ATİLLA Brifingi", "Son asistan raporunuz akıllı saatinize aktarıldı Sayın Patronum.", patronPrefix)
+            val speech = "Brifing akıllı saatinize aktarıldı $patronPrefix. Bileğinizden sesli cevap verebilirsiniz."
+            val resp = AiResponse(
+                replyText = "⌚ **Wear OS Akıllı Saat Entegrasyonu:** Bildirim ve mikrofonla hızlı yanıt düğmesi saatinize gönderildi.",
+                actionSummary = "⌚ Saate İletildi",
+                speechText = speech
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        } else if (lowerMsg.contains("çevrimdışı düşün") || lowerMsg.contains("çevrimdışı muhakeme") || lowerMsg.contains("internetsiz analiz") || lowerMsg.contains("derin muhakeme")) {
+            val result = AtillaOfflineReasoningEngine.reason(context, cleanMsg, patronPrefix)
+            val resp = AiResponse(
+                replyText = result.finalAnswer,
+                actionSummary = "🧠 Çevrimdışı Derin Muhakeme",
+                speechText = result.speechSummary
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        } else if (lowerMsg.contains("ses imzamı kaydet") || lowerMsg.contains("sesimi öğren") || lowerMsg.contains("sesimi tanı")) {
+            AtillaVoiceprintVerifier.enrollPatronVoiceprint(context, patronPrefix)
+            val speech = "Biyometrik ses imzanız başarıyla kaydedildi $patronPrefix. Artık 'Hey ATİLLA' uyandırmasına sadece siz yetkilisiniz."
+            val resp = AiResponse(
+                replyText = "🎙️ **Biyometrik Ses İmzası Kaydedildi:**\n\n• Profil: $patronPrefix\n• Frekans Koruması: Aktif (85 - 175 Hz Erkek Ses Tonu)\n• Yetkisiz Erişim Engeli: Devrede.",
+                actionSummary = "🎙️ Biyometrik Ses İmzası",
                 speechText = speech
             )
             UstaSessionState.lastAssistantResponse = resp

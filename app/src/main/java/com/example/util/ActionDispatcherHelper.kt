@@ -863,6 +863,37 @@ object ActionDispatcherHelper {
                     )
                 }
 
+                "offline_reasoning", "deep_reasoning" -> {
+                    val query = payload.optString("query", "Tarih ve Maarif analizi")
+                    val result = AtillaOfflineReasoningEngine.reason(context, query)
+                    return@withContext ActionFeedbackResult(
+                        status = "success",
+                        action = "offline_reasoning",
+                        message = result.finalAnswer
+                    )
+                }
+
+                "send_to_watch", "wear_hud" -> {
+                    val title = payload.optString("title", "ATİLLA Brifingi")
+                    val body = payload.optString("message", "Akıllı saat bilek bildirimi iletildi.")
+                    AtillaWearSyncHelper.sendWearableHudNotification(context, title, body)
+                    return@withContext ActionFeedbackResult(
+                        status = "success",
+                        action = "send_to_watch",
+                        message = "Bildirim ve hızlı komutlar akıllı saatinize (Wear OS) aktarıldı."
+                    )
+                }
+
+                "toggle_voiceprint_security" -> {
+                    val enable = payload.optBoolean("enabled", true)
+                    AtillaVoiceprintVerifier.setSecurityEnabled(context, enable)
+                    return@withContext ActionFeedbackResult(
+                        status = "success",
+                        action = "toggle_voiceprint_security",
+                        message = if (enable) "Biyometrik ses imzası koruması aktif edildi." else "Biyometrik ses koruması devre dışı bırakıldı."
+                    )
+                }
+
                 "navigate", "search_map", "open_maps" -> {
                     val query = payload.optString("query", "Hedef")
                     val lat = payload.optDouble("lat", 0.0)

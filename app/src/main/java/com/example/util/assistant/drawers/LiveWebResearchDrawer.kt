@@ -21,6 +21,17 @@ object LiveWebResearchDrawer : AssistantDrawer {
             return true
         }
 
+        // Asistanlık, planlama, yemek ve günlük rutin komutları ASLA internet aramasına gitmemeli!
+        if (lowerQuery.contains("planla") || lowerQuery.contains("program") ||
+            lowerQuery.contains("yarın") || lowerQuery.contains("yarım") ||
+            lowerQuery.contains("günüm") || lowerQuery.contains("bugün") ||
+            lowerQuery.contains("hafta") || lowerQuery.contains("tarif") ||
+            lowerQuery.contains("yemek") || lowerQuery.contains("dolap") ||
+            lowerQuery.contains("alarm") || lowerQuery.contains("hatırlat") ||
+            lowerQuery.contains("ara") || lowerQuery.contains("mesaj")) {
+            return false
+        }
+
         // Genel bilgi, soru, merak ve araştırma komutları
         return lowerQuery.contains("nedir") ||
                lowerQuery.contains("kimdir") ||
@@ -38,9 +49,7 @@ object LiveWebResearchDrawer : AssistantDrawer {
                lowerQuery.contains("açıkla") ||
                lowerQuery.contains("kim bu") ||
                lowerQuery.contains("farkı ne") ||
-               lowerQuery.contains("ne demek") ||
-               lowerQuery.endsWith("?") ||
-               lowerQuery.split(" ").size >= 2
+               lowerQuery.contains("ne demek")
     }
 
     override suspend fun handle(

@@ -129,6 +129,12 @@ class AtillaWakeWordService : Service(), RecognitionListener {
 
     private fun handleDetectedSpeech(text: String) {
         if (AtillaWakeWordHelper.matchesWakeWord(text)) {
+            val verification = AtillaVoiceprintVerifier.verifySpeaker(this)
+            if (!verification.isAuthorized) {
+                android.util.Log.w("AtillaWakeWordService", "Wake word speaker rejected: ${verification.reason}")
+                return
+            }
+
             AtillaWakeWordHelper.triggerHapticFeedback(this)
             val command = AtillaWakeWordHelper.extractCommandAfterWakeWord(text)
             

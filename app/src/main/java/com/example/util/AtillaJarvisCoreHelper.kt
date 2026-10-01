@@ -130,6 +130,9 @@ object AtillaJarvisCoreHelper {
         )
     }
 
+    var isFlashlightOn: Boolean = false
+        private set
+
     /**
      * 2. DONANIM AYDINLATMA / FENER KONTROLÜ (TORCH CONTROL)
      */
@@ -143,6 +146,7 @@ object AtillaJarvisCoreHelper {
 
             if (cameraManager != null && cameraId != null) {
                 cameraManager.setTorchMode(cameraId, enabled)
+                isFlashlightOn = enabled
                 val state = if (enabled) "açıldı" else "kapatıldı"
                 Pair(true, "💡 Fener $state efendim.")
             } else {
