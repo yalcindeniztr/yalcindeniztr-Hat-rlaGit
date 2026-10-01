@@ -41,23 +41,30 @@ object LiveWebSearchHelper {
      */
     suspend fun searchLiveWeb(rawQuery: String): LiveSearchResult? = withContext(Dispatchers.IO) {
         val cleanQuery = rawQuery
-            .replace(Regex("(?i)^(internette ara|internetten ara|google'da ara|araştır|araştırma yap|bana anlat|anlat|bilgi ver|nedir|kimdir)[: ]*"), "")
-            .replace(Regex("(?i)\b(nedir|kimdir|nasıl|ne zaman|hakkında bilgi ver|araştır|açıkla|anlat|hakkında|lütfen|sence)\b"), "")
+            .replace(Regex("(?i)^(internette ara|internetten ara|google'da ara|google da ara|araştır|araştırma yap|bana anlat|anlat|bilgi ver|nedir|kimdir)[: ]*"), "")
+            .replace(Regex("(?i)\\b(nedir|kimdir|nasıl|ne zaman|hakkında bilgi ver|araştır|açıkla|anlat|hakkında|lütfen|sence|bana|öğren)\\b"), "")
             .replace(Regex("[?.,!;:]"), "")
             .trim()
 
-        if (cleanQuery.length < 2) return@withContext null
+        val targetQuery = if (cleanQuery.length >= 2) cleanQuery else rawQuery.replace(Regex("[?.,!;:]"), "").trim()
+        if (targetQuery.length < 2) return@withContext null
 
         // 1. Canlı Wikipedia TR Araştırması (Derin, doğru ve ansiklopedik)
-        val wikiResult = searchWikipedia(cleanQuery)
+        val wikiResult = searchWikipedia(targetQuery)
         if (wikiResult != null && wikiResult.summary.isNotBlank()) {
             return@withContext wikiResult
         }
 
         // 2. DuckDuckGo Instant Answer API
-        val ddgResult = searchDuckDuckGo(cleanQuery)
+        val ddgResult = searchDuckDuckGo(targetQuery)
         if (ddgResult != null && ddgResult.summary.isNotBlank()) {
             return@withContext ddgResult
+        }
+
+        // 3. DuckDuckGo HTML / Web Arama Snippet Çekici
+        val webSnippetResult = searchWebSnippet(targetQuery)
+        if (webSnippetResult != null && webSnippetResult.summary.isNotBlank()) {
+            return@withContext webSnippetResult
         }
 
         return@withContext null
@@ -145,6 +152,49 @@ object LiveWebSearchHelper {
                     summary = abstractText,
                     sourceUrl = sourceUrl
                 )
+            }
+            null
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * DuckDuckGo HTML Web Snippet Arama
+     */
+    suspend fun searchWebSnippet(query: String): LiveSearchResult? = withContext(Dispatchers.IO) {
+        try {
+            val encoded = URLEncoder.encode(query, StandardCharsets.UTF_8.name())
+            val url = "https://html.duckduckgo.com/html/?q=$encoded"
+            val req = Request.Builder()
+                .url(url)
+                .header("User-Agent", USER_AGENT)
+                .build()
+
+            val resp = httpClient.newCall(req).execute()
+            val html = resp.use { it.body?.string() } ?: return@withContext null
+
+            // Snippet Ayıklama: class="result__snippet"
+            val pattern = Pattern.compile("""<a[^>]*class="result__snippet"[^>]*>(.*?)</a>""", Pattern.DOTALL)
+            val matcher = pattern.matcher(html)
+            if (matcher.find()) {
+                val rawSnippet = matcher.group(1) ?: ""
+                val cleanSnippet = rawSnippet
+                    .replace(Regex("<[^>]+>"), "")
+                    .replace("&quot;", "\"")
+                    .replace("&amp;", "&")
+                    .replace("&lt;", "<")
+                    .replace("&gt;", ">")
+                    .replace("&#39;", "'")
+                    .trim()
+
+                if (cleanSnippet.length > 20) {
+                    return@withContext LiveSearchResult(
+                        title = query,
+                        summary = cleanSnippet,
+                        sourceUrl = "https://duckduckgo.com/?q=$encoded"
+                    )
+                }
             }
             null
         } catch (_: Exception) {

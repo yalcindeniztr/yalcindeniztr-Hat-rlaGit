@@ -17,7 +17,7 @@ object LiveWebResearchDrawer : AssistantDrawer {
 
     override fun canHandle(query: String, lowerQuery: String): Boolean {
         // Canlı haberler
-        if (lowerQuery.contains("gazete manşet") || lowerQuery.contains("haberler") || lowerQuery.contains("günün haber") || lowerQuery.contains("son dakika")) {
+        if (lowerQuery.contains("gazete manşet") || lowerQuery.contains("haberler") || lowerQuery.contains("günün haber") || lowerQuery.contains("son dakika") || lowerQuery.contains("gündem")) {
             return true
         }
 
@@ -30,12 +30,17 @@ object LiveWebResearchDrawer : AssistantDrawer {
                lowerQuery.contains("hakkında") ||
                lowerQuery.contains("nasıl yapılır") ||
                lowerQuery.contains("ne zaman") ||
+               lowerQuery.contains("nerede") ||
+               lowerQuery.contains("neresi") ||
                lowerQuery.contains("tarihçesi") ||
                lowerQuery.contains("özellikleri") ||
                lowerQuery.contains("anlat") ||
                lowerQuery.contains("açıkla") ||
                lowerQuery.contains("kim bu") ||
-               lowerQuery.endsWith("?")
+               lowerQuery.contains("farkı ne") ||
+               lowerQuery.contains("ne demek") ||
+               lowerQuery.endsWith("?") ||
+               lowerQuery.split(" ").size >= 2
     }
 
     override suspend fun handle(

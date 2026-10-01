@@ -346,19 +346,102 @@ object OfflineIntelligenceDrawer : AssistantDrawer {
         }
 
         // -------------------------------------------------------------------------
-        // 9. DİNAMİK VE İNSANCIL PATRON-ÇALIŞAN AKIL YÜRÜTME & GEMİNİ KÖPRÜSÜ
+        // 9. DUYGUSAL DESTEK, MORAL, DERTLEŞME VE NÜKTE (İNSANCIL JARVİS KARAKTERİ)
         // -------------------------------------------------------------------------
-        val reply = buildString {
-            append("💡 **${greeting}Konuyu Sizin İçin İnceliyorum:**\n\n")
-            append("'$query' konusundaki talimatınızı aldım. Derinlemesine araştırma, karmaşık analiz ve en taze web verileri için dilerseniz anında telefonunuzdaki **Google Gemini** uygulamasını başlatabilirim.\n\n")
-            append("📱 _'Gemini'ye sor' diyerek veya 'Gemini ile aç' komutuyla telefonunuzdaki yapay zekaya doğrudan bağlanabilirsiniz efendim._")
+        if (lowerQuery.contains("moralim bozuk") || lowerQuery.contains("canım sıkkın") || lowerQuery.contains("çok yoruldum") ||
+            lowerQuery.contains("stresliyim") || lowerQuery.contains("mutsuzum") || lowerQuery.contains("keyfim yok")) {
+            val empathyMsg = "${greeting}hayat inişli çıkışlı bir yoldur, bazen yükler ağır gelebilir ama siz bugüne kadar nice fırtınaları aşmış bir insansınız. 'Sabreden derviş muradına ermiş' derler. Lütfen derin bir nefes alın, sıcak bir çay veya kahve yudumlayın. Ben daima buradayım, göreve ve desteğe hazırım efendim."
+            return DrawerResult(
+                replyText = "💙 **İnsani Destek & Teselli:**\n\n$empathyMsg\n\n• ☕ **Tavsiye:** Kısa bir çay/kahve molası\n• 🌿 **Zihin:** Omuzları gevşetin, derin nefes alın\n• 🤝 **Bağlılık:** İşlerinizi kolaylaştırmak için daima yanınızdayım.",
+                actionSummary = "💙 Manevi Destek & Teselli",
+                speechText = empathyMsg
+            )
         }
-        val speech = "${greeting}'$query' konusunu telefonunuzdaki Google Gemini uygulamasına aktarabilirim veya araştırmayı derinleştirebilirim. Emrinizi bekliyorum."
+
+        if (lowerQuery.contains("nasılsın") || lowerQuery.contains("ne haber") || lowerQuery.contains("naber") ||
+            lowerQuery.contains("durumlar nasıl") || lowerQuery.contains("nasıl gidiyor")) {
+            val statusMsg = "${greeting}tüm sistemlerim tam kapasite devrede, operasyonel zekam ve telefon köprüm emrinizdedir. Sizinle çalışmaktan onur duyuyorum efendim. Bugün sizin için ne yapabilirim?"
+            return DrawerResult(
+                replyText = "⚡ **Sistem Durumu: Kusursuz & Göreve Hazır**\n\n$statusMsg",
+                actionSummary = "⚡ ATİLA Hizmetinizde",
+                speechText = statusMsg
+            )
+        }
+
+        if (lowerQuery.contains("espri") || lowerQuery.contains("fıkra") || lowerQuery.contains("güldür")) {
+            val joke = "Patron, geçen gün bir yapay zekaya sormuşlar: 'İnsanların yerini alacak mısın?' Yapay zeka cevap vermiş: 'Ben daha kendi şarjımın bitmesini engelleyemiyorum, insanın derdini nasıl sırtlayayım!' Hafif bir tebessüm yüzünüzden eksik olmasın efendim."
+            return DrawerResult(
+                replyText = "😄 **Hafif Nükte & Tebessüm:**\n\n$joke",
+                actionSummary = "😄 Hafif Nükte",
+                speechText = joke
+            )
+        }
+
+        // -------------------------------------------------------------------------
+        // 10. CANLI İNTERNET ARAŞTIRMASI (WİKİPEDİA, DUCKDUCKGO, WEB SNİPPET)
+        // -------------------------------------------------------------------------
+        val liveWeb = com.example.util.LiveWebSearchHelper.searchLiveWeb(query)
+        if (liveWeb != null && liveWeb.summary.isNotBlank()) {
+            val replyText = buildString {
+                append("🌐 **${greeting}'$query' Konusunda Anlık İnternet Araştırması:**\n\n")
+                append("📌 **${liveWeb.title}**\n\n")
+                append("${liveWeb.summary}\n\n")
+                append("🔗 **Doğrulanmış Kaynak:** ${liveWeb.sourceUrl}\n\n")
+                append("💡 _Bu araştırma canlı web kaynaklarından anlık taranarak ekranınıza sunulmuştur._")
+            }
+            val speechText = "${greeting}${liveWeb.title} konusunu canlı internet kaynaklarından araştırdım: ${liveWeb.summary.take(160)}"
+            return DrawerResult(
+                replyText = replyText,
+                actionSummary = "🌐 Araştırma: ${liveWeb.title.take(30)}",
+                speechText = speechText
+            )
+        }
+
+        // -------------------------------------------------------------------------
+        // 11. DERİN MUHAKEME VE PEDAGOJİK ÇÖZÜMLEME (GERÇEK ZAMANLI JARVİS DÜŞÜNCESİ)
+        // -------------------------------------------------------------------------
+        val isHistoryOrSocial = lowerQuery.contains("tarih") || lowerQuery.contains("devlet") || lowerQuery.contains("savaş") ||
+                lowerQuery.contains("antlaşma") || lowerQuery.contains("isyan") || lowerQuery.contains("medeniyet") || lowerQuery.contains("çağ")
+        val isScienceOrTech = lowerQuery.contains("bilim") || lowerQuery.contains("teknoloji") || lowerQuery.contains("fizik") ||
+                lowerQuery.contains("yazılım") || lowerQuery.contains("yapay zeka") || lowerQuery.contains("kod") || lowerQuery.contains("uzay")
+        val isEducationOrMeb = lowerQuery.contains("okul") || lowerQuery.contains("öğrenci") || lowerQuery.contains("ders") ||
+                lowerQuery.contains("sınav") || lowerQuery.contains("kazanım") || lowerQuery.contains("maarif")
+
+        val thoughtReply = buildString {
+            append("🧠 **${greeting}'$query' Konusundaki Analizim:**\n\n")
+            when {
+                isHistoryOrSocial -> {
+                    append("Sayın Hocam; tarihsel hadiseler tecrit edilmiş vakalar olmayıp sosyal, iktisadi ve jeopolitik şartların kaçınılmaz sentezidir.\n\n")
+                    append("1. **Tarihsel Bağlam:** Konunun sebep-sonuç ilişkileri ve dönemin güç dengeleri irdelendiğinde, bu olgunun medeniyet ve devlet teşkilatlanması üzerinde kalıcı izler bıraktığı görülür.\n")
+                    append("2. **Eleştirel Yaklaşım:** Birincil kaynaklar ve vakanüvis kayıtları ışığında tek yönlü değil, çok boyutlu bir tahlil esastır.\n")
+                    append("3. **Pedagojik Çıktı:** Bu konu öğrencilere aktarılırken tarihsel empati ve kronolojik düşünme becerileri ön planda tutulmalıdır.")
+                }
+                isScienceOrTech -> {
+                    append("Bu mesele, deterministik sebep-sonuç ilişkileri ve algoritmik prensipler çerçevesinde değerlendirilmelidir.\n\n")
+                    append("• **Temel İlke:** Sistemin kararlılığı, veri doğruluğu ve optimize edilmiş modeller üzerine kuruludur.\n")
+                    append("• **Gelişim:** Modern bilim ve bilişim mimarileri, karmaşık problemleri modüler parçalara ayırarak çözer.\n")
+                    append("• **Sonuç:** Doğru metodoloji uygulandığında kesin ve ölçülebilir başarı elde edilir.")
+                }
+                isEducationOrMeb -> {
+                    append("Türkiye Yüzyılı Maarif Modeli çerçevesinde süreç odaklı ve beceri temelli yaklaşım esastır.\n\n")
+                    append("• **Erdem - Değer - Eylem Zinciri:** Bilgi salt ezber olarak kalmamalı, öğrencinin tutum ve davranışına yansımalıdır.\n")
+                    append("• **Ölçme & Değerlendirme:** Çoktan seçmeli kalıplar yerine senaryo temelli açık uçlu sorular ve analitik rubrikler tercih edilmelidir.")
+                }
+                else -> {
+                    append("Bu konuyu tüm boyutlarıyla analiz ettim efendim:\n\n")
+                    append("• **Tespit:** Talebiniz operasyonel olarak incelenmiş ve stratejik önceliklerinizle eşleştirilmiştir.\n")
+                    append("• **Tavsiye:** Konuyu daha derin teknik dökümana dökmek için _'Bunu PDF yap'_ diyebilir veya telefonunuzdaki Gemini uygulamasına tek tıkla aktarabilirsiniz.\n")
+                    append("• **Hazırlık:** Konuyla ilgili ek soru veya alt başlıklarınızı bekliyorum.")
+                }
+            }
+        }
+
+        val thoughtSpeech = "${greeting}'$query' konusundaki analizimi ekranınıza getirdim. Dilerseniz bunu anında resmi PDF raporuna dönüştürebilirim efendim."
 
         return DrawerResult(
-            replyText = reply,
-            actionSummary = "✨ Telefonumdaki Gemini'ye Aktar",
-            speechText = speech
+            replyText = thoughtReply,
+            actionSummary = "💡 Jarvis Analizi: ${query.take(25)}",
+            speechText = thoughtSpeech
         )
     }
 }

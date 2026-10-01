@@ -45,7 +45,7 @@ object GeminiCloudDrawer : AssistantDrawer {
         lowerQuery: String,
         sessionData: WardrobeSessionData
     ): DrawerResult? {
-        if (sessionData.apiKey.isBlank() || sessionData.apiKey.length < 15) return null
+        if (sessionData.apiKey.isBlank() || !sessionData.apiKey.startsWith("AIzaSy")) return null
 
         val allKnowledge = sessionData.db.aiKnowledgeDao().getAllKnowledgeList()
         val searchWords = lowerQuery.split(Regex("""[\s,?.!;:()'"\-_/]+""")).filter { it.length >= 3 }
@@ -178,7 +178,7 @@ Patron Konumu: ${sessionData.userCity}, ${sessionData.userDistrict}.$targetedKno
             put("contents", contentsArray)
 
             put("generationConfig", JSONObject().apply {
-                put("temperature", 0.65) // Doğal, zengin ve insancıl Türkçe diyaloğu için dengeli temperature
+                put("temperature", 0.25) // Modelin saçmalamasını ve gereksiz sohbetini önleyen kesin odaklı sıcaklık
                 put("maxOutputTokens", 1500)
                 put("response_mime_type", "application/json") // Saf JSON üretimi garantisi
             })

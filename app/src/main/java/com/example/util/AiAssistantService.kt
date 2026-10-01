@@ -475,26 +475,34 @@ object AiAssistantService {
         // =========================================================================
         // 1. NÖBETÇİ ECZANE SORGULAMA (EN YAKIN 3 ECZANE KARTI & NAVİGASYON)
         // =========================================================================
-        if (lowerMsg.contains("eczane") || lowerMsg.contains("nöbetçi") || lowerMsg.contains("nobetci") || lowerMsg.contains("ilaç nereden")) {
+        if (lowerMsg.contains("eczane") || lowerMsg.contains("nöbetçi") || lowerMsg.contains("nobetci") || lowerMsg.contains("ilaç nereden") || lowerMsg.contains("yol tarifi")) {
             val district = userDistrict.ifBlank { "Merkez" }
             val city = userCity.ifBlank { "Bulunduğunuz Şehir" }
             val top3 = NearbyPlacesHelper.getTop3NearbyPlaces(context, realLat, realLng, cleanMsg)
-            val speech = "$patronPrefix, $district bölgesindeki açık nöbetçi eczaneleri mesafelerine göre listeledim. İlk sırada ${top3.firstOrNull()?.distanceMeters ?: 240} metre mesafedeki ${top3.firstOrNull()?.name} bulunuyor."
+            val top1 = top3.firstOrNull()
+
+            // Kullanıcı nöbetçi eczane veya yol tarifi istediğinde ilk sıradaki hedefe doğrudan navigasyonu başlat
+            if (top1 != null) {
+                NearbyPlacesHelper.openGoogleMapsNavigation(context, top1.name, top1.lat, top1.lng, top1.address)
+            }
+
+            val speech = "$patronPrefix, $district bölgesinde en yakın ${top1?.name ?: "nöbetçi eczane"} için Google Haritalar canlı yol tarifini başlattım. En yakın 3 nöbetçi eczane ekranınızda hazır."
 
             val reply = buildString {
                 append("🏥 **$patronPrefix, $city $district Bölgesindeki En Yakın 3 Nöbetçi Eczane:**\n\n")
                 top3.forEachIndexed { idx, p ->
                     append("${idx + 1}. **${p.name}**\n")
-                    append("   • ${p.typeLabel} (${p.distanceMeters} metre)\n")
+                    append("   • ${p.typeLabel} (${p.distanceMeters} metre mesafede)\n")
                     append("   • Adres: ${p.address}\n\n")
                 }
-                append("💡 Haritada görmek veya aramak için aşağıdaki butonlara dokunabilirsiniz.")
+                append("🗺️ **İlk sıradaki ${top1?.name ?: "nöbetçi eczane"} için Google Haritalar canlı yol tarifi başlatıldı.**\n")
+                append("💡 Diğer eczanelere gitmek veya doğrudan aramak için aşağıdaki butonlara dokunabilirsiniz.")
             }
 
             return@withContext AiResponse(
                 replyText = reply,
                 recommendedPlaces = top3,
-                actionSummary = "🏥 Nöbetçi Eczaneler: $city $district",
+                actionSummary = "🏥 Nöbetçi Eczane Navigasyonu: ${top1?.name ?: "$city $district"}",
                 speechText = speech
             )
         }
@@ -624,7 +632,7 @@ object AiAssistantService {
         // =========================================================================
         // 6. CANLI HAVA DURUMU & GAZETE MANŞETLERİ
         // =========================================================================
-        if (lowerMsg.contains("hava durumu") || lowerMsg.contains("hava nasıl") || lowerMsg.contains("hava kaç derece") || lowerMsg.contains("yağmur var mı") || lowerMsg.contains("hava")) {
+        if (lowerMsg.contains("hava durumu") || lowerMsg.contains("hava nasıl") || lowerMsg.contains("hava kaç derece") || lowerMsg.contains("yağmur var mı") || lowerMsg.contains("hava raporu")) {
             val weatherText = WeatherHelper.getLiveWeather(context, realLat, realLng, userCity.ifBlank { "Bulunduğunuz Şehir" })
             val voiceWeather = WeatherHelper.getVoiceWeatherBriefing(context, realLat, realLng, userCity.ifBlank { "Bulunduğunuz Şehir" })
             return@withContext AiResponse(
@@ -648,10 +656,11 @@ object AiAssistantService {
         // 7. YOUTUBE EVRENSEL ARAMA VE OYNATMA (MÜZİK, VİDEO, YEMEK, DERS VB.)
         // =========================================================================
         if (lowerMsg.contains("youtube") || lowerMsg.contains("çal") || lowerMsg.contains("müzik") || lowerMsg.contains("şarkı") ||
+            lowerMsg.contains("oyun havası") || lowerMsg.contains("oyun havasi") || lowerMsg.contains("türkü") ||
             lowerMsg.contains("videosu") || lowerMsg.contains("video aç") || lowerMsg.contains("video izle") || lowerMsg.contains("videolu tarif")) {
             val targetQuery = cleanMsg.replace(Regex("(?i)^(youtube'dan|youtube'da|youtube|youtubeden|youtubede|yt)[: ]*"), "")
                 .replace(Regex("(?i)(şarkısını|şarkıyı|müziğini|müzik|videosunu|videoyu|video|aç|çal|oynat|bul|izle|bana)$"), "")
-                .trim().ifBlank { "Türkçe Müzik" }
+                .trim().ifBlank { if (lowerMsg.contains("oyun havası") || lowerMsg.contains("oyun havasi")) "Ankara Oyun Havaları" else "Türkçe Müzik" }
             val (_, msg) = AppLauncherHelper.searchAndPlayYouTube(context, targetQuery)
             val speech = "$patronPrefix, YouTube'da $targetQuery açılıyor."
             return@withContext AiResponse(
