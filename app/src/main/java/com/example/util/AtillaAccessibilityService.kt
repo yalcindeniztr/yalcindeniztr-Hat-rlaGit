@@ -49,13 +49,17 @@ class AtillaAccessibilityService : AccessibilityService() {
             return instance?.performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS) ?: false
         }
 
-        fun getScreenContentSummary(): String {
-            val root = instance?.rootInActiveWindow ?: return "Erişilebilirlik servisi bağlı değil veya ekran okunamıyor efendim."
+        fun getRawScreenText(): String {
+            val root = instance?.rootInActiveWindow ?: return ""
             val sb = StringBuilder()
             extractNodeText(root, sb, 0)
-            val result = sb.toString().trim()
-            return if (result.isNotBlank()) {
-                "📱 **Ekranda Görünen İçerik:**\n\n$result"
+            return sb.toString().trim()
+        }
+
+        fun getScreenContentSummary(): String {
+            val raw = getRawScreenText()
+            return if (raw.isNotBlank()) {
+                "📱 **Ekranda Görünen İçerik:**\n\n$raw"
             } else {
                 "Ekranda okunabilir bir metin tespit edilemedi efendim."
             }

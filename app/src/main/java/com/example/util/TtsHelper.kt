@@ -22,13 +22,39 @@ object TtsHelper {
     private val FEMALE_KEYWORDS = listOf("female", "woman", "kadin", "bayan", "dff", "dfz", "dfa", "f0", "f1", "f2")
     private val MALE_KEYWORDS = listOf("male", "man", "erkek", "tfe", "tfa", "ter", "m0", "m1", "m2", "tr-tr-x-tfe", "tr-tr-x-tfa")
 
-    fun speak(context: Context, text: String, onDone: (() -> Unit)? = null) {
+    private var currentPitch: Float = 0.82f
+    private var currentSpeechRate: Float = 1.02f
+
+    fun speak(
+        context: Context,
+        text: String,
+        emotionState: AtillaEmotionEngine.EmotionState? = null,
+        onDone: (() -> Unit)? = null
+    ) {
         val appContext = context.applicationContext
         val cleanText = sanitizeForSpeech(text)
         if (cleanText.isBlank()) {
             onDone?.invoke()
             return
         }
+
+        // Duygusal analize göre pitch ve rate ayarla
+        val emotion = emotionState?.let {
+            when (it) {
+                AtillaEmotionEngine.EmotionState.TIRED -> Pair(0.79f, 0.94f)
+                AtillaEmotionEngine.EmotionState.STRESSED -> Pair(0.80f, 0.96f)
+                AtillaEmotionEngine.EmotionState.JOYFUL -> Pair(0.85f, 1.05f)
+                AtillaEmotionEngine.EmotionState.URGENT -> Pair(0.84f, 1.14f)
+                AtillaEmotionEngine.EmotionState.TEACHER_MAARIF -> Pair(0.82f, 0.98f)
+                AtillaEmotionEngine.EmotionState.WITTY -> Pair(0.86f, 1.04f)
+                AtillaEmotionEngine.EmotionState.NEUTRAL -> Pair(0.82f, 1.02f)
+            }
+        } ?: run {
+            val analysis = AtillaEmotionEngine.analyze(cleanText)
+            Pair(analysis.voicePitch, analysis.speechRate)
+        }
+        currentPitch = emotion.first
+        currentSpeechRate = emotion.second
 
         Handler(Looper.getMainLooper()).post {
             try {
@@ -53,6 +79,8 @@ object TtsHelper {
                     }
                 } else if (isInitialized) {
                     tts?.let { engine ->
+                        engine.setPitch(currentPitch)
+                        engine.setSpeechRate(currentSpeechRate)
                         executeSpeak(engine, cleanText, onDone)
                     }
                 } else {

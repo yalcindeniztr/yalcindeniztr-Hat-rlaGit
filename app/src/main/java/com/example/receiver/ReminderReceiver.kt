@@ -73,6 +73,9 @@ class ReminderReceiver : BroadcastReceiver() {
                     val prayerData = prayerRepo.getPrayerTimes(selectedCity)
                     AlarmHelper.scheduleAllPrayerAlarms(context, prayerData, notifMap, minutesBefore)
 
+                    // Reschedule ATİLLA Proactive Briefings
+                    com.example.util.AtillaProactiveEngine.scheduleDailyProactiveBriefings(context)
+
                     Log.d(TAG, "Successfully rescheduled ${activeReminders.size} reminders after reboot")
                 } catch (e: Exception) {
                     Log.e(TAG, "Error rescheduling alarms on boot", e)
@@ -83,7 +86,34 @@ class ReminderReceiver : BroadcastReceiver() {
             return
         }
 
-        // 2. Normal Reminder / Alarm Trigger Handling
+        // 2. Proaktif Maarif Sabah / Akşam Brifingleri
+        if (action == "ACTION_ATILLA_MORNING_BRIEF") {
+            val briefing = com.example.util.AtillaProactiveEngine.generateMorningBriefing(context)
+            com.example.util.AtillaProactiveEngine.showProactiveNotification(
+                context,
+                "🏛️ ATİLLA Maarif Lideri Sabah Brifingi",
+                briefing.first,
+                isMorning = true
+            )
+            com.example.util.TtsHelper.speak(context, briefing.first, com.example.util.AtillaEmotionEngine.EmotionState.TEACHER_MAARIF)
+            com.example.util.AtillaProactiveEngine.scheduleDailyProactiveBriefings(context)
+            return
+        }
+
+        if (action == "ACTION_ATILLA_EVENING_BRIEF") {
+            val debrief = com.example.util.AtillaProactiveEngine.generateEveningDebrief(context)
+            com.example.util.AtillaProactiveEngine.showProactiveNotification(
+                context,
+                "🌙 ATİLLA Gün Sonu Maarif Değerlendirmesi",
+                debrief.first,
+                isMorning = false
+            )
+            com.example.util.TtsHelper.speak(context, debrief.first, com.example.util.AtillaEmotionEngine.EmotionState.TIRED)
+            com.example.util.AtillaProactiveEngine.scheduleDailyProactiveBriefings(context)
+            return
+        }
+
+        // 3. Normal Reminder / Alarm Trigger Handling
         val isPrayer = intent.getBooleanExtra("IS_PRAYER", false)
         val reminderId = intent.getIntExtra("REMINDER_ID", (System.currentTimeMillis() % 100000).toInt())
         val title = intent.getStringExtra("REMINDER_TITLE") ?: "Hatırlatıcı"

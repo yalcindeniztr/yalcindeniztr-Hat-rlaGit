@@ -41,9 +41,9 @@ class MainActivity : ComponentActivity() {
     private fun handleIncomingIntent(intent: Intent?) {
         if (intent == null) return
         val action = intent.getStringExtra("action")
-        if (action == "OPEN_AI_ASSISTANT") {
-            val autoListen = intent.getBooleanExtra("auto_listen", false)
-            val prompt = intent.getStringExtra("ai_prompt")
+        val autoListen = intent.getBooleanExtra("auto_listen", false) || intent.getBooleanExtra("EXTRA_AUTO_LISTEN", false)
+        val prompt = intent.getStringExtra("ai_prompt") ?: intent.getStringExtra("PROACTIVE_PROMPT")
+        if (action == "OPEN_AI_ASSISTANT" || autoListen || !prompt.isNullOrBlank()) {
             viewModel.triggerAiFromWidget(autoListen, prompt)
         }
     }

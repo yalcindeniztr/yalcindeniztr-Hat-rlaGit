@@ -813,11 +813,53 @@ object ActionDispatcherHelper {
                 }
 
                 "inspect_screen", "read_screen" -> {
-                    val summary = AtillaAccessibilityService.getScreenContentSummary()
+                    val isVision = payload.optBoolean("deep_vision", true)
+                    val msg = if (isVision) {
+                        AtillaScreenVisionHelper.analyzeCurrentScreen(context).displayMarkdown
+                    } else {
+                        AtillaAccessibilityService.getScreenContentSummary()
+                    }
                     return@withContext ActionFeedbackResult(
                         status = "success",
                         action = "inspect_screen",
-                        message = summary
+                        message = msg
+                    )
+                }
+
+                "inspect_screen_vision", "solve_screen_question", "screen_vision" -> {
+                    val insight = AtillaScreenVisionHelper.analyzeCurrentScreen(context)
+                    return@withContext ActionFeedbackResult(
+                        status = "success",
+                        action = "inspect_screen_vision",
+                        message = insight.displayMarkdown
+                    )
+                }
+
+                "get_proactive_briefing", "maarif_briefing" -> {
+                    val type = payload.optString("type", "morning").lowercase(Locale.ROOT)
+                    val result = if (type == "evening") {
+                        AtillaProactiveEngine.generateEveningDebrief(context)
+                    } else {
+                        AtillaProactiveEngine.generateMorningBriefing(context)
+                    }
+                    return@withContext ActionFeedbackResult(
+                        status = "success",
+                        action = "get_proactive_briefing",
+                        message = result.second
+                    )
+                }
+
+                "toggle_floating_bubble", "floating_bubble", "hologram_bubble" -> {
+                    val enable = payload.optBoolean("enabled", true)
+                    if (enable) {
+                        AtillaFloatingBubbleService.startBubble(context)
+                    } else {
+                        AtillaFloatingBubbleService.stopBubble(context)
+                    }
+                    return@withContext ActionFeedbackResult(
+                        status = "success",
+                        action = "toggle_floating_bubble",
+                        message = if (enable) "Yüzen ATİLLA hologram küresi ekrana yerleştirildi." else "Yüzen hologram küresi kapatıldı."
                     )
                 }
 

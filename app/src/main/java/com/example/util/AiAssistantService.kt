@@ -367,10 +367,52 @@ object AiAssistantService {
             val resp = AiResponse(replyText = msg, actionSummary = "🔔 Bildirim Paneli", speechText = msg)
             UstaSessionState.lastAssistantResponse = resp
             return@withContext resp
-        } else if (lowerMsg.contains("ekranda ne var") || lowerMsg.contains("ekranı oku") || lowerMsg.contains("ekrandakileri oku")) {
-            val summary = AtillaAccessibilityService.getScreenContentSummary()
-            val speech = if (AtillaAccessibilityService.isServiceActive) "Ekrandaki içeriği analiz ettim efendim." else "Ekranı okumak için Erişilebilirlik ayarlarından izin vermelisiniz."
-            val resp = AiResponse(replyText = summary, actionSummary = "📱 Ekran Analizi", speechText = speech)
+        } else if (lowerMsg.contains("ekranda ne var") || lowerMsg.contains("ekranı oku") || lowerMsg.contains("ekrandakileri oku") ||
+            lowerMsg.contains("ekrandaki soruyu çöz") || lowerMsg.contains("soruyu çöz") || lowerMsg.contains("ekranı analiz et") || lowerMsg.contains("ekran gözü")) {
+            val insight = AtillaScreenVisionHelper.analyzeCurrentScreen(context, patronPrefix)
+            val resp = AiResponse(
+                replyText = insight.displayMarkdown,
+                actionSummary = if (insight.isQuestion) "🎓 Maarif Soru Çözümü" else "👁️ Ekran Gözü Analizi",
+                speechText = insight.spokenReply
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        } else if (lowerMsg.contains("sabah brifingi") || lowerMsg.contains("günün brifingi") || lowerMsg.contains("bugün tarihte ne oldu")) {
+            val briefing = AtillaProactiveEngine.generateMorningBriefing(context, patronPrefix)
+            val resp = AiResponse(
+                replyText = briefing.second,
+                actionSummary = "🏛️ Maarif Sabah Brifingi",
+                speechText = briefing.first
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        } else if (lowerMsg.contains("akşam değerlendirmesi") || lowerMsg.contains("gün sonu raporu") || lowerMsg.contains("günü değerlendir")) {
+            val debrief = AtillaProactiveEngine.generateEveningDebrief(context, patronPrefix)
+            val resp = AiResponse(
+                replyText = debrief.second,
+                actionSummary = "🌙 Maarif Akşam Değerlendirmesi",
+                speechText = debrief.first
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        } else if (lowerMsg.contains("yüzen küreyi aç") || lowerMsg.contains("yüzen balonu aç") || lowerMsg.contains("hologramı aç") || lowerMsg.contains("baloncuğu aç")) {
+            AtillaFloatingBubbleService.startBubble(context)
+            val speech = "Yüzen ATİLLA hologram küresi ekrana yerleştirildi $patronPrefix."
+            val resp = AiResponse(
+                replyText = "🔮 **ATİLLA Hologram Küresi:** Canlı ekran balonu aktif edildi. Her an dokunarak emir verebilirsiniz.",
+                actionSummary = "🔮 Yüzen Hologram Küresi",
+                speechText = speech
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        } else if (lowerMsg.contains("yüzen küreyi kapat") || lowerMsg.contains("yüzen balonu kapat") || lowerMsg.contains("hologramı kapat") || lowerMsg.contains("baloncuğu kapat")) {
+            AtillaFloatingBubbleService.stopBubble(context)
+            val speech = "Yüzen hologram küresi kapatıldı $patronPrefix."
+            val resp = AiResponse(
+                replyText = "🔮 **ATİLLA Hologram Küresi:** Ekran balonu kapatıldı.",
+                actionSummary = "🔮 Yüzen Küre Kapatıldı",
+                speechText = speech
+            )
             UstaSessionState.lastAssistantResponse = resp
             return@withContext resp
         }
@@ -1044,11 +1086,19 @@ object AiAssistantService {
         )
 
         val drawerResult = com.example.util.assistant.AtillaWardrobeManager.dispatch(context, cleanMsg, sessionData)
+        val emotionAnalysis = AtillaEmotionEngine.analyze(cleanMsg, patronPrefix)
+        val rawSpeech = drawerResult.speechText ?: drawerResult.replyText
+        val enrichedSpeech = if (emotionAnalysis.empathyPreamble.isNotBlank() && !rawSpeech.startsWith(emotionAnalysis.empathyPreamble)) {
+            emotionAnalysis.empathyPreamble + rawSpeech
+        } else {
+            rawSpeech
+        }
+
         val finalResp = AiResponse(
             replyText = drawerResult.replyText,
             recommendedPlaces = drawerResult.recommendedPlaces,
             actionSummary = drawerResult.actionSummary,
-            speechText = drawerResult.speechText ?: drawerResult.replyText,
+            speechText = enrichedSpeech,
             generatedPdfFile = drawerResult.generatedPdfFile
         )
         if (drawerResult.generatedPdfFile != null) {
