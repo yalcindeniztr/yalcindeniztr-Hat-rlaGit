@@ -773,6 +773,54 @@ object ActionDispatcherHelper {
                     )
                 }
 
+                "send_sms", "sms_send" -> {
+                    var phone = payload.optString("phone", "").ifBlank { payload.optString("contact_name_or_number", "") }
+                    val name = payload.optString("name", "")
+                    val message = payload.optString("message", "")
+
+                    if (phone.isBlank() && name.isNotBlank()) {
+                        if (ContactHelper.hasContactsPermission(context)) {
+                            val contact = ContactHelper.findContactByName(context, name)
+                            if (contact != null) phone = contact.phoneNumber
+                        }
+                    }
+
+                    val smsIntent = Intent(Intent.ACTION_SENDTO).apply {
+                        data = Uri.parse("smsto:${Uri.encode(phone)}")
+                        putExtra("sms_body", message)
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    context.startActivity(smsIntent)
+                    return@withContext ActionFeedbackResult(
+                        status = "success",
+                        action = "send_sms",
+                        message = if (phone.isNotBlank()) "$phone için SMS taslağı hazırlandı." else "SMS mesajınız hazırlandı."
+                    )
+                }
+
+                "perform_global_action", "accessibility_action" -> {
+                    val act = payload.optString("action", "back").lowercase(Locale.ROOT)
+                    val success = when (act) {
+                        "home" -> AtillaAccessibilityService.performHome()
+                        "notifications" -> AtillaAccessibilityService.performNotifications()
+                        else -> AtillaAccessibilityService.performBack()
+                    }
+                    return@withContext ActionFeedbackResult(
+                        status = if (success) "success" else "error",
+                        action = "perform_global_action",
+                        message = if (success) "Erişilebilirlik eylemi ($act) uygulandı." else "Erişilebilirlik servisi aktif değil efendim."
+                    )
+                }
+
+                "inspect_screen", "read_screen" -> {
+                    val summary = AtillaAccessibilityService.getScreenContentSummary()
+                    return@withContext ActionFeedbackResult(
+                        status = "success",
+                        action = "inspect_screen",
+                        message = summary
+                    )
+                }
+
                 "navigate", "search_map", "open_maps" -> {
                     val query = payload.optString("query", "Hedef")
                     val lat = payload.optDouble("lat", 0.0)

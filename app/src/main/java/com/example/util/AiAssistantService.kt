@@ -347,6 +347,35 @@ object AiAssistantService {
         }
 
         // =========================================================================
+        // 0.0.0.5. JARVIS CİHAZ VE EKRAN ERİŞİLEBİLİRLİK PROTOKOLÜ (GLOBAL ACTIONS)
+        // =========================================================================
+        if (lowerMsg.contains("geri git") || lowerMsg.contains("önceki ekrana dön")) {
+            val success = AtillaAccessibilityService.performBack()
+            val msg = if (success) "Geri gidildi efendim." else "Erişilebilirlik servisini ayarlardan etkinleştirmeniz gerekmektedir."
+            val resp = AiResponse(replyText = msg, actionSummary = "◀️ Geri Git", speechText = msg)
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        } else if (lowerMsg.contains("ana ekrana dön") || lowerMsg.contains("ana sayfaya git") || lowerMsg.contains("masaüstüne dön")) {
+            val success = AtillaAccessibilityService.performHome()
+            val msg = if (success) "Ana ekrana dönüldü efendim." else "Erişilebilirlik servisini ayarlardan etkinleştirmeniz gerekmektedir."
+            val resp = AiResponse(replyText = msg, actionSummary = "🏠 Ana Ekran", speechText = msg)
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        } else if (lowerMsg.contains("bildirim panelini aç") || lowerMsg.contains("bildirimleri aç") || lowerMsg.contains("bildirimleri göster")) {
+            val success = AtillaAccessibilityService.performNotifications()
+            val msg = if (success) "Bildirim paneli açıldı efendim." else "Erişilebilirlik servisini ayarlardan etkinleştirmeniz gerekmektedir."
+            val resp = AiResponse(replyText = msg, actionSummary = "🔔 Bildirim Paneli", speechText = msg)
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        } else if (lowerMsg.contains("ekranda ne var") || lowerMsg.contains("ekranı oku") || lowerMsg.contains("ekrandakileri oku")) {
+            val summary = AtillaAccessibilityService.getScreenContentSummary()
+            val speech = if (AtillaAccessibilityService.isServiceActive) "Ekrandaki içeriği analiz ettim efendim." else "Ekranı okumak için Erişilebilirlik ayarlarından izin vermelisiniz."
+            val resp = AiResponse(replyText = summary, actionSummary = "📱 Ekran Analizi", speechText = speech)
+            UstaSessionState.lastAssistantResponse = resp
+            return@withContext resp
+        }
+
+        // =========================================================================
         // 0.0.1. ÖĞRETMEN DERS PLANI SINIF SEÇİM DİYALOĞU
         // =========================================================================
         if (UstaSessionState.isWaitingForLessonPlanGrade) {
