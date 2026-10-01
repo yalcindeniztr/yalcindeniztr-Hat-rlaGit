@@ -11,6 +11,8 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Optional: Kişileri arama ve WhatsApp mesajı için (Kullanıcı onayına bağlı) -->
@@ -143,6 +145,12 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <!-- ATİLLA Hands-Free "Hey ATİLLA" Sesli Uyandırma Servisi -->
+        <service
+            android:name="com.example.util.AtillaWakeWordService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
 
         <activity
             android:name=".MainActivity"

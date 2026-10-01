@@ -68,6 +68,11 @@ object UstaSessionState {
     var pendingCallPhoneNumber: String? = null
     var pendingCallPlaceName: String? = null
 
+    // Uygulama Erişim İzni ve Onay Kilidi Durumu
+    var isWaitingForAppLaunchConfirmation: Boolean = false
+    var pendingAppToLaunchKeyword: String? = null
+    var pendingAppToLaunchLabel: String? = null
+
     // Son Asistan Yanıtı & Üretilen PDF (Arayüz ve Bildirim Köprüsü)
     var lastAssistantResponse: AiResponse? = null
     var lastGeneratedPdfFile: java.io.File? = null
@@ -186,6 +191,77 @@ object AiAssistantService {
                 UstaSessionState.lastAssistantResponse = resp
                 return@withContext resp
             }
+        }
+
+        // =========================================================================
+        // 0.0. UYGULAMA ERİŞİM İZNİ VE PATRON TEYİT KONTROLÜ (GÜVENLİK KİLİDİ)
+        // =========================================================================
+        if (UstaSessionState.isWaitingForAppLaunchConfirmation) {
+            val appKeyword = UstaSessionState.pendingAppToLaunchKeyword ?: ""
+            val appLabel = UstaSessionState.pendingAppToLaunchLabel ?: appKeyword.ifBlank { "Uygulama" }
+            val isNegative = lowerMsg.contains("hayır") || lowerMsg.contains("iptal") || lowerMsg.contains("açma") || lowerMsg.contains("vazgeç")
+            val isAffirmative = !isNegative && (lowerMsg.contains("evet") || lowerMsg.contains("aç") || lowerMsg.contains("lütfen") || 
+                    lowerMsg.contains("tamam") || lowerMsg.contains("olur") || lowerMsg.contains("izin") || lowerMsg.contains("onay"))
+
+            if (isAffirmative && appKeyword.isNotBlank()) {
+                UstaSessionState.isWaitingForAppLaunchConfirmation = false
+                UstaSessionState.pendingAppToLaunchKeyword = null
+                UstaSessionState.pendingAppToLaunchLabel = null
+                val (success, msg) = AppLauncherHelper.openApplicationByVoice(context, appKeyword)
+                val speech = if (success) "İzniniz doğrultusunda $appLabel uygulaması açılıyor $patronPrefix." else "$appLabel uygulaması açılamadı."
+                val resp = AiResponse(
+                    replyText = "🔓 **Patron İzni Onaylandı:** $msg",
+                    actionSummary = "🔓 Uygulama Açıldı: $appLabel",
+                    speechText = speech
+                )
+                UstaSessionState.lastAssistantResponse = resp
+                AtillaMemoryManager.recordConversation(context, userMessage, resp.replyText)
+                return@withContext resp
+            } else if (isNegative) {
+                UstaSessionState.isWaitingForAppLaunchConfirmation = false
+                UstaSessionState.pendingAppToLaunchKeyword = null
+                UstaSessionState.pendingAppToLaunchLabel = null
+                val speech = "Emredersiniz $patronPrefix, erişim izni verilmediği için uygulama açma işlemi iptal edildi."
+                val resp = AiResponse(
+                    replyText = "🔒 **Uygulama Erişimi İptal Edildi:** Patron onay vermedi.",
+                    actionSummary = "🔒 Erişim İptal Edildi",
+                    speechText = speech
+                )
+                UstaSessionState.lastAssistantResponse = resp
+                AtillaMemoryManager.recordConversation(context, userMessage, resp.replyText)
+                return@withContext resp
+            }
+        }
+
+        // =========================================================================
+        // 0.0.0.0. ÖĞRENEN ZEKA: KULLANICI PROFİLİ VE KONUŞMA HAFIZASI
+        // =========================================================================
+        if (lowerMsg.contains("beni tanıyor musun") || lowerMsg.contains("ben kimim") || 
+            lowerMsg.contains("kullanıcı profilim") || lowerMsg.contains("hafızan ne diyor") ||
+            lowerMsg.contains("hakkımda ne biliyorsun")) {
+            val (reply, speech) = AtillaMemoryManager.getProfileBriefing(context, patronPrefix)
+            val resp = AiResponse(
+                replyText = reply,
+                actionSummary = "🧠 Öğrenen Hafıza Raporu",
+                speechText = speech
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            AtillaMemoryManager.recordConversation(context, userMessage, reply)
+            return@withContext resp
+        }
+
+        if (lowerMsg.contains("daha önce ne konuştuk") || lowerMsg.contains("ne konuşmuştuk") || 
+            lowerMsg.contains("konuşma geçmişi") || lowerMsg.contains("geçmiş konuşmalar") ||
+            lowerMsg.contains("son konuştuklarımız")) {
+            val (reply, speech) = AtillaMemoryManager.getRecentConversationsSummary(patronPrefix)
+            val resp = AiResponse(
+                replyText = reply,
+                actionSummary = "💬 Konuşma Geçmişi",
+                speechText = speech
+            )
+            UstaSessionState.lastAssistantResponse = resp
+            AtillaMemoryManager.recordConversation(context, userMessage, reply)
+            return@withContext resp
         }
 
         // =========================================================================
@@ -753,20 +829,51 @@ object AiAssistantService {
         }
 
         // =========================================================================
-        // 8. UYGULAMA AÇMA (SESLE DİNAMİK BAŞLATMA)
+        // 8. UYGULAMA AÇMA (PATRON GÜVENLİK VE ONAY KİLİDİ İLE BAŞLATMA)
         // =========================================================================
         if (lowerMsg.endsWith("aç") || lowerMsg.contains("uygulamayı aç") || lowerMsg.contains("uygulamasını aç") ||
             lowerMsg.contains("hesap makinesi") || lowerMsg.contains("galeri") || lowerMsg.contains("kamera") ||
-            lowerMsg.contains("spotify") || lowerMsg.contains("instagram")) {
-            val target = cleanMsg.replace(Regex("(?i)lütfen|bana|hemen|aç|uygulamasını|uygulamayı|uygulama"), "").trim()
+            lowerMsg.contains("spotify") || lowerMsg.contains("instagram") || lowerMsg.contains("whatsapp") ||
+            lowerMsg.contains("e-devlet") || lowerMsg.contains("mebbis")) {
+            val target = cleanMsg.replace(Regex("(?i)lütfen|bana|hemen|aç|uygulamasını|uygulamayı|uygulama|giriş yap|çalıştır"), "").trim()
             if (target.isNotBlank()) {
-                val (success, msg) = AppLauncherHelper.openApplicationByVoice(context, target)
-                if (success) {
-                    return@withContext AiResponse(
-                        replyText = msg,
-                        actionSummary = msg,
-                        speechText = msg
+                val hasDirectPermission = lowerMsg.contains("izin") || lowerMsg.contains("onay") || lowerMsg.contains("yetki") || lowerMsg.contains("izin veriyorum")
+                val appLabel = target.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
+
+                if (hasDirectPermission) {
+                    // Kullanıcı komutta doğrudan izin vermişse hemen aç
+                    val (success, msg) = AppLauncherHelper.openApplicationByVoice(context, target)
+                    if (success) {
+                        val resp = AiResponse(
+                            replyText = "🔓 **Patron İzninizle Açıldı:** $msg",
+                            actionSummary = msg,
+                            speechText = "İzniniz doğrultusunda $appLabel açıldı $patronPrefix."
+                        )
+                        AtillaMemoryManager.recordConversation(context, userMessage, resp.replyText)
+                        return@withContext resp
+                    }
+                } else {
+                    // Güvenlik Kilidi: Önce Patron'dan yetkilendirme teyidi iste
+                    UstaSessionState.isWaitingForAppLaunchConfirmation = true
+                    UstaSessionState.pendingAppToLaunchKeyword = target
+                    UstaSessionState.pendingAppToLaunchLabel = appLabel
+
+                    val speech = "Patron teyidi gerekiyor: $appLabel uygulamasına erişmemi onaylıyor musunuz efendim?"
+                    val reply = buildString {
+                        append("🔒 **PATRON GÜVENLİK KİLİDİ: UYGULAMA ERİŞİM İZNİ TALEBİ**\n\n")
+                        append("• **Hedef Uygulama:** $appLabel\n")
+                        append("• **Erişim Türü:** Cihaz Uygulama Başlatma & Köprü\n")
+                        append("• **Güvenlik Politikası:** Yetkisiz erişim yasaktır; Patron onayı zorunludur.\n\n")
+                        append("💡 _Onaylamak için **'Evet'**, **'Aç'** veya **'İzin veriyorum'** demeniz yeterlidir Sayın Patronum._")
+                    }
+                    val resp = AiResponse(
+                        replyText = reply,
+                        actionSummary = "🔒 İzin Bekleniyor: $appLabel",
+                        speechText = speech
                     )
+                    UstaSessionState.lastAssistantResponse = resp
+                    AtillaMemoryManager.recordConversation(context, userMessage, reply)
+                    return@withContext resp
                 }
             }
         }
@@ -919,6 +1026,7 @@ object AiAssistantService {
             UstaSessionState.lastGeneratedPdfFile = drawerResult.generatedPdfFile
         }
         UstaSessionState.lastAssistantResponse = finalResp
+        AtillaMemoryManager.recordConversation(context, userMessage, finalResp.replyText)
         return@withContext finalResp
     }
 
